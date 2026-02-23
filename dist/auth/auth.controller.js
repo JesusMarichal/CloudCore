@@ -15,21 +15,41 @@ var AuthController_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthController = void 0;
 const common_1 = require("@nestjs/common");
+const database_service_1 = require("../database/database.service");
+const bcrypt = require("bcrypt");
 let AuthController = AuthController_1 = class AuthController {
-    constructor() {
+    constructor(db) {
+        this.db = db;
         this.logger = new common_1.Logger(AuthController_1.name);
     }
     async login(body) {
         const { email, password } = body;
         this.logger.log(`Intento de login para: ${email}`);
-        const validEmail = 'Jesusmarichal0@gmail.com'.toLowerCase();
-        const validPass = '28344112';
-        if (email?.toLowerCase() === validEmail && password === validPass) {
-            this.logger.log('Login exitoso');
-            return { success: true, message: 'Login exitoso' };
+        try {
+            const result = await this.db.query('SELECT * FROM users WHERE LOWER(email) = LOWER($1)', [email]);
+            const user = result.rows[0];
+            if (user) {
+                const isMatch = await bcrypt.compare(password, user.password);
+                if (isMatch) {
+                    this.logger.log('Login exitoso desde la BD');
+                    return {
+                        success: true,
+                        message: 'Login exitoso',
+                        user: {
+                            id: user.id,
+                            name: user.name,
+                            email: user.email
+                        }
+                    };
+                }
+            }
+            this.logger.warn('Credenciales incorrectas');
+            return { success: false, message: 'Credenciales inválidas' };
         }
-        this.logger.warn('Credenciales incorrectas');
-        return { success: false, message: 'Credenciales inválidas' };
+        catch (error) {
+            this.logger.error('Error en el proceso de login:', error.message);
+            throw new common_1.UnauthorizedException('Error al procesar el inicio de sesión');
+        }
     }
 };
 exports.AuthController = AuthController;
@@ -42,6 +62,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "login", null);
 exports.AuthController = AuthController = AuthController_1 = __decorate([
-    (0, common_1.Controller)('auth')
+    (0, common_1.Controller)('auth'),
+    __metadata("design:paramtypes", [database_service_1.DatabaseService])
 ], AuthController);
 //# sourceMappingURL=auth.controller.js.map

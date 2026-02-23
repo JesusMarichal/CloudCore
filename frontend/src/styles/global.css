@@ -1,31 +1,61 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
 :root {
-    --primary: #6366f1;
-    --primary-hover: #4f46e5;
-    --bg-dark: #0f172a;
-    --card-bg: #1e293b;
-    --text-main: #f8fafc;
-    --text-muted: #94a3b8;
-    --border: #334155;
-    --success: #10b981;
-    --error: #ef4444;
+    /* Brand Colors - Exact GitHub Dark */
+    --gh-bg: #0d1117;
+    --gh-canvas-subtle: #161b22;
+    --gh-border: #30363d;
+    --gh-border-muted: #21262d;
+    --gh-text-default: #c9d1d9;
+    --gh-text-muted: #8b949e;
+    --gh-text-link: #58a6ff;
+
+    /* Acenti */
+    --primary: #58a6ff;
+    --primary-hover: #79c0ff;
+    --success: #238636;
+    --success-hover: #2ea043;
+    --success-dot: #3fb1ff;
+    /* Electric blue/green dot */
+
+    /* Layout Constants */
+    --sidebar-width: 260px;
+    --header-height: 60px;
 }
 
 * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
-}
-
-html,
-body,
-#root {
-    height: 100%;
-    width: 100%;
 }
 
 body {
-    background-color: var(--bg-dark);
-    color: var(--text-main);
-    overflow-x: hidden;
+    background-color: var(--gh-bg);
+    color: var(--gh-text-default);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.mono {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: 12px;
+}
+
+/* Scrollbar Style */
+::-webkit-scrollbar {
+    width: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--gh-bg);
+}
+
+::-webkit-scrollbar-thumb {
+    background: #30363d;
+    border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #484f58;
 }

@@ -8,7 +8,11 @@ function App() {
     <Router>
       <Routes>
         <Route path="/" element={<Login />} />
-        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/dashboard" element={<Dashboard />}>
+          <Route path="servers" element={null} />
+          <Route path="terminal" element={null} />
+          <Route path="settings" element={null} />
+        </Route>
         {/* Redirigir cualquier otra ruta a login */}
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>

@@ -35,15 +35,21 @@
     "@nestjs/core": "^11.1.14",
     "@nestjs/platform-express": "^11.1.14",
     "@nestjs/serve-static": "^5.0.4",
+    "@types/bcrypt": "^6.0.0",
     "@types/node": "^25.3.0",
+    "@types/pg": "^8.16.0",
     "@types/ssh2": "^1.15.5",
+    "bcrypt": "^6.0.0",
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
+    "pg": "^8.18.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
     "ssh2": "^1.17.0",
     "ts-node": "^10.9.2",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "xterm": "^5.3.0",
+    "xterm-addon-fit": "^0.8.0"
   },
   "devDependencies": {
     "@nestjs/cli": "^11.0.16",
