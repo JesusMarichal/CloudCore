@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
     Cloud,
     LayoutGrid,
@@ -12,25 +12,70 @@ import {
     Search,
     ChevronDown
 } from 'lucide-react';
-import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { serverService } from '../../services/server.service';
+import type { CreateServerData } from '../../services/server.service';
 import './Dashboard.css';
-
-interface ServerData {
-    name: string;
-    ip: string;
-    region: string;
-    status: 'online' | 'offline' | 'provisioning';
-}
 
 const Dashboard = () => {
     const location = useLocation();
+    const navigate = useNavigate();
 
-    const [servers, _setServers] = useState<ServerData[]>([]);
-    const [stats, _setStats] = useState({
+    const [servers, setServers] = useState<CreateServerData[]>([]);
+    const [stats, setStats] = useState({
+
         activeInstances: 0,
         cpuUsage: 0,
         networkStatus: 'Normal'
     });
+
+    const getUserId = () => {
+        const userStr = localStorage.getItem('user');
+        if (userStr) {
+            const user = JSON.parse(userStr);
+            return user.id;
+        }
+        return null;
+    };
+
+    const loadData = async () => {
+        const userId = getUserId();
+        if (!userId) {
+            navigate('/');
+            return;
+        }
+
+        try {
+            const data = await serverService.list(userId);
+            setServers(data);
+
+            // Calcular estadísticas
+            const active = data.filter((s: any) => s.status === 'online').length;
+            const avgCpu = data.length > 0
+                ? Math.round(data.reduce((acc: number, s: any) => acc + (s.cpuUsage || 0), 0) / data.length)
+                : 0;
+
+            setStats({
+                activeInstances: active,
+                cpuUsage: avgCpu,
+                networkStatus: 'Normal'
+            });
+        } catch (error) {
+            console.error('Error cargando datos en dashboard:', error);
+        }
+    };
+
+    useEffect(() => {
+        loadData();
+        const interval = setInterval(loadData, 10000); // Cada 10s
+        return () => clearInterval(interval);
+    }, []);
+
+    const handleLogout = () => {
+        localStorage.removeItem('user');
+        navigate('/');
+    };
+
 
     return (
         <div className="dashboard-layout">
@@ -58,10 +103,10 @@ const Dashboard = () => {
                         <span>Ajustes</span>
                     </NavLink>
 
-                    <NavLink to="/" className="nav-link logout">
+                    <button onClick={handleLogout} className="nav-link logout" style={{ background: 'none', border: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}>
                         <LogOut size={16} />
                         <span>Cerrar sesión</span>
-                    </NavLink>
+                    </button>
                 </nav>
             </aside>
 
@@ -75,7 +120,7 @@ const Dashboard = () => {
                 </header>
 
                 <div className="content-body">
-                    {location.pathname === '/dashboard' ? (
+                    {location.pathname === '/dashboard' && (
                         <>
                             <section className="stats-grid">
                                 <div className="stat-card">
@@ -131,7 +176,6 @@ const Dashboard = () => {
                                             <th>Nombre</th>
                                             <th>Status</th>
                                             <th>Dirección IP</th>
-                                            <th>Región</th>
                                             <th style={{ textAlign: 'right' }}>Acciones</th>
                                         </tr>
                                     </thead>
@@ -148,7 +192,6 @@ const Dashboard = () => {
                                                         </span>
                                                     </td>
                                                     <td className="mono">{server.ip}</td>
-                                                    <td style={{ color: 'var(--gh-text-muted)' }}>{server.region}</td>
                                                     <td style={{ textAlign: 'right' }}>
                                                         <MoreHorizontal size={16} className="action-icon" />
                                                     </td>
@@ -168,13 +211,8 @@ const Dashboard = () => {
                                 </table>
                             </div>
                         </>
-                    ) : (
-                        <div style={{ padding: '40px', textAlign: 'center' }}>
-                            <Settings size={48} color="var(--gh-text-muted)" style={{ marginBottom: '16px' }} />
-                            <h3>Sección en construcción</h3>
-                            <p style={{ color: 'var(--gh-text-muted)' }}>Estamos actualizando esta vista para incluir más detalles.</p>
-                        </div>
                     )}
+
                     <Outlet />
                 </div>
             </main>

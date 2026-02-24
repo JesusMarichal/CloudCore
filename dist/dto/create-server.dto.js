@@ -5,8 +5,9 @@ class CreateServerDto {
     constructor() {
         this.name = '';
         this.ip = '';
-        this.sshKey = '';
-        this.user = '';
+        this.sshPort = 22;
+        this.sshUser = 'root';
+        this.authType = 'key';
     }
 }
 exports.CreateServerDto = CreateServerDto;

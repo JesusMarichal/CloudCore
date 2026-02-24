@@ -17,6 +17,7 @@ const Login: React.FC = () => {
             const result = await AuthService.login({ email, password });
 
             if (result.success) {
+                localStorage.setItem('user', JSON.stringify(result.user));
                 navigate('/dashboard');
             } else {
                 setError(true);

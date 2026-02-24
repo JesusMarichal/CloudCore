@@ -6,14 +6,14 @@ export declare class AuthController {
     login(body: any): Promise<{
         success: boolean;
         message: string;
-        user: {
-            id: any;
-            name: any;
-            email: any;
-        };
+        user?: undefined;
     } | {
         success: boolean;
         message: string;
-        user?: undefined;
+        user: {
+            id: string;
+            name: any;
+            email: any;
+        };
     }>;
 }
