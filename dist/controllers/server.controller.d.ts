@@ -21,5 +21,7 @@ export declare class ServerController {
     getWebsiteEnv(id: string, websiteId: string): Promise<any>;
     deleteWebsite(id: string, websiteId: string): Promise<any>;
     getWebsiteLogs(id: string, websiteId: string): Promise<any>;
+    getWebsiteCommit(id: string, websiteId: string): Promise<any>;
+    deployLatestCommit(id: string, websiteId: string): Promise<any>;
     executeCommand(id: string, command: string): Promise<any>;
 }

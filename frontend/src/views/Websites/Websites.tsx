@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { serverService } from '../../services/server.service';
 import type { CreateServerData } from '../../services/server.service';
-import { Globe, Plus, Play, X, ExternalLink, HardDrive, Settings } from 'lucide-react';
+import { Globe, Plus, Play, X, ExternalLink, HardDrive, Settings, GitCommit, RefreshCw, CloudUpload } from 'lucide-react';
 import './Websites.css';
 
 interface WebsiteFormData {
@@ -35,6 +35,10 @@ const Websites = () => {
     const [editingSite, setEditingSite] = useState<any>(null);
     const [showEnvModal, setShowEnvModal] = useState(false);
     const [envList, setEnvList] = useState<{ key: string, value: string }[]>([]);
+
+    // New states for commits and deploying updates
+    const [commits, setCommits] = useState<{ [key: string]: { hash: string, message: string, author: string, time: string } | null }>({});
+    const [deployingSites, setDeployingSites] = useState<{ [key: string]: boolean }>({});
 
     const [formData, setFormData] = useState<WebsiteFormData>({
         serverId: '',
@@ -77,6 +81,18 @@ const Websites = () => {
                 try {
                     const sites = await serverService.listWebsites(user.id);
                     setWebsites(sites);
+
+                    // Cargar commits de cada sitio en background
+                    sites.forEach((site: any) => {
+                        serverService.getWebsiteCommit(site.server_id, site.id)
+                            .then(res => {
+                                if (res.success && res.commit) {
+                                    setCommits(prev => ({ ...prev, [site.id]: res.commit }));
+                                }
+                            })
+                            .catch(err => console.error(err));
+                    });
+
                 } catch (error) {
                     console.error('Error cargando sitios:', error);
                 } finally {
@@ -241,6 +257,29 @@ const Websites = () => {
         }
     };
 
+    const handleDeployLatest = async (serverId: string, websiteId: string) => {
+        if (!window.confirm('¿Obtener el último commit de tu repositorio y hacer un re-despliegue ahora mismo?')) return;
+
+        setDeployingSites(prev => ({ ...prev, [websiteId]: true }));
+        try {
+            const res = await serverService.deployLatestCommit(serverId, websiteId);
+            if (res.success) {
+                alert('¡Sitio reconstruido y actualizado exitosamente al último commit!');
+                const commitRes = await serverService.getWebsiteCommit(serverId, websiteId);
+                if (commitRes.success && commitRes.commit) {
+                    setCommits(prev => ({ ...prev, [websiteId]: commitRes.commit }));
+                }
+            } else {
+                alert('Error al desplegar commit: ' + (res.message || 'Error desconocido'));
+            }
+        } catch (error) {
+            console.error('Error deploy latest:', error);
+            alert('Error al ejecutar el despliegue del último commit.');
+        } finally {
+            setDeployingSites(prev => ({ ...prev, [websiteId]: false }));
+        }
+    };
+
     return (
         <div className="websites-container">
             <header className="page-header">
@@ -303,7 +342,41 @@ const Websites = () => {
                                             </a>
                                         </div>
                                     </div>
-                                    <div className="website-actions">
+                                    <div className="website-commit-info" style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.02)', padding: '12px 16px', border: '1px solid var(--gh-border)' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                                            <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                <GitCommit size={14} color="var(--primary)" /> Último Commit
+                                            </span>
+                                            <button
+                                                className="btn-ghost"
+                                                style={{ padding: '4px 8px', fontSize: '11px' }}
+                                                onClick={() => handleDeployLatest(site.server_id, site.id)}
+                                                disabled={deployingSites[site.id]}
+                                            >
+                                                {deployingSites[site.id] ? (
+                                                    <><RefreshCw size={12} className="spinning" /> Desplegando...</>
+                                                ) : (
+                                                    <><CloudUpload size={12} /> Desplegar Último</>
+                                                )}
+                                            </button>
+                                        </div>
+                                        {commits[site.id] ? (
+                                            <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                                                <div style={{ fontWeight: 500, color: 'var(--text-main)', marginBottom: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                    {commits[site.id]!.message}
+                                                </div>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                    <span className="mono" style={{ color: 'var(--gh-text-link)' }}>{commits[site.id]!.hash}</span>
+                                                    <span>{commits[site.id]!.time}</span>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div style={{ fontSize: '12px', color: 'var(--text-dim)', fontStyle: 'italic' }}>
+                                                Detectando commit... (Asegúrate de que sea un repositorio Git)
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="website-actions" style={{ flexDirection: 'column', borderTop: 'none', paddingTop: 0, paddingLeft: '15px', borderLeft: '1px solid rgba(255, 255, 255, 0.05)', gap: '10px' }}>
                                         <button className="btn-action" onClick={() => handleViewLogs(site.server_id, site.id)} title="Ver Logs"><Play size={18} /></button>
                                         <button className="btn-action" onClick={() => handleOpenEnvModal(site)} title="Variables .env"><Globe size={18} /></button>
                                         <button className="btn-action" onClick={() => handleEdit(site)} title="Configuración"><Settings size={18} /></button>

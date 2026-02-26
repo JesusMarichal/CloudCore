@@ -162,5 +162,17 @@ export const serverService = {
             body: JSON.stringify({ command })
         });
         return response.json();
+    },
+
+    async getWebsiteCommit(serverId: string, websiteId: string) {
+        const response = await fetch(`${API_URL}/${serverId}/websites/${websiteId}/commit`);
+        return response.json();
+    },
+
+    async deployLatestCommit(serverId: string, websiteId: string) {
+        const response = await fetch(`${API_URL}/${serverId}/websites/${websiteId}/deploy-latest`, {
+            method: 'POST'
+        });
+        return response.json();
     }
 };

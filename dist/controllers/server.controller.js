@@ -441,6 +441,76 @@ let ServerController = class ServerController {
         const logs = await this.sshService.executeCommand(server, `pm2 logs ${safeName} --lines 50 --nostream`);
         return { success: true, logs };
     }
+    async getWebsiteCommit(id, websiteId) {
+        const result = await this.dbService.query('SELECT * FROM servers WHERE id = $1', [id]);
+        const serverData = result.rows[0];
+        const siteResult = await this.dbService.query('SELECT * FROM websites WHERE id = $1', [websiteId]);
+        const site = siteResult.rows[0];
+        if (!serverData || !site)
+            return { success: false, message: 'No encontrado' };
+        const server = {
+            id: serverData.id,
+            name: serverData.name,
+            ip: serverData.ip,
+            sshPort: serverData.ssh_port,
+            sshUser: serverData.ssh_user,
+            authType: serverData.auth_type,
+            privateKey: serverData.private_key,
+            password: serverData.password,
+            status: serverData.status,
+            lastHealthCheck: serverData.last_health_check || new Date(),
+        };
+        const safeName = site.name.replace(/[^a-zA-Z0-9_-]/g, '').toLowerCase();
+        const projectPath = `/var/www/${safeName}`;
+        try {
+            const output = await this.sshService.executeCommand(server, `cd ${projectPath} && git log -1 --format="%h|%s|%cr|%an"`);
+            const parts = output.trim().split('|');
+            if (parts.length >= 4) {
+                return { success: true, commit: { hash: parts[0], message: parts[1], time: parts[2], author: parts[3] } };
+            }
+            return { success: false, message: 'No se pudo obtener el commit o el folder no es un repo git' };
+        }
+        catch (error) {
+            return { success: false, message: error.message };
+        }
+    }
+    async deployLatestCommit(id, websiteId) {
+        const result = await this.dbService.query('SELECT * FROM servers WHERE id = $1', [id]);
+        const serverData = result.rows[0];
+        const siteResult = await this.dbService.query('SELECT * FROM websites WHERE id = $1', [websiteId]);
+        const site = siteResult.rows[0];
+        if (!serverData || !site)
+            return { success: false, message: 'No encontrado' };
+        const server = {
+            id: serverData.id,
+            name: serverData.name,
+            ip: serverData.ip,
+            sshPort: serverData.ssh_port,
+            sshUser: serverData.ssh_user,
+            authType: serverData.auth_type,
+            privateKey: serverData.private_key,
+            password: serverData.password,
+            status: serverData.status,
+            lastHealthCheck: serverData.last_health_check || new Date(),
+        };
+        const safeName = site.name.replace(/[^a-zA-Z0-9_-]/g, '').toLowerCase();
+        const projectPath = `/var/www/${safeName}`;
+        const deployCmd = `
+            cd ${projectPath}
+            git reset --hard
+            git pull
+            ${site.install_command || 'npm install'}
+            ${site.build_command ? site.build_command : ''}
+            pm2 restart ${safeName} || true
+        `;
+        try {
+            await this.sshService.executeCommand(server, deployCmd);
+            return { success: true, message: 'Sitio actualizado y desplegado al último commit' };
+        }
+        catch (error) {
+            return { success: false, message: error.message };
+        }
+    }
     async executeCommand(id, command) {
         const serverResult = await this.dbService.query('SELECT * FROM servers WHERE id = $1', [id]);
         const serverData = serverResult.rows[0];
@@ -579,6 +649,22 @@ __decorate([
     __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", Promise)
 ], ServerController.prototype, "getWebsiteLogs", null);
+__decorate([
+    (0, common_1.Get)(':id/websites/:websiteId/commit'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Param)('websiteId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], ServerController.prototype, "getWebsiteCommit", null);
+__decorate([
+    (0, common_1.Post)(':id/websites/:websiteId/deploy-latest'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Param)('websiteId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], ServerController.prototype, "deployLatestCommit", null);
 __decorate([
     (0, common_1.Post)(':id/execute'),
     __param(0, (0, common_1.Param)('id')),
