@@ -7,6 +7,7 @@ import { AuthController } from './auth/auth.controller';
 import { DatabaseService } from './database/database.service';
 import { TerminalService } from './terminal/terminal.service';
 import { TerminalController } from './terminal/terminal.controller';
+import { GithubController } from './controllers/github.controller';
 
 @Module({
     imports: [
@@ -14,7 +15,7 @@ import { TerminalController } from './terminal/terminal.controller';
             rootPath: join(__dirname, '..', 'public'),
         }),
     ],
-    controllers: [ServerController, AuthController, TerminalController],
+    controllers: [ServerController, AuthController, TerminalController, GithubController],
     providers: [SshService, DatabaseService, TerminalService],
 })
 export class AppModule { }

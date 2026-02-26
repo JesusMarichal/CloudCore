@@ -10,7 +10,8 @@ import {
     MoreHorizontal,
     Plus,
     Search,
-    ChevronDown
+    ChevronDown,
+    Globe
 } from 'lucide-react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { serverService } from '../../services/server.service';
@@ -94,6 +95,10 @@ const Dashboard = () => {
                         <Server size={16} />
                         <span>Instancias</span>
                     </NavLink>
+                    <NavLink to="/dashboard/websites" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"}>
+                        <Globe size={16} />
+                        <span>Sitios Webs</span>
+                    </NavLink>
                     <NavLink to="/dashboard/terminal" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"}>
                         <Terminal size={16} />
                         <span>Terminal SSH</span>
@@ -158,7 +163,7 @@ const Dashboard = () => {
                                     <button className="btn-secondary">
                                         Ordenar <ChevronDown size={12} />
                                     </button>
-                                    <button className="btn-add-server">
+                                    <button className="btn-add-server" onClick={() => navigate('/dashboard/servers')}>
                                         <Plus size={16} />
                                         <span>Agregar Servidor</span>
                                     </button>
@@ -199,7 +204,7 @@ const Dashboard = () => {
                                             ))
                                         ) : (
                                             <tr>
-                                                <td colSpan={5}>
+                                                <td colSpan={4}>
                                                     <div className="empty-state">
                                                         <h4>No hay servidores desplegados</h4>
                                                         <p>Empieza a construir tu infraestructura hoy mismo.</p>

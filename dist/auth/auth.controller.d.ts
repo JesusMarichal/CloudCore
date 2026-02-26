@@ -16,4 +16,13 @@ export declare class AuthController {
             email: any;
         };
     }>;
+    register(body: any): Promise<{
+        success: boolean;
+        message: string;
+        user?: undefined;
+    } | {
+        success: boolean;
+        message: string;
+        user: any;
+    }>;
 }

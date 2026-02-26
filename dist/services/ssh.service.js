@@ -15,7 +15,7 @@ let SshService = SshService_1 = class SshService {
     constructor() {
         this.logger = new common_1.Logger(SshService_1.name);
     }
-    async executeCommand(server, command) {
+    async executeCommand(server, command, onData) {
         return new Promise((resolve, reject) => {
             const conn = new ssh2_1.Client();
             let output = '';
@@ -43,9 +43,17 @@ let SshService = SshService_1 = class SshService {
                         conn.end();
                         resolve(output);
                     }).on('data', (data) => {
-                        output += data.toString();
+                        const chunk = data.toString();
+                        output += chunk;
+                        if (onData)
+                            onData(chunk);
                     }).stderr.on('data', (data) => {
-                        this.logger.error(`SSH STDERR: ${data.toString()}`);
+                        const chunk = data.toString();
+                        if (onData)
+                            onData(chunk);
+                        if (!command.includes('STATS_START')) {
+                            this.logger.debug(`SSH STDERR [${server.ip}]: ${chunk.trim()}`);
+                        }
                     });
                 });
             }).on('error', (err) => {
@@ -140,6 +148,211 @@ let SshService = SshService_1 = class SshService {
         catch (error) {
             this.logger.error(`Error de salud en ${server.ip}: ${error.message}`);
             return { status: 'offline' };
+        }
+    }
+    async listServices(server) {
+        const cmd = `
+            echo "---SERVICES_START---"
+            # Listar solo servicios relevantes en systemd
+            systemctl list-units --type=service --all --no-pager | grep -iE "^\\s*(nginx|docker|mysql|mariadb|redis|apache2|php|mongodb)" | awk '{print $1"|"$4"|"$3}'
+            
+            # Chequear Node.js vía comando
+            if command -v node >/dev/null 2>&1; then
+                echo "nodejs|active|loaded"
+            fi
+            
+            # Chequear PM2 vía comando
+            if command -v pm2 >/dev/null 2>&1; then
+                echo "pm2|active|loaded"
+            fi
+            echo "---SERVICES_END---"
+        `;
+        try {
+            const output = await this.executeCommand(server, cmd);
+            const match = output.match(/---SERVICES_START---([\s\S]*?)---SERVICES_END---/);
+            if (!match)
+                return [];
+            const lines = match[1].trim().split('\n');
+            return lines.filter(l => l.includes('|')).map(line => {
+                const [unit, state, active] = line.split('|');
+                const name = unit.split('.')[0];
+                return {
+                    name: name,
+                    status: state === 'running' ? 'active' : (state === 'exited' ? 'stopped' : state),
+                    active: active === 'loaded'
+                };
+            });
+        }
+        catch (error) {
+            this.logger.error(`Error listando servicios en ${server.ip}: ${error.message}`);
+            return [];
+        }
+    }
+    async manageService(server, serviceName, action) {
+        const validActions = ['start', 'stop', 'restart', 'enable', 'disable'];
+        if (!validActions.includes(action))
+            throw new Error('Acción no permitida');
+        const cmd = `sudo systemctl daemon-reload && sudo systemctl ${action} ${serviceName}`;
+        try {
+            await this.executeCommand(server, cmd);
+            return true;
+        }
+        catch (error) {
+            this.logger.error(`Error ejecutando ${action} en ${serviceName} (${server.ip}): ${error.message}`);
+            return false;
+        }
+    }
+    async installService(server, serviceName, onData) {
+        const installMap = {
+            'nginx': 'sudo apt-get update && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y nginx',
+            'docker': 'sudo apt-get update && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y docker.io',
+            'pm2': 'sudo npm install -g pm2',
+            'mysql': 'sudo apt-get update && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y mysql-server',
+            'redis': 'sudo apt-get update && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y redis-server',
+            'nodejs': 'curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash - && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y nodejs',
+            'php': 'sudo apt-get update && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y php',
+            'mongodb': 'sudo apt-get update && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y mongodb',
+        };
+        const cmd = installMap[serviceName.toLowerCase()];
+        if (!cmd)
+            throw new Error('Servicio no soportado para instalación automática');
+        try {
+            await this.executeCommand(server, cmd, onData);
+            return true;
+        }
+        catch (error) {
+            this.logger.error(`Error instalando ${serviceName} en ${server.ip}: ${error.message}`);
+            return false;
+        }
+    }
+    async uninstallService(server, serviceName, onData) {
+        const uninstallMap = {
+            'nginx': 'sudo systemctl stop nginx && sudo DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y nginx nginx-common && sudo apt-get autoremove -y',
+            'docker': 'sudo systemctl stop docker && sudo DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y docker-ce docker-ce-cli containerd.io && sudo apt-get autoremove -y',
+            'pm2': 'sudo npm uninstall -g pm2',
+            'mysql': 'sudo systemctl stop mysql && sudo DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y mysql-server mysql-client mysql-common && sudo apt-get autoremove -y',
+            'redis': 'sudo systemctl stop redis-server && sudo DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y redis-server redis-tools && sudo apt-get autoremove -y',
+            'nodejs': 'sudo DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y nodejs && sudo apt-get autoremove -y',
+            'php': 'sudo DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y "php*" && sudo apt-get autoremove -y',
+            'mongodb': 'sudo systemctl stop mongod && sudo DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y mongodb-org* && sudo apt-get autoremove -y',
+        };
+        const cmd = uninstallMap[serviceName.toLowerCase()];
+        if (!cmd)
+            throw new Error('Servicio no soportado para desinstalación automática');
+        try {
+            await this.executeCommand(server, cmd, onData);
+            return true;
+        }
+        catch (error) {
+            this.logger.error(`Error desinstalando ${serviceName} en ${server.ip}: ${error.message}`);
+            return false;
+        }
+    }
+    async updateServer(server, onData) {
+        const cmd = 'sudo apt-get update && sudo DEBIAN_FRONTEND=noninteractive apt-get upgrade -y';
+        try {
+            await this.executeCommand(server, cmd, onData);
+            return true;
+        }
+        catch (error) {
+            this.logger.error(`Error actualizando paquetes en ${server.ip}: ${error.message}`);
+            return false;
+        }
+    }
+    async deployWebsite(server, data) {
+        const safeName = data.name.replace(/[^a-zA-Z0-9_-]/g, '').toLowerCase();
+        const projectPath = `/var/www/${safeName}`;
+        const finalDomain = data.domain && data.domain.trim() !== '' ? data.domain : '_';
+        const pm2Exec = data.entryPoint && data.entryPoint.trim() !== ''
+            ? data.entryPoint
+            : (data.startCommand || 'npm start');
+        let bashScript = `
+        sudo mkdir -p /var/www
+        sudo chown -R $USER:$USER /var/www
+        cd /var/www
+        
+        # Eliminar si ya existe
+        if [ -d "${projectPath}" ]; then
+            rm -rf "${projectPath}"
+        fi
+        
+        # Clonar e instalar
+        git clone ${data.repo} ${projectPath}
+        cd ${projectPath}
+
+        # Crear archivo .env si se pasaron variables + inyectar PORT
+        echo "PORT=${data.port}" > .env
+        ${data.envVars && data.envVars.trim() !== '' ? `echo "${data.envVars.replace(/\r/g, '')}" >> .env` : ''}
+        echo "✅ Variables .env inyectadas (inc. PORT=${data.port})."
+
+        # Instalar dependencias
+        if [ -f "package.json" ]; then
+            echo "📦 Instalando dependencias..."
+            # Forzar instalación de dependencias incluso si hay errores previos
+            npm install --prefer-offline --no-audit || npm install
+            
+            # Ejecutar comando de construcción si existe
+            ${data.buildCommand && data.buildCommand.trim() !== '' ? `echo "🏗️  Ejecutando build: ${data.buildCommand}"\n${data.buildCommand}` : ''}
+        fi
+        
+        # Iniciar/Reiniciar la aplicación con PM2
+        echo "🚀 Iniciando aplicación con PM2..."
+        pm2 delete ${safeName} || true
+        
+        # Detectar si es un script de NPM o un archivo directo
+        if [[ "${pm2Exec}" == npm* ]]; then
+            # Usar -- para pasar el comando
+            pm2 start npm --name "${safeName}" -- run ${pm2Exec.replace('npm run ', '').replace('npm ', '')}
+        elif [ -f "${pm2Exec}" ]; then
+            pm2 start "${pm2Exec}" --name "${safeName}"
+        else
+            # Si no se encuentra el archivo, intentar como script de npm por si acaso
+            npm run start --name "${safeName}" || pm2 start "${pm2Exec}" --name "${safeName}" || true
+        fi
+        
+        pm2 save
+
+        # Esperar unos segundos para que la app enlace el puerto
+        echo "⏳ Esperando 5 segundos para que la app inicie..."
+        sleep 5
+
+        # Configuración de Nginx Reverse Proxy
+        if command -v nginx > /dev/null; then
+            echo "⚙️ Configurando Nginx Reverse Proxy..."
+            sudo bash -c 'cat > /etc/nginx/sites-available/${safeName} << "EOF"
+server {
+    listen 80;
+    server_name ${finalDomain};
+
+    location / {
+        proxy_pass http://localhost:${data.port};
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+EOF'
+            sudo ln -sf /etc/nginx/sites-available/${safeName} /etc/nginx/sites-enabled/
+            
+            if [ "${finalDomain}" = "_" ]; then
+                sudo rm -f /etc/nginx/sites-enabled/default
+            fi
+
+            sudo nginx -t && sudo systemctl reload nginx
+            echo "✅ Nginx configurado exitosamente."
+        else
+            echo "⚠️ Nginx no está instalado en este servidor, omitiendo proxy inverso."
+        fi
+        `;
+        try {
+            await this.executeCommand(server, bashScript);
+            return true;
+        }
+        catch (error) {
+            this.logger.error(`Error desplegando sitio web ${safeName} en ${server.ip}: ${error.message}`);
+            return false;
         }
     }
 };

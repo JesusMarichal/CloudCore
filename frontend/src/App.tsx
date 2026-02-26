@@ -2,6 +2,9 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import Login from './views/Login/Login';
 import Dashboard from './views/Dashboard/Dashboard';
 import Servidores from './views/Servidores/Servidores';
+import Websites from './views/Websites/Websites';
+import Settings from './views/settings/Settings';
+import Terminal from './views/Terminal/Terminal';
 import './styles/global.css';
 
 function App() {
@@ -11,8 +14,9 @@ function App() {
         <Route path="/" element={<Login />} />
         <Route path="/dashboard" element={<Dashboard />}>
           <Route path="servers" element={<Servidores />} />
-          <Route path="terminal" element={null} />
-          <Route path="settings" element={null} />
+          <Route path="websites" element={<Websites />} />
+          <Route path="terminal" element={<Terminal />} />
+          <Route path="settings" element={<Settings />} />
         </Route>
 
         {/* Redirigir cualquier otra ruta a login */}

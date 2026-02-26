@@ -30,11 +30,13 @@ let DatabaseService = DatabaseService_1 = class DatabaseService {
             user,
             password: process.env.DB_PASSWORD || process.env.SUPABASE_BASE_DE_DATOS,
             ssl: { rejectUnauthorized: false },
-            max: 10,
-            idleTimeoutMillis: 60000,
-            connectionTimeoutMillis: 30000,
+            max: 20,
+            idleTimeoutMillis: 120000,
+            connectionTimeoutMillis: 60000,
+            allowExitOnIdle: true,
             keepAlive: true,
-            statement_timeout: 30000,
+            keepAliveInitialDelayMillis: 10000,
+            statement_timeout: 60000,
             application_name: 'cloudcore_engine'
         });
     }
@@ -43,6 +45,8 @@ let DatabaseService = DatabaseService_1 = class DatabaseService {
             this.logger.log('Lanzando consulta de prueba (SELECT NOW())...');
             const result = await this.pool.query('SELECT NOW()');
             this.logger.log(`¡CONEXIÓN EXITOSA! Servidor responde: ${result.rows[0].now}`);
+            await this.pool.query('CREATE EXTENSION IF NOT EXISTS "pgcrypto"');
+            await this.createUsersTable();
             await this.createServersTable();
             await this.applyMigrations();
         }
@@ -77,12 +81,65 @@ let DatabaseService = DatabaseService_1 = class DatabaseService {
                         ALTER TABLE servers ADD COLUMN disk_usage NUMERIC(5,2);
                         ALTER TABLE servers ADD COLUMN temp NUMERIC(5,2);
                     END IF;
+                    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='users') THEN
+                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                                     WHERE table_name='users' AND column_name='github_token') THEN
+                            ALTER TABLE users ADD COLUMN github_token VARCHAR(255);
+                        END IF;
+                    END IF;
+                END $$;
+            `);
+            await this.pool.query(`
+                CREATE TABLE IF NOT EXISTS websites (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    server_id UUID REFERENCES servers(id),
+                    user_id VARCHAR(255),
+                    repo_url VARCHAR(255),
+                    name VARCHAR(255),
+                    domain VARCHAR(255),
+                    entry_point VARCHAR(255),
+                    install_command VARCHAR(255),
+                    start_command VARCHAR(255),
+                    port VARCHAR(50),
+                    created_at TIMESTAMP DEFAULT NOW()
+                );
+                
+                -- Añadir columnas si la tabla ya existía
+                DO $$ 
+                BEGIN 
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                                 WHERE table_name='websites' AND column_name='domain') THEN
+                        ALTER TABLE websites ADD COLUMN domain VARCHAR(255);
+                    END IF;
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                                 WHERE table_name='websites' AND column_name='entry_point') THEN
+                        ALTER TABLE websites ADD COLUMN entry_point VARCHAR(255);
+                    END IF;
                 END $$;
             `);
             this.logger.log('Migraciones aplicadas correctamente.');
         }
         catch (error) {
             this.logger.error('Error aplicando migraciones:', error.message);
+        }
+    }
+    async createUsersTable() {
+        const query = `
+            CREATE TABLE IF NOT EXISTS users (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                name VARCHAR(255) NOT NULL,
+                email VARCHAR(255) UNIQUE NOT NULL,
+                password TEXT NOT NULL,
+                github_token VARCHAR(255),
+                created_at TIMESTAMP DEFAULT NOW()
+            );
+        `;
+        try {
+            await this.pool.query(query);
+            this.logger.log('Tabla "users" verificada/creada correctamente.');
+        }
+        catch (error) {
+            this.logger.error('Error al crear la tabla "users":', error.message);
         }
     }
     async createServersTable() {

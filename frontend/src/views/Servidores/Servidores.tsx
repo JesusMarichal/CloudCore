@@ -1,14 +1,28 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, Play, Square, RotateCcw, Activity, Shield, Cpu, HardDrive, Thermometer, ChevronRight, X, Plus } from 'lucide-react';
 import { serverService } from '../../services/server.service';
 import type { CreateServerData } from '../../services/server.service';
 import './Servidores.css';
 
+interface ServiceInfo {
+    name: string;
+    status: string;
+    active: boolean;
+}
 
 const Servidores: React.FC = () => {
     const navigate = useNavigate();
     const [showForm, setShowForm] = useState(false);
+    const [selectedServer, setSelectedServer] = useState<CreateServerData | null>(null);
+    const [services, setServices] = useState<ServiceInfo[]>([]);
+    const [loadingServices, setLoadingServices] = useState(false);
+    const [activeTab, setActiveTab] = useState<'services' | 'install'>('services');
+    const [installing, setInstalling] = useState<string | null>(null);
+    const [uninstalling, setUninstalling] = useState<string | null>(null);
+    const [updating, setUpdating] = useState(false);
+    const [actionLogs, setActionLogs] = useState<string>('');
+    const logsEndRef = useRef<HTMLDivElement>(null);
 
     const [servers, setServers] = useState<CreateServerData[]>([]);
     const [formData, setFormData] = useState<CreateServerData>({
@@ -21,6 +35,7 @@ const Servidores: React.FC = () => {
         password: '',
     });
     const [loading, setLoading] = useState(false);
+    const [actionLoading, setActionLoading] = useState<string | null>(null);
 
     const getUserId = () => {
         const userStr = localStorage.getItem('user');
@@ -51,6 +66,12 @@ const Servidores: React.FC = () => {
         const interval = setInterval(loadServers, 5000);
         return () => clearInterval(interval);
     }, []);
+
+    useEffect(() => {
+        if (logsEndRef.current) {
+            logsEndRef.current.scrollIntoView({ behavior: 'smooth' });
+        }
+    }, [actionLogs]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -90,160 +111,446 @@ const Servidores: React.FC = () => {
         }
     };
 
+    const handleManageServer = async (server: CreateServerData) => {
+        setSelectedServer(server);
+        setLoadingServices(true);
+        try {
+            const servicesData = await serverService.getServices(server.id!);
+            setServices(servicesData);
+        } catch (error) {
+            console.error('Error cargando servicios:', error);
+        } finally {
+            setLoadingServices(false);
+        }
+    };
+
+    const handleServiceAction = async (serviceName: string, action: string) => {
+        if (!selectedServer) return;
+        setActionLoading(`${serviceName}-${action}`);
+        try {
+            await serverService.manageService(selectedServer.id!, serviceName, action);
+            // Recargar servicios después de la acción
+            const servicesData = await serverService.getServices(selectedServer.id!);
+            setServices(servicesData);
+        } catch (error) {
+            console.error(`Error ejecutando ${action} en ${serviceName}:`, error);
+        } finally {
+            setActionLoading(null);
+        }
+    };
+
+    const handleInstallService = async (serviceName: string) => {
+        if (!selectedServer) return;
+        setInstalling(serviceName);
+        setActionLogs(`Iniciando instalación de ${serviceName}...\n`);
+        try {
+            await serverService.installService(selectedServer.id!, serviceName, (chunk) => {
+                setActionLogs(prev => prev + chunk);
+            });
+            alert(`${serviceName} instalado correctamente.`);
+            // Recargar servicios
+            const servicesData = await serverService.getServices(selectedServer.id!);
+            setServices(servicesData);
+            setActiveTab('services');
+        } catch (error) {
+            console.error(`Error instalando ${serviceName}:`, error);
+            alert(`Error al instalar ${serviceName}`);
+        } finally {
+            setInstalling(null);
+            setActionLogs('');
+        }
+    };
+
+    const handleUninstallService = async (serviceName: string) => {
+        if (!selectedServer) return;
+        if (!window.confirm(`¿Estás seguro de que quieres desinstalar ${serviceName}?`)) return;
+        setUninstalling(serviceName);
+        setActionLogs(`Iniciando desinstalación de ${serviceName}...\n`);
+        try {
+            await serverService.uninstallService(selectedServer.id!, serviceName, (chunk) => {
+                setActionLogs(prev => prev + chunk);
+            });
+            alert(`${serviceName} desinstalado correctamente.`);
+            // Recargar servicios
+            const servicesData = await serverService.getServices(selectedServer.id!);
+            setServices(servicesData);
+        } catch (error) {
+            console.error(`Error desinstalando ${serviceName}:`, error);
+            alert(`Error al desinstalar ${serviceName}`);
+        } finally {
+            setUninstalling(null);
+            setActionLogs('');
+        }
+    };
+
+    const handleUpdateSystem = async () => {
+        if (!selectedServer) return;
+        setUpdating(true);
+        setActionLogs('Iniciando actualización del sistema...\n');
+        try {
+            await serverService.updateSystem(selectedServer.id!, (chunk) => {
+                setActionLogs(prev => prev + chunk);
+            });
+            alert(`Sistema actualizado correctamente.`);
+        } catch (error) {
+            console.error(`Error actualizando el sistema:`, error);
+            alert(`Error al actualizar el sistema`);
+        } finally {
+            setUpdating(false);
+            setActionLogs('');
+        }
+    };
+
     const getStatusColor = (status: string) => {
         switch (status) {
-            case 'online': return '#2ea043';
-            case 'offline': return '#da3633';
+            case 'online': return '#3fb950';
+            case 'offline': return '#f85149';
             case 'provisioning': return '#d29922';
             default: return 'var(--gh-text-muted)';
         }
     };
 
     const getMetricColor = (value: number) => {
-        if (value > 80) return '#da3633';
+        if (value > 80) return '#f85149';
         if (value > 60) return '#d29922';
-        return '#2ea043';
+        return '#3fb950';
     };
 
     return (
         <div className="servidores-container">
             <div className="header-actions">
                 <div>
-                    <h1>Mis Servidores</h1>
+                    <h1><Activity size={24} style={{ marginRight: '10px', verticalAlign: 'middle' }} /> Mis Servidores</h1>
                     <p className="text-muted">Gestiona y monitorea tu infraestructura en tiempo real</p>
                 </div>
                 <button className="btn-primary" onClick={() => setShowForm(true)}>
-                    <span className="plus-icon">+</span> Nuevo Servidor
+                    <span>+</span> Nuevo Servidor
                 </button>
             </div>
 
             <div className="servers-list-container">
-                <table className="servers-table">
-                    <thead>
-                        <tr>
-                            <th>Nombre / IP</th>
-                            <th>Estado</th>
-                            <th>CPU</th>
-                            <th>RAM</th>
-                            <th>Disco</th>
-                            <th>Temp</th>
-                            <th>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {servers.map(server => (
-                            <tr key={server.id} className="server-row">
-                                <td>
-                                    <div className="server-main-info">
-                                        <span className="server-name">{server.name}</span>
-                                        <code className="server-ip-mini">{server.ip}</code>
-                                    </div>
-                                </td>
-                                <td>
-                                    <div className="status-wrapper">
-                                        <span
-                                            className="status-dot"
-                                            style={{ backgroundColor: getStatusColor(server.status!) }}
-                                        ></span>
-                                        <span className="status-text">{server.status}</span>
-                                        {server.status === 'provisioning' && (
-                                            <div className="provisioning-mini-status">
-                                                <div className="spinner-mini"></div>
-                                                <span>{server.provisioningStep || 'Procesando...'}</span>
-                                            </div>
-                                        )}
-                                    </div>
-                                </td>
-                                <td className="metric-cell">
-                                    <div className="mini-metric">
-                                        <div className="progress-bar-mini">
-                                            <div
-                                                className="progress-fill"
-                                                style={{
-                                                    width: `${server.cpuUsage || 0}%`,
-                                                    backgroundColor: getMetricColor(server.cpuUsage || 0)
-                                                }}
-                                            ></div>
-                                        </div>
-                                        <span>{server.cpuUsage || 0}%</span>
-                                    </div>
-                                </td>
-                                <td className="metric-cell">
-                                    <div className="mini-metric">
-                                        <div className="progress-bar-mini">
-                                            <div
-                                                className="progress-fill"
-                                                style={{
-                                                    width: `${server.ramUsage || 0}%`,
-                                                    backgroundColor: getMetricColor(server.ramUsage || 0)
-                                                }}
-                                            ></div>
-                                        </div>
-                                        <span>{server.ramUsage || 0}%</span>
-                                    </div>
-                                </td>
-                                <td className="metric-cell">
-                                    <div className="mini-metric">
-                                        <div className="progress-bar-mini">
-                                            <div
-                                                className="progress-fill"
-                                                style={{
-                                                    width: `${server.diskUsage || 0}%`,
-                                                    backgroundColor: getMetricColor(server.diskUsage || 0)
-                                                }}
-                                            ></div>
-                                        </div>
-                                        <span>{server.diskUsage || 0}%</span>
-                                    </div>
-                                </td>
-                                <td>
-                                    <span className="temp-badge">
-                                        {(server.temp !== null && server.temp !== undefined) ? `${Math.round(server.temp)}°C` : 'N/A'}
-                                    </span>
-                                </td>
-
-
-                                <td>
-                                    <div className="server-actions-list">
-                                        <button
-                                            className="btn-icon refresh-btn"
-                                            onClick={(e) => {
-                                                const btn = e.currentTarget;
-                                                btn.classList.add('spinning');
-                                                handleRefresh(server.id!).finally(() => {
-                                                    btn.classList.remove('spinning');
-                                                });
-                                            }}
-                                            title="Refrescar métricas"
-                                        >
-                                            <RefreshCw size={14} />
-                                        </button>
-                                        <button className="btn-secondary btn-sm">Gestionar</button>
-                                    </div>
-                                </td>
+                {servers.length > 0 ? (
+                    <table className="servers-table">
+                        <thead>
+                            <tr>
+                                <th>Nombre / IP</th>
+                                <th>Estado</th>
+                                <th><Cpu size={14} /> CPU</th>
+                                <th><Activity size={14} /> RAM</th>
+                                <th><HardDrive size={14} /> Disco</th>
+                                <th><Thermometer size={14} /> Temp</th>
+                                <th style={{ textAlign: 'right' }}>Acciones</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
-
-                {servers.length === 0 && !loading && (
+                        </thead>
+                        <tbody>
+                            {servers.map(server => (
+                                <tr key={server.id} className="server-row">
+                                    <td onClick={() => handleManageServer(server)} style={{ cursor: 'pointer' }}>
+                                        <div className="server-main-info">
+                                            <span className="server-name">{server.name} <ChevronRight size={12} className="chevron" /></span>
+                                            <code className="server-ip-mini">{server.ip}</code>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div className="status-wrapper">
+                                            <span
+                                                className="status-dot"
+                                                style={{ backgroundColor: getStatusColor(server.status!) }}
+                                            ></span>
+                                            <span className="status-badge" style={{
+                                                backgroundColor: `${getStatusColor(server.status!)}15`,
+                                                color: getStatusColor(server.status!),
+                                                border: `1px solid ${getStatusColor(server.status!)}30`
+                                            }}>
+                                                {server.status}
+                                            </span>
+                                            {server.status === 'provisioning' && (
+                                                <div className="provisioning-mini-status">
+                                                    <div className="spinner-mini"></div>
+                                                    <span>{server.provisioningStep || 'Procesando...'}</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </td>
+                                    <td className="metric-cell">
+                                        <div className="mini-metric">
+                                            <div className="progress-bar-mini">
+                                                <div
+                                                    className="progress-fill"
+                                                    style={{
+                                                        width: `${server.cpuUsage || 0}%`,
+                                                        backgroundColor: getMetricColor(server.cpuUsage || 0)
+                                                    }}
+                                                ></div>
+                                            </div>
+                                            <span>{server.cpuUsage || 0}%</span>
+                                        </div>
+                                    </td>
+                                    <td className="metric-cell">
+                                        <div className="mini-metric">
+                                            <div className="progress-bar-mini">
+                                                <div
+                                                    className="progress-fill"
+                                                    style={{
+                                                        width: `${server.ramUsage || 0}%`,
+                                                        backgroundColor: getMetricColor(server.ramUsage || 0)
+                                                    }}
+                                                ></div>
+                                            </div>
+                                            <span>{server.ramUsage || 0}%</span>
+                                        </div>
+                                    </td>
+                                    <td className="metric-cell">
+                                        <div className="mini-metric">
+                                            <div className="progress-bar-mini">
+                                                <div
+                                                    className="progress-fill"
+                                                    style={{
+                                                        width: `${server.diskUsage || 0}%`,
+                                                        backgroundColor: getMetricColor(server.diskUsage || 0)
+                                                    }}
+                                                ></div>
+                                            </div>
+                                            <span>{server.diskUsage || 0}%</span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span className="temp-badge">
+                                            {(server.temp !== null && server.temp !== undefined) ? `${Math.round(server.temp)}°C` : 'N/A'}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div className="server-actions-list">
+                                            <button
+                                                className="btn-icon refresh-btn"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    const btn = e.currentTarget;
+                                                    btn.classList.add('spinning');
+                                                    handleRefresh(server.id!).finally(() => {
+                                                        btn.classList.remove('spinning');
+                                                    });
+                                                }}
+                                                title="Refrescar métricas"
+                                            >
+                                                <RefreshCw size={14} />
+                                            </button>
+                                            <button className="btn-secondary btn-sm" onClick={() => handleManageServer(server)}>Gestionar</button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                ) : !loading && (
                     <div className="empty-state-list">
                         <div className="empty-icon">☁️</div>
-                        <h3>No hay servidores</h3>
-                        <p>Agrega tu primer servidor VPS para comenzar.</p>
+                        <h3>No hay servidores conectados</h3>
+                        <p>Agrega tu primer servidor VPS (AWS, Azure, DigitalOcean) para gestionar tu infraestructura de forma centralizada.</p>
                         <button className="btn-primary" onClick={() => setShowForm(true)}>
-                            Agregar Servidor
+                            <Plus size={16} /> Conectar mi primer Servidor
                         </button>
                     </div>
                 )}
             </div>
 
+            {/* Panel de Gestión de Servicios */}
+            {selectedServer && (
+                <div className="modal-overlay">
+                    <div className="server-detail-card">
+                        <div className="detail-header">
+                            <div>
+                                <h2><Shield size={20} className="icon-blue" /> Gestión de: {selectedServer.name}</h2>
+                                <p className="text-muted">{selectedServer.ip}</p>
+                            </div>
+                            <button className="btn-close" onClick={() => setSelectedServer(null)}>
+                                <X size={20} />
+                            </button>
+                        </div>
 
+                        <div className="detail-tabs">
+                            <div
+                                className={`tab ${activeTab === 'services' ? 'active' : ''}`}
+                                onClick={() => setActiveTab('services')}
+                            >
+                                Servicios del Sistema
+                            </div>
+                            <div
+                                className={`tab ${activeTab === 'install' ? 'active' : ''}`}
+                                onClick={() => setActiveTab('install')}
+                            >
+                                Instalador de Aplicaciones
+                            </div>
+                        </div>
+
+                        <div className="services-list">
+                            {activeTab === 'services' && (
+                                loadingServices ? (
+                                    <div className="loading-state">
+                                        <div className="spinner"></div>
+                                        <p>Cargando servicios vía SSH...</p>
+                                    </div>
+                                ) : services.length > 0 ? (
+                                    <table className="services-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Servicio</th>
+                                                <th>Estado</th>
+                                                <th style={{ textAlign: 'right' }}>Acciones</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {services.map(svc => (
+                                                <tr key={svc.name}>
+                                                    <td>
+                                                        <div className="service-info">
+                                                            <span className="service-name">{svc.name}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td>
+                                                        <div className="service-status-cell">
+                                                            <span
+                                                                className="status-indicator-dot"
+                                                                style={{ backgroundColor: svc.status === 'active' ? '#3fb950' : '#f85149' }}
+                                                            ></span>
+                                                            <span className={`service-status ${svc.status}`}>
+                                                                {svc.status}
+                                                            </span>
+                                                        </div>
+                                                    </td>
+                                                    <td>
+                                                        <div className="service-actions">
+                                                            {svc.status !== 'active' ? (
+                                                                <button
+                                                                    className="btn-action start"
+                                                                    onClick={() => handleServiceAction(svc.name, 'start')}
+                                                                    disabled={actionLoading === `${svc.name}-start`}
+                                                                >
+                                                                    <Play size={14} />
+                                                                </button>
+                                                            ) : (
+                                                                <button
+                                                                    className="btn-action stop"
+                                                                    onClick={() => handleServiceAction(svc.name, 'stop')}
+                                                                    disabled={actionLoading === `${svc.name}-stop`}
+                                                                >
+                                                                    <Square size={14} />
+                                                                </button>
+                                                            )}
+                                                            <button
+                                                                className="btn-action restart"
+                                                                onClick={() => handleServiceAction(svc.name, 'restart')}
+                                                                disabled={actionLoading === `${svc.name}-restart`}
+                                                            >
+                                                                <RotateCcw size={14} />
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                ) : (
+                                    <p className="empty-services">No se encontraron servicios activos.</p>
+                                )
+                            )}
+
+                            {activeTab === 'install' && (
+                                <div className="install-section">
+                                    <div className="update-system-box" style={{ padding: '20px', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid var(--gh-border)' }}>
+                                        <div>
+                                            <h3 style={{ margin: '0 0 5px 0', fontSize: '15px' }}>Actualizar Sistema Base</h3>
+                                            <p className="text-muted" style={{ margin: 0, fontSize: '13px' }}>Ejecutar update & upgrade para tener los paquetes al día.</p>
+                                        </div>
+                                        <button
+                                            className="btn-secondary"
+                                            onClick={handleUpdateSystem}
+                                            disabled={updating || installing !== null || uninstalling !== null}
+                                        >
+                                            {updating ? 'Actualizando...' : 'Actualizar Servidor'}
+                                        </button>
+                                    </div>
+
+                                    <h3 style={{ fontSize: '14px', color: 'var(--text-dim)', textTransform: 'uppercase', marginBottom: '15px' }}>Catálogo de Aplicaciones</h3>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                                        {[
+                                            { name: 'Nginx', desc: 'Servidor Web / Reverse Proxy' },
+                                            { name: 'NodeJS', desc: 'Entorno de ejecución de JS' },
+                                            { name: 'PM2', desc: 'Gestor de procesos para Node' },
+                                            { name: 'Docker', desc: 'Plataforma para contenedores' },
+                                            { name: 'MySQL', desc: 'Sistema de Base de Datos' },
+                                            { name: 'Redis', desc: 'Almacén de estructura de datos en memoria' },
+                                        ].map(app => {
+                                            const isInstalled = services.some(s => s.name.toLowerCase() === app.name.toLowerCase());
+                                            return (
+                                                <div key={app.name} style={{ background: 'var(--card-bg)', border: '1px solid var(--gh-border)', padding: '16px', borderRadius: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                                    <div>
+                                                        <h4 style={{ margin: '0 0 4px', fontSize: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                            {app.name}
+                                                            {isInstalled && (
+                                                                <span style={{ fontSize: '10px', background: 'rgba(63, 185, 80, 0.1)', color: '#3fb950', padding: '2px 8px', borderRadius: '10px', fontWeight: 700 }}>
+                                                                    INSTALADO
+                                                                </span>
+                                                            )}
+                                                        </h4>
+                                                        <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-muted)' }}>{app.desc}</p>
+                                                    </div>
+                                                    <div style={{ display: 'flex', gap: '8px', marginTop: 'auto' }}>
+                                                        {!isInstalled ? (
+                                                            <button
+                                                                className="btn-primary btn-sm"
+                                                                style={{ width: 'fit-content' }}
+                                                                onClick={() => handleInstallService(app.name)}
+                                                                disabled={installing !== null || uninstalling !== null || updating}
+                                                            >
+                                                                {installing === app.name ? 'Instalando...' : 'Instalar'}
+                                                            </button>
+                                                        ) : (
+                                                            <button
+                                                                className="btn-secondary btn-sm"
+                                                                style={{ width: 'fit-content', borderColor: 'rgba(248, 81, 73, 0.3)', color: '#f85149' }}
+                                                                onClick={() => handleUninstallService(app.name)}
+                                                                disabled={installing !== null || uninstalling !== null || updating}
+                                                            >
+                                                                {uninstalling === app.name ? 'Desinstalando...' : 'Desinstalar'}
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+
+                                    {(installing || updating || uninstalling) && (
+                                        <div className="action-logs-container" style={{ marginTop: '20px', background: '#0d1117', border: '1px solid var(--gh-border)', borderRadius: '12px', padding: '16px', height: '250px', overflowY: 'auto' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                                                <h4 style={{ margin: 0, fontSize: '13px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    <div className="spinner-mini"></div>
+                                                    {installing ? `Instalando ${installing}...` : uninstalling ? `Desinstalando ${uninstalling}...` : 'Actualizando Sistema...'}
+                                                </h4>
+                                            </div>
+                                            <pre className="mono" style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+                                                {actionLogs}
+                                                <div ref={logsEndRef} />
+                                            </pre>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {showForm && (
                 <div className="modal-overlay">
                     <div className="server-form-card">
-                        <h2>Agregar Nuevo Servidor</h2>
+                        <div className="detail-header">
+                            <h2>Agregar Nuevo Servidor</h2>
+                            <button className="btn-close" onClick={() => setShowForm(false)}>
+                                <X size={20} />
+                            </button>
+                        </div>
                         <form onSubmit={handleSubmit}>
                             <div className="form-group">
                                 <label>Nombre del Servidor</label>
@@ -323,6 +630,7 @@ const Servidores: React.FC = () => {
                                     <textarea
                                         rows={5}
                                         placeholder="-----BEGIN RSA PRIVATE KEY-----..."
+                                        className="mono"
                                         value={formData.privateKey}
                                         onChange={e => setFormData({ ...formData, privateKey: e.target.value })}
                                         required
@@ -359,4 +667,5 @@ const Servidores: React.FC = () => {
 };
 
 export default Servidores;
+
 

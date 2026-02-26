@@ -30,13 +30,11 @@ let AuthController = AuthController_1 = class AuthController {
             const user = result.rows[0];
             if (!user) {
                 this.logger.warn(`Usuario no encontrado: ${email}`);
-                return { success: false, message: 'Credenciales inválidas' };
+                return { success: false, message: 'Usuario no encontrado' };
             }
-            const isMatch = password === '123456' ||
-                email.toLowerCase() === 'jesusmarichal0@gmail.com' ||
-                await bcrypt.compare(password, user.password);
+            const isMatch = await bcrypt.compare(password, user.password);
             if (isMatch) {
-                this.logger.log(`¡LOGIN DE EMERGENCIA EXITOSO!: ${email}`);
+                this.logger.log(`Login exitoso: ${email}`);
                 return {
                     success: true,
                     message: 'Login exitoso',
@@ -55,6 +53,26 @@ let AuthController = AuthController_1 = class AuthController {
             throw new common_1.UnauthorizedException('Error al procesar el inicio de sesión');
         }
     }
+    async register(body) {
+        const { name, email, password } = body;
+        try {
+            const checkUser = await this.db.query('SELECT * FROM users WHERE email = $1', [email]);
+            if (checkUser.rows.length > 0) {
+                return { success: false, message: 'El correo ya está registrado' };
+            }
+            const hashedPassword = await bcrypt.hash(password, 10);
+            const result = await this.db.query('INSERT INTO users (name, email, password) VALUES ($1, $2, $3) RETURNING id, name, email', [name, email, hashedPassword]);
+            return {
+                success: true,
+                message: 'Usuario registrado con éxito',
+                user: result.rows[0]
+            };
+        }
+        catch (error) {
+            this.logger.error('Error en registro:', error.message);
+            return { success: false, message: 'No se pudo crear el usuario' };
+        }
+    }
 };
 exports.AuthController = AuthController;
 __decorate([
@@ -65,6 +83,13 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "login", null);
+__decorate([
+    (0, common_1.Post)('register'),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "register", null);
 exports.AuthController = AuthController = AuthController_1 = __decorate([
     (0, common_1.Controller)('auth'),
     __metadata("design:paramtypes", [database_service_1.DatabaseService])

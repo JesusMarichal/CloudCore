@@ -25,17 +25,14 @@ export class AuthController {
 
             if (!user) {
                 this.logger.warn(`Usuario no encontrado: ${email}`);
-                return { success: false, message: 'Credenciales inválidas' };
+                return { success: false, message: 'Usuario no encontrado' };
             }
 
-            // Verificar contraseña (Modo Emergencia/Desarrollo)
-            const isMatch =
-                password === '123456' ||
-                email.toLowerCase() === 'jesusmarichal0@gmail.com' ||
-                await bcrypt.compare(password, user.password);
+            // Verificar contraseña
+            const isMatch = await bcrypt.compare(password, user.password);
 
             if (isMatch) {
-                this.logger.log(`¡LOGIN DE EMERGENCIA EXITOSO!: ${email}`);
+                this.logger.log(`Login exitoso: ${email}`);
                 return {
                     success: true,
                     message: 'Login exitoso',
@@ -44,18 +41,42 @@ export class AuthController {
                         name: user.name,
                         email: user.email
                     }
-
                 };
             }
 
-
             this.logger.warn(`Contraseña incorrecta para: ${email}`);
             return { success: false, message: 'Credenciales inválidas' };
-
-
         } catch (error) {
             this.logger.error('Error en el proceso de login:', error.message);
             throw new UnauthorizedException('Error al procesar el inicio de sesión');
+        }
+    }
+
+    @Post('register')
+    async register(@Body() body: any) {
+        const { name, email, password } = body;
+
+        try {
+            // Verificar si ya existe
+            const checkUser = await this.db.query('SELECT * FROM users WHERE email = $1', [email]);
+            if (checkUser.rows.length > 0) {
+                return { success: false, message: 'El correo ya está registrado' };
+            }
+
+            const hashedPassword = await bcrypt.hash(password, 10);
+            const result = await this.db.query(
+                'INSERT INTO users (name, email, password) VALUES ($1, $2, $3) RETURNING id, name, email',
+                [name, email, hashedPassword]
+            );
+
+            return {
+                success: true,
+                message: 'Usuario registrado con éxito',
+                user: result.rows[0]
+            };
+        } catch (error) {
+            this.logger.error('Error en registro:', error.message);
+            return { success: false, message: 'No se pudo crear el usuario' };
         }
     }
 }
