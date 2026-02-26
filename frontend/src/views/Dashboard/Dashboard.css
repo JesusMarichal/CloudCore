@@ -42,7 +42,7 @@
     align-items: center;
     gap: 8px;
     padding: 8px 12px;
-    border-radius: 6px;
+    border-radius: 0;
     color: var(--gh-text-default);
     text-decoration: none;
     font-size: 14px;
@@ -68,7 +68,7 @@
     width: 2px;
     background-color: #f78166;
     /* GitHub style orange active marker */
-    border-radius: 2px;
+    border-radius: 0;
 }
 
 .logout {
@@ -143,7 +143,7 @@
 .stat-card {
     background-color: var(--gh-bg);
     border: 1px solid var(--gh-border);
-    border-radius: 6px;
+    border-radius: 0;
     padding: 16px;
 }
 
@@ -185,7 +185,7 @@
     align-items: center;
     background-color: #0d1117;
     border: 1px solid var(--gh-border);
-    border-radius: 6px;
+    border-radius: 0;
     padding: 0 12px;
     height: 32px;
     flex: 1;
@@ -213,7 +213,7 @@
     gap: 4px;
     background-color: #21262d;
     border: 1px solid var(--gh-border);
-    border-radius: 6px;
+    border-radius: 0;
     color: var(--gh-text-default);
     font-size: 13px;
     font-weight: 500;
@@ -228,7 +228,7 @@
 /* GitHub "Box" Table Layout */
 .server-container {
     border: 1px solid var(--gh-border);
-    border-radius: 6px;
+    border-radius: 0;
 }
 
 .table-header {
@@ -238,8 +238,8 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    border-top-left-radius: 6px;
-    border-top-right-radius: 6px;
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
 }
 
 .table-header h3 {
@@ -285,7 +285,7 @@
 }
 
 .server-name:hover {
-    text-decoration: underline;
+    text-decoration: none !important;
 }
 
 .status-badge {
@@ -328,7 +328,7 @@
     height: 31px;
     background-color: #238636;
     border: 1px solid rgba(240, 246, 252, 0.1);
-    border-radius: 6px;
+    border-radius: 0;
     color: #ffffff;
     font-size: 13px;
     font-weight: 500;

@@ -31,7 +31,7 @@
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
     padding: 48px 40px;
-    border-radius: 20px;
+    border-radius: 0;
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4),
         0 0 0 1px rgba(240, 246, 252, 0.1);
     width: 100%;
@@ -95,7 +95,7 @@
     padding: 14px 16px;
     background: rgba(13, 17, 23, 0.8);
     border: 1px solid var(--gh-border);
-    border-radius: 10px;
+    border-radius: 0;
     color: var(--text-main);
     font-size: 15px;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -120,7 +120,7 @@
     background: linear-gradient(135deg, var(--success) 0%, var(--success-hover) 100%);
     color: white;
     border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 10px;
+    border-radius: 0;
     font-size: 16px;
     font-weight: 700;
     cursor: pointer;
@@ -175,7 +175,7 @@
     text-align: center;
     margin-top: 24px;
     padding: 12px;
-    border-radius: 8px;
+    border-radius: 0;
     animation: fadeIn 0.3s ease;
 }
 
