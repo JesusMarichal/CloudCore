@@ -36,6 +36,7 @@ let SshService = SshService_1 = class SshService {
                 }
                 conn.exec(command, (err, stream) => {
                     if (err) {
+                        this.logger.error(`Error de ejecución SSH: ${err.message}`);
                         conn.end();
                         return reject(err);
                     }
@@ -49,11 +50,9 @@ let SshService = SshService_1 = class SshService {
                             onData(chunk);
                     }).stderr.on('data', (data) => {
                         const chunk = data.toString();
+                        output += chunk;
                         if (onData)
                             onData(chunk);
-                        if (!command.includes('STATS_START')) {
-                            this.logger.debug(`SSH STDERR [${server.ip}]: ${chunk.trim()}`);
-                        }
                     });
                 });
             }).on('error', (err) => {

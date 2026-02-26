@@ -40,7 +40,7 @@
     background: #161b22;
     border: 1px solid var(--gh-border);
     padding: 6px 14px;
-    border-radius: 10px;
+    border-radius: 0;
 }
 
 .server-selector select {
@@ -59,7 +59,7 @@
     border: 1px solid rgba(248, 81, 73, 0.2);
     color: #f85149;
     padding: 8px;
-    border-radius: 10px;
+    border-radius: 0;
     cursor: pointer;
     transition: all 0.2s;
 }
@@ -74,7 +74,7 @@
     flex: 1;
     background: #0d1117;
     border: 1px solid #30363d;
-    border-radius: 12px;
+    border-radius: 0;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -142,18 +142,19 @@
     color: #f85149;
     background: rgba(248, 81, 73, 0.05);
     padding: 8px 12px;
-    border-radius: 6px;
+    border-radius: 0;
     font-size: 13px;
     margin-top: 4px;
 }
 
 .terminal-input-row {
     padding: 16px 20px;
-    background: #161b22;
+    background: #090c10;
     border-top: 1px solid #30363d;
     display: flex;
     align-items: center;
     gap: 12px;
+    border-radius: 0;
 }
 
 .terminal-input-row input {
@@ -172,7 +173,7 @@
     color: white;
     border: none;
     padding: 8px;
-    border-radius: 8px;
+    border-radius: 0;
     cursor: pointer;
     transition: all 0.2s;
     display: flex;

@@ -53,7 +53,12 @@ let GithubController = GithubController_1 = class GithubController {
             if (!token) {
                 return { success: false, message: 'No hay token de Github configurado.' };
             }
-            const octokit = new rest_1.Octokit({ auth: token });
+            const octokit = new rest_1.Octokit({
+                auth: token,
+                request: {
+                    timeout: 30000
+                }
+            });
             const { data } = await octokit.rest.repos.listForAuthenticatedUser({
                 sort: 'updated',
                 per_page: 50,

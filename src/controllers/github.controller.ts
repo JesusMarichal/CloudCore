@@ -46,7 +46,12 @@ export class GithubController {
                 return { success: false, message: 'No hay token de Github configurado.' };
             }
 
-            const octokit = new Octokit({ auth: token });
+            const octokit = new Octokit({
+                auth: token,
+                request: {
+                    timeout: 30000 // Aumentamos a 30 segundos para conexiones lentas
+                }
+            });
             const { data } = await octokit.rest.repos.listForAuthenticatedUser({
                 sort: 'updated',
                 per_page: 50,

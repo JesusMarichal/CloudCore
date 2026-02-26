@@ -34,6 +34,7 @@ export class SshService {
                 }
                 conn.exec(command, (err, stream) => {
                     if (err) {
+                        this.logger.error(`Error de ejecución SSH: ${err.message}`);
                         conn.end();
                         return reject(err);
                     }
@@ -46,12 +47,8 @@ export class SshService {
                         if (onData) onData(chunk);
                     }).stderr.on('data', (data: Buffer) => {
                         const chunk = data.toString();
+                        output += chunk;
                         if (onData) onData(chunk);
-                        // No loggeamos como error a menos que el proceso falle, 
-                        // ya que git y otros usan stderr para progreso.
-                        if (!command.includes('STATS_START')) {
-                            this.logger.debug(`SSH STDERR [${server.ip}]: ${chunk.trim()}`);
-                        }
                     });
                 });
             }).on('error', (err) => {

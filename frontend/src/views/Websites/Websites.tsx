@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { serverService } from '../../services/server.service';
 import type { CreateServerData } from '../../services/server.service';
-import { Globe, Plus, Play, X, Code, ExternalLink, HardDrive, Settings } from 'lucide-react';
+import { Globe, Plus, Play, X, ExternalLink, HardDrive, Settings } from 'lucide-react';
 import './Websites.css';
 
 interface WebsiteFormData {
@@ -300,9 +300,6 @@ const Websites = () => {
                                         <div className="card-links">
                                             <a href={site.domain ? `http://${site.domain}` : `http://${site.serverIp}`} target="_blank" rel="noopener noreferrer" className="site-link-premium">
                                                 <ExternalLink size={14} /> Abrir Sitio
-                                            </a>
-                                            <a href={site.repo_url} target="_blank" rel="noopener noreferrer" className="repo-link">
-                                                <Code size={14} /> Repositorio
                                             </a>
                                         </div>
                                     </div>

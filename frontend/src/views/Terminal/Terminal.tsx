@@ -16,6 +16,7 @@ const Terminal = () => {
     const [command, setCommand] = useState('');
     const [history, setHistory] = useState<TerminalLine[]>([]);
     const [executing, setExecuting] = useState(false);
+    const [initializing, setInitializing] = useState(true);
     const scrollRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -28,6 +29,9 @@ const Terminal = () => {
                 if (data.length > 0) {
                     setSelectedServerId(data[0].id || '');
                 }
+                setTimeout(() => setInitializing(false), 1500); // Pequeño delay artificial para feedback visual
+            } else {
+                setInitializing(false);
             }
         };
         loadServers();
@@ -144,11 +148,11 @@ const Terminal = () => {
                         type="text"
                         value={command}
                         onChange={(e) => setCommand(e.target.value)}
-                        placeholder={executing ? "Ejecutando..." : "Escribe un comando..."}
-                        disabled={executing || !selectedServerId}
+                        placeholder={initializing ? "Conectando a terminal..." : executing ? "Ejecutando..." : "Escribe un comando..."}
+                        disabled={initializing || executing || !selectedServerId}
                         autoFocus
                     />
-                    <button type="submit" disabled={executing || !command.trim() || !selectedServerId}>
+                    <button type="submit" disabled={initializing || executing || !command.trim() || !selectedServerId}>
                         <Send size={16} />
                     </button>
                 </form>
