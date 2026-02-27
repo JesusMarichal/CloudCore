@@ -42,6 +42,13 @@ export const serverService = {
         return response.json();
     },
 
+    async deleteServer(id: string) {
+        const response = await fetch(`${API_URL}/${id}`, {
+            method: 'DELETE'
+        });
+        return response.json();
+    },
+
     async refresh(id: string) {
         const response = await fetch(`${API_URL}/${id}/refresh`, {
             method: 'POST'
@@ -171,6 +178,47 @@ export const serverService = {
 
     async deployLatestCommit(serverId: string, websiteId: string) {
         const response = await fetch(`${API_URL}/${serverId}/websites/${websiteId}/deploy-latest`, {
+            method: 'POST'
+        });
+        return response.json();
+    },
+
+    // ===== Database Management =====
+
+    async deployDatabase(serverId: string, data: any, onData?: (chunk: string) => void) {
+        const response = await fetch(`${API_URL}/${serverId}/deploy-database`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        if (onData && response.body) {
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                onData(decoder.decode(value, { stream: true }));
+            }
+            return { success: true };
+        }
+        return response.json();
+    },
+
+    async listDatabases(userId: string) {
+        const response = await fetch(`${API_URL}/databases/${userId}`);
+        if (!response.ok) return [];
+        return response.json();
+    },
+
+    async manageDatabaseContainer(serverId: string, dbId: string, action: string) {
+        const response = await fetch(`${API_URL}/${serverId}/databases/${dbId}/${action}`, {
+            method: 'POST'
+        });
+        return response.json();
+    },
+
+    async deleteDatabase(serverId: string, dbId: string) {
+        const response = await fetch(`${API_URL}/${serverId}/databases/${dbId}/delete`, {
             method: 'POST'
         });
         return response.json();

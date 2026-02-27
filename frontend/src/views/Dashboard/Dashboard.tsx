@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Loader2 } from 'lucide-react';
 import {
     Cloud,
     LayoutGrid,
@@ -11,7 +12,9 @@ import {
     Plus,
     Search,
     ChevronDown,
-    Globe
+    Globe,
+    Database,
+    Trash2
 } from 'lucide-react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { serverService } from '../../services/server.service';
@@ -23,6 +26,7 @@ const Dashboard = () => {
     const navigate = useNavigate();
 
     const [servers, setServers] = useState<CreateServerData[]>([]);
+    const [deletingServerId, setDeletingServerId] = useState<string | null>(null);
     const [stats, setStats] = useState({
 
         activeInstances: 0,
@@ -77,6 +81,20 @@ const Dashboard = () => {
         navigate('/');
     };
 
+    const handleDeleteServer = async (serverId: string, serverName: string) => {
+        if (!window.confirm(`¿Estás seguro de eliminar el servidor "${serverName}"?\n\nEsto eliminará también todos los sitios web y bases de datos asociados.`)) return;
+        setDeletingServerId(serverId);
+        try {
+            await serverService.deleteServer(serverId);
+            await loadData();
+        } catch (error) {
+            console.error('Error eliminando servidor:', error);
+            alert('Error al eliminar el servidor.');
+        } finally {
+            setDeletingServerId(null);
+        }
+    };
+
 
     return (
         <div className="dashboard-layout">
@@ -98,6 +116,10 @@ const Dashboard = () => {
                     <NavLink to="/dashboard/websites" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"}>
                         <Globe size={16} />
                         <span>Sitios Webs</span>
+                    </NavLink>
+                    <NavLink to="/dashboard/databases" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"}>
+                        <Database size={16} />
+                        <span>Bases de Datos</span>
                     </NavLink>
                     <NavLink to="/dashboard/terminal" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"}>
                         <Terminal size={16} />
@@ -187,7 +209,7 @@ const Dashboard = () => {
                                     <tbody>
                                         {servers.length > 0 ? (
                                             servers.map((server, i) => (
-                                                <tr key={i}>
+                                                <tr key={i} style={{ opacity: deletingServerId === server.id ? 0.5 : 1, transition: 'opacity 0.3s' }}>
                                                     <td>
                                                         <a href="#" className="server-name">{server.name}</a>
                                                     </td>
@@ -198,7 +220,20 @@ const Dashboard = () => {
                                                     </td>
                                                     <td className="mono">{server.ip}</td>
                                                     <td style={{ textAlign: 'right' }}>
-                                                        <MoreHorizontal size={16} className="action-icon" />
+                                                        {deletingServerId === server.id ? (
+                                                            <Loader2 size={16} style={{ color: 'var(--primary)', animation: 'spin 1s linear infinite' }} />
+                                                        ) : (
+                                                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', alignItems: 'center' }}>
+                                                                <MoreHorizontal size={16} className="action-icon" style={{ cursor: 'pointer' }} onClick={() => navigate('/dashboard/servers')} />
+                                                                <Trash2
+                                                                    size={16}
+                                                                    style={{ cursor: 'pointer', color: 'var(--gh-text-muted)', transition: 'color 0.2s' }}
+                                                                    onClick={() => handleDeleteServer(server.id!, server.name)}
+                                                                    onMouseEnter={e => (e.currentTarget.style.color = '#f85149')}
+                                                                    onMouseLeave={e => (e.currentTarget.style.color = 'var(--gh-text-muted)')}
+                                                                />
+                                                            </div>
+                                                        )}
                                                     </td>
                                                 </tr>
                                             ))

@@ -9,6 +9,7 @@ export declare class ServerController {
     constructor(sshService: SshService, dbService: DatabaseService);
     findAll(userId: string): Promise<Server[]>;
     create(serverDto: CreateServerDto): Promise<Server>;
+    deleteServer(id: string): Promise<any>;
     refreshHealth(id: string): Promise<any>;
     getServices(id: string): Promise<any[]>;
     manageService(id: string, serviceName: string, action: string): Promise<any>;
@@ -24,4 +25,9 @@ export declare class ServerController {
     getWebsiteCommit(id: string, websiteId: string): Promise<any>;
     deployLatestCommit(id: string, websiteId: string): Promise<any>;
     executeCommand(id: string, command: string): Promise<any>;
+    private getServerFromData;
+    deployDatabase(id: string, body: any, res: Response): Promise<void>;
+    listDatabases(userId: string): Promise<any[]>;
+    deleteDatabaseInstance(id: string, dbId: string): Promise<any>;
+    manageDatabaseContainer(id: string, dbId: string, action: string): Promise<any>;
 }

@@ -11,7 +11,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
-var _a, _b, _c;
+var _a, _b, _c, _d;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ServerController = void 0;
 const common_1 = require("@nestjs/common");
@@ -90,6 +90,72 @@ let ServerController = class ServerController {
         });
         const { privateKey, password, ...safeServer } = newServer;
         return safeServer;
+    }
+    async deleteServer(id) {
+        try {
+            const serverResult = await this.dbService.query('SELECT * FROM servers WHERE id = $1', [id]);
+            const serverData = serverResult.rows[0];
+            if (!serverData)
+                return { success: false, message: 'Servidor no encontrado' };
+            const server = this.getServerFromData(serverData);
+            try {
+                const dbInstances = await this.dbService.query('SELECT * FROM database_instances WHERE server_id = $1::text', [id]);
+                for (const dbInst of dbInstances.rows) {
+                    const safeName = dbInst.name.replace(/[^a-zA-Z0-9_-]/g, '').toLowerCase();
+                    let cleanCmd = `sudo docker rm -f ${dbInst.container_name} 2>/dev/null || true; sudo docker volume rm ${dbInst.container_name}_data 2>/dev/null || true`;
+                    if (dbInst.engine === 'mysql' && dbInst.admin_container_name) {
+                        cleanCmd += `; sudo docker rm -f ${dbInst.admin_container_name} 2>/dev/null || true; sudo docker network rm cloudcore_${safeName}_net 2>/dev/null || true`;
+                    }
+                    try {
+                        await this.sshService.executeCommand(server, cleanCmd);
+                    }
+                    catch (e) { }
+                }
+            }
+            catch (e) { }
+            try {
+                const websites = await this.dbService.query('SELECT * FROM websites WHERE server_id = $1', [id]);
+                for (const site of websites.rows) {
+                    const safeName = site.name.replace(/[^a-zA-Z0-9_-]/g, '').toLowerCase();
+                    const cleanCmd = `pm2 delete ${safeName} 2>/dev/null || true; sudo rm -f /etc/nginx/sites-enabled/${safeName} 2>/dev/null || true; sudo rm -f /etc/nginx/sites-available/${safeName} 2>/dev/null || true; sudo rm -rf /var/www/${safeName} 2>/dev/null || true`;
+                    try {
+                        await this.sshService.executeCommand(server, cleanCmd);
+                    }
+                    catch (e) { }
+                }
+                try {
+                    await this.sshService.executeCommand(server, 'sudo nginx -t && sudo systemctl reload nginx');
+                }
+                catch (e) { }
+            }
+            catch (e) { }
+            try {
+                await this.dbService.query('DELETE FROM database_instances WHERE server_id = $1::text', [id]);
+            }
+            catch (e) { }
+            try {
+                await this.dbService.query('DELETE FROM websites WHERE server_id = $1', [id]);
+            }
+            catch (e) { }
+            await this.dbService.query('DELETE FROM servers WHERE id = $1', [id]);
+            return { success: true, message: 'Servidor y todos sus recursos eliminados' };
+        }
+        catch (error) {
+            console.error('Error eliminando servidor:', error);
+            try {
+                await this.dbService.query('DELETE FROM database_instances WHERE server_id = $1::text', [id]);
+            }
+            catch (e) { }
+            try {
+                await this.dbService.query('DELETE FROM websites WHERE server_id = $1', [id]);
+            }
+            catch (e) { }
+            try {
+                await this.dbService.query('DELETE FROM servers WHERE id = $1', [id]);
+            }
+            catch (e) { }
+            return { success: true, message: 'Servidor eliminado (algunos recursos remotos no pudieron limpiarse)' };
+        }
     }
     async refreshHealth(id) {
         const result = await this.dbService.query('SELECT * FROM servers WHERE id = $1', [id]);
@@ -536,6 +602,263 @@ let ServerController = class ServerController {
             return { success: false, message: error.message };
         }
     }
+    getServerFromData(serverData) {
+        return {
+            id: serverData.id,
+            name: serverData.name,
+            ip: serverData.ip,
+            sshPort: serverData.ssh_port,
+            sshUser: serverData.ssh_user,
+            authType: serverData.auth_type,
+            privateKey: serverData.private_key,
+            password: serverData.password,
+            status: serverData.status,
+            lastHealthCheck: serverData.last_health_check || new Date(),
+        };
+    }
+    async deployDatabase(id, body, res) {
+        const result = await this.dbService.query('SELECT * FROM servers WHERE id = $1', [id]);
+        const serverData = result.rows[0];
+        if (!serverData) {
+            res.status(404).json({ success: false, message: 'Servidor no encontrado' });
+            return;
+        }
+        const server = this.getServerFromData(serverData);
+        await this.dbService.query(`
+            CREATE TABLE IF NOT EXISTS database_instances (
+                id VARCHAR(255) PRIMARY KEY,
+                server_id VARCHAR(255) NOT NULL,
+                user_id VARCHAR(255) NOT NULL,
+                name VARCHAR(255) NOT NULL,
+                engine VARCHAR(50) NOT NULL,
+                port VARCHAR(10) NOT NULL,
+                db_name VARCHAR(255) NOT NULL,
+                db_user VARCHAR(255) NOT NULL,
+                db_password VARCHAR(255) NOT NULL,
+                admin_port VARCHAR(10),
+                container_name VARCHAR(255),
+                admin_container_name VARCHAR(255),
+                status VARCHAR(50) DEFAULT 'deploying',
+                created_at TIMESTAMP DEFAULT NOW()
+            );
+        `);
+        const dbId = crypto.randomUUID();
+        const safeName = body.name.replace(/[^a-zA-Z0-9_-]/g, '').toLowerCase();
+        const containerName = `cloudcore_db_${safeName}`;
+        const adminContainerName = `cloudcore_pma_${safeName}`;
+        await this.dbService.query(`
+            INSERT INTO database_instances (id, server_id, user_id, name, engine, port, db_name, db_user, db_password, admin_port, container_name, admin_container_name, status)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'deploying')
+        `, [dbId, id, body.userId || '', body.name, body.engine, body.port, body.dbName, body.dbUser, body.dbPassword, body.adminPort || '', containerName, adminContainerName]);
+        res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+        res.setHeader('Transfer-Encoding', 'chunked');
+        let deployCmd = '';
+        const prepDockerCmd = `
+            if ! command -v docker > /dev/null 2>&1; then
+                echo "📦 Preparando servidor: Instalando Docker..."
+                sudo apt-get update -qq
+                sudo DEBIAN_FRONTEND=noninteractive apt-get install -y docker.io
+                sudo systemctl enable --now docker
+                echo "✅ Docker instalado correctamente."
+            fi
+        `;
+        if (body.engine === 'mysql') {
+            deployCmd = prepDockerCmd + `
+                echo "🐬 Desplegando MySQL con Docker..."
+                
+                # Crear red Docker para comunicación entre contenedores
+                sudo docker network create cloudcore_${safeName}_net 2>/dev/null || true
+                
+                # Detener y eliminar contenedores previos si existen
+                sudo docker rm -f ${containerName} 2>/dev/null || true
+                sudo docker rm -f ${adminContainerName} 2>/dev/null || true
+                
+                # Crear volumen persistente
+                sudo docker volume create ${containerName}_data 2>/dev/null || true
+                
+                # Iniciar MySQL
+                echo "📦 Iniciando contenedor MySQL..."
+                sudo docker run -d \\
+                    --name ${containerName} \\
+                    --network cloudcore_${safeName}_net \\
+                    -e MYSQL_ROOT_PASSWORD=${body.dbPassword} \\
+                    -e MYSQL_DATABASE=${body.dbName} \\
+                    -e MYSQL_USER=${body.dbUser} \\
+                    -e MYSQL_PASSWORD=${body.dbPassword} \\
+                    -p ${body.port}:3306 \\
+                    -v ${containerName}_data:/var/lib/mysql \\
+                    --restart unless-stopped \\
+                    mysql:8.0
+                
+                echo "⏳ Esperando a que MySQL inicie..."
+                sleep 10
+                
+                # Iniciar phpMyAdmin
+                echo "🖥️ Iniciando phpMyAdmin..."
+                sudo docker run -d \\
+                    --name ${adminContainerName} \\
+                    --network cloudcore_${safeName}_net \\
+                    -e PMA_HOST=${containerName} \\
+                    -e PMA_PORT=3306 \\
+                    -e MYSQL_ROOT_PASSWORD=${body.dbPassword} \\
+                    -p ${body.adminPort || '8080'}:80 \\
+                    --restart unless-stopped \\
+                    phpmyadmin/phpmyadmin
+                
+                echo "✅ MySQL y phpMyAdmin desplegados correctamente."
+                echo "📊 MySQL disponible en el puerto ${body.port}"
+                echo "🔗 phpMyAdmin disponible en http://$(hostname -I | awk '{print $1}'):${body.adminPort || '8080'}"
+            `;
+        }
+        else {
+            deployCmd = prepDockerCmd + `
+                echo "🐘 Desplegando PostgreSQL con Docker..."
+                
+                # Detener y eliminar contenedor previo si existe
+                sudo docker rm -f ${containerName} 2>/dev/null || true
+                
+                # Crear volumen persistente
+                sudo docker volume create ${containerName}_data 2>/dev/null || true
+                
+                # Iniciar PostgreSQL
+                echo "📦 Iniciando contenedor PostgreSQL..."
+                sudo docker run -d \\
+                    --name ${containerName} \\
+                    -e POSTGRES_DB=${body.dbName} \\
+                    -e POSTGRES_USER=${body.dbUser} \\
+                    -e POSTGRES_PASSWORD=${body.dbPassword} \\
+                    -p ${body.port}:5432 \\
+                    -v ${containerName}_data:/var/lib/postgresql/data \\
+                    --restart unless-stopped \\
+                    postgres:16-alpine
+                
+                echo "⏳ Esperando a que PostgreSQL inicie..."
+                sleep 5
+                
+                echo "✅ PostgreSQL desplegado correctamente."
+                echo "📊 PostgreSQL disponible en el puerto ${body.port}"
+            `;
+        }
+        try {
+            const success = await this.sshService.executeCommand(server, deployCmd, (chunk) => {
+                res.write(chunk);
+            });
+            await this.dbService.query('UPDATE database_instances SET status = $1 WHERE id = $2', ['running', dbId]);
+            res.write('\n\n---DONE---\n');
+        }
+        catch (error) {
+            console.error('Error deploying database:', error);
+            await this.dbService.query('UPDATE database_instances SET status = $1 WHERE id = $2', ['stopped', dbId]);
+            res.write('\n\n---ERROR---\n');
+        }
+        res.end();
+    }
+    async listDatabases(userId) {
+        try {
+            await this.dbService.query(`
+                CREATE TABLE IF NOT EXISTS database_instances (
+                    id VARCHAR(255) PRIMARY KEY,
+                    server_id VARCHAR(255) NOT NULL,
+                    user_id VARCHAR(255) NOT NULL,
+                    name VARCHAR(255) NOT NULL,
+                    engine VARCHAR(50) NOT NULL,
+                    port VARCHAR(10) NOT NULL,
+                    db_name VARCHAR(255) NOT NULL,
+                    db_user VARCHAR(255) NOT NULL,
+                    db_password VARCHAR(255) NOT NULL,
+                    admin_port VARCHAR(10),
+                    container_name VARCHAR(255),
+                    admin_container_name VARCHAR(255),
+                    status VARCHAR(50) DEFAULT 'deploying',
+                    created_at TIMESTAMP DEFAULT NOW()
+                );
+            `);
+            const result = await this.dbService.query(`
+                SELECT di.*, s.name as "serverName", s.ip as "serverIp"
+                FROM database_instances di
+                JOIN servers s ON di.server_id = s.id::text
+                WHERE di.user_id = $1::text
+                ORDER BY di.created_at DESC
+            `, [userId]);
+            return result.rows.map(row => ({
+                id: row.id,
+                serverId: row.server_id,
+                serverName: row.serverName,
+                serverIp: row.serverIp,
+                name: row.name,
+                engine: row.engine,
+                port: row.port,
+                dbName: row.db_name,
+                dbUser: row.db_user,
+                dbPassword: row.db_password,
+                status: row.status,
+                adminPort: row.admin_port,
+                createdAt: row.created_at,
+            }));
+        }
+        catch (error) {
+            console.error('Error listing databases:', error);
+            return [];
+        }
+    }
+    async deleteDatabaseInstance(id, dbId) {
+        const serverResult = await this.dbService.query('SELECT * FROM servers WHERE id = $1', [id]);
+        const serverData = serverResult.rows[0];
+        if (!serverData)
+            return { success: false, message: 'Servidor no encontrado' };
+        const dbResult = await this.dbService.query('SELECT * FROM database_instances WHERE id = $1', [dbId]);
+        const dbInstance = dbResult.rows[0];
+        if (!dbInstance)
+            return { success: false, message: 'Base de datos no encontrada' };
+        const server = this.getServerFromData(serverData);
+        const safeName = dbInstance.name.replace(/[^a-zA-Z0-9_-]/g, '').toLowerCase();
+        let cleanCmd = `
+            sudo docker rm -f ${dbInstance.container_name} 2>/dev/null || true
+            sudo docker volume rm ${dbInstance.container_name}_data 2>/dev/null || true
+        `;
+        if (dbInstance.engine === 'mysql' && dbInstance.admin_container_name) {
+            cleanCmd += `
+                sudo docker rm -f ${dbInstance.admin_container_name} 2>/dev/null || true
+                sudo docker network rm cloudcore_${safeName}_net 2>/dev/null || true
+            `;
+        }
+        try {
+            await this.sshService.executeCommand(server, cleanCmd);
+        }
+        catch (error) {
+            console.warn('No se pudo limpiar contenedores Docker (servidor inaccesible), eliminando solo el registro:', error.message);
+        }
+        await this.dbService.query('DELETE FROM database_instances WHERE id = $1', [dbId]);
+        return { success: true, message: 'Base de datos eliminada correctamente' };
+    }
+    async manageDatabaseContainer(id, dbId, action) {
+        const validActions = ['start', 'stop', 'restart'];
+        if (!validActions.includes(action))
+            return { success: false, message: 'Acción no válida' };
+        const serverResult = await this.dbService.query('SELECT * FROM servers WHERE id = $1', [id]);
+        const serverData = serverResult.rows[0];
+        if (!serverData)
+            return { success: false, message: 'Servidor no encontrado' };
+        const dbResult = await this.dbService.query('SELECT * FROM database_instances WHERE id = $1', [dbId]);
+        const dbInstance = dbResult.rows[0];
+        if (!dbInstance)
+            return { success: false, message: 'Base de datos no encontrada' };
+        const server = this.getServerFromData(serverData);
+        let cmd = `sudo docker ${action} ${dbInstance.container_name}`;
+        if (dbInstance.engine === 'mysql' && dbInstance.admin_container_name) {
+            cmd += ` && sudo docker ${action} ${dbInstance.admin_container_name}`;
+        }
+        try {
+            await this.sshService.executeCommand(server, cmd);
+            const newStatus = action === 'stop' ? 'stopped' : 'running';
+            await this.dbService.query('UPDATE database_instances SET status = $1 WHERE id = $2', [newStatus, dbId]);
+            return { success: true };
+        }
+        catch (error) {
+            console.error(`Error ${action} database container:`, error);
+            return { success: false, message: error.message };
+        }
+    }
 };
 exports.ServerController = ServerController;
 __decorate([
@@ -552,6 +875,13 @@ __decorate([
     __metadata("design:paramtypes", [create_server_dto_1.CreateServerDto]),
     __metadata("design:returntype", Promise)
 ], ServerController.prototype, "create", null);
+__decorate([
+    (0, common_1.Delete)(':id'),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], ServerController.prototype, "deleteServer", null);
 __decorate([
     (0, common_1.Post)(':id/refresh'),
     __param(0, (0, common_1.Param)('id')),
@@ -673,6 +1003,39 @@ __decorate([
     __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", Promise)
 ], ServerController.prototype, "executeCommand", null);
+__decorate([
+    (0, common_1.Post)(':id/deploy-database'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object, typeof (_d = typeof express_1.Response !== "undefined" && express_1.Response) === "function" ? _d : Object]),
+    __metadata("design:returntype", Promise)
+], ServerController.prototype, "deployDatabase", null);
+__decorate([
+    (0, common_1.Get)('databases/:userId'),
+    __param(0, (0, common_1.Param)('userId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], ServerController.prototype, "listDatabases", null);
+__decorate([
+    (0, common_1.Post)(':id/databases/:dbId/delete'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Param)('dbId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], ServerController.prototype, "deleteDatabaseInstance", null);
+__decorate([
+    (0, common_1.Post)(':id/databases/:dbId/:action'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Param)('dbId')),
+    __param(2, (0, common_1.Param)('action')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, String]),
+    __metadata("design:returntype", Promise)
+], ServerController.prototype, "manageDatabaseContainer", null);
 exports.ServerController = ServerController = __decorate([
     (0, common_1.Controller)('servers'),
     __metadata("design:paramtypes", [ssh_service_1.SshService,

@@ -1,0 +1,585 @@
+.database-container {
+    padding: 32px;
+    max-width: 1000px;
+    margin: 0 auto;
+    animation: dbFadeIn 0.5s ease-out;
+}
+
+@keyframes dbFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.database-container .page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 32px;
+}
+
+.database-container .page-header h1 {
+    font-size: 24px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.database-container .page-header .text-muted {
+    font-size: 14px;
+}
+
+/* Database Cards Grid */
+.db-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.db-card {
+    background: #161b22;
+    border: 1px solid var(--gh-border);
+    border-radius: 0;
+    overflow: hidden;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.db-card:hover {
+    border-color: var(--primary);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.db-card-header {
+    padding: 20px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--gh-border);
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.db-card-header-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.db-engine-icon {
+    width: 42px;
+    height: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    border-radius: 0;
+}
+
+.db-engine-icon.mysql {
+    background: rgba(0, 120, 212, 0.1);
+    border: 1px solid rgba(0, 120, 212, 0.2);
+    color: #4db8ff;
+}
+
+.db-engine-icon.postgres {
+    background: rgba(59, 130, 246, 0.1);
+    border: 1px solid rgba(59, 130, 246, 0.2);
+    color: #60a5fa;
+}
+
+.db-card-title h3 {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-main);
+    margin: 0 0 4px 0;
+}
+
+.db-card-subtitle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.db-card-subtitle .db-engine-tag {
+    background: rgba(255, 255, 255, 0.05);
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 10px;
+    letter-spacing: 0.5px;
+}
+
+.db-card-subtitle .db-engine-tag.mysql {
+    color: #4db8ff;
+    border: 1px solid rgba(0, 120, 212, 0.2);
+}
+
+.db-card-subtitle .db-engine-tag.postgres {
+    color: #60a5fa;
+    border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.db-card-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.db-card-body {
+    padding: 20px 24px;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+}
+
+.db-info-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    flex: 1;
+}
+
+.db-info-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.db-info-item .db-label {
+    font-size: 11px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+}
+
+.db-info-item .db-value {
+    font-size: 13px;
+    color: var(--text-main);
+    font-family: 'JetBrains Mono', monospace;
+}
+
+/* Status Badges */
+.db-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.db-status-badge.running {
+    background: rgba(63, 185, 80, 0.1);
+    color: #3fb950;
+    border: 1px solid rgba(63, 185, 80, 0.2);
+}
+
+.db-status-badge.stopped {
+    background: rgba(248, 81, 73, 0.1);
+    color: #f85149;
+    border: 1px solid rgba(248, 81, 73, 0.2);
+}
+
+.db-status-badge.deploying {
+    background: rgba(210, 153, 34, 0.1);
+    color: #d29922;
+    border: 1px solid rgba(210, 153, 34, 0.2);
+}
+
+.db-status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+/* Admin Link Button */
+.db-admin-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: linear-gradient(135deg, rgba(88, 166, 255, 0.12) 0%, rgba(88, 166, 255, 0.05) 100%);
+    border: 1px solid rgba(88, 166, 255, 0.25);
+    color: var(--primary);
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
+    border-radius: 0;
+}
+
+.db-admin-link:hover {
+    background: linear-gradient(135deg, rgba(88, 166, 255, 0.2) 0%, rgba(88, 166, 255, 0.1) 100%);
+    border-color: var(--primary);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(88, 166, 255, 0.2);
+}
+
+.db-admin-link svg {
+    transition: transform 0.2s;
+}
+
+.db-admin-link:hover svg {
+    transform: translateX(2px);
+}
+
+/* Form styles */
+.db-form-card {
+    background: var(--gh-canvas-subtle);
+    border: 1px solid var(--gh-border);
+    border-radius: 0;
+    padding: 32px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+    animation: dbFadeIn 0.3s ease;
+}
+
+.db-form-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 28px;
+    border-bottom: 1px solid var(--gh-border);
+    padding-bottom: 16px;
+}
+
+.db-form-header h2 {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-main);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.db-engine-selector {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 24px;
+}
+
+.db-engine-option {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 20px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 2px solid var(--gh-border);
+    border-radius: 0;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.db-engine-option:hover {
+    border-color: var(--text-muted);
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.db-engine-option.selected {
+    border-color: var(--primary);
+    background: rgba(88, 166, 255, 0.06);
+    box-shadow: 0 0 0 1px var(--primary), 0 4px 12px rgba(88, 166, 255, 0.15);
+}
+
+.db-engine-option .engine-name {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-main);
+}
+
+.db-engine-option .engine-desc {
+    font-size: 11px;
+    color: var(--text-muted);
+    text-align: center;
+}
+
+.db-engine-option .engine-icon {
+    font-size: 32px;
+}
+
+.db-form-section {
+    background: rgba(255, 255, 255, 0.01);
+    border: 1px solid var(--gh-border);
+    border-radius: 0;
+    padding: 24px;
+    margin-bottom: 24px;
+}
+
+.db-form-section h3 {
+    font-size: 14px;
+    color: var(--primary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 16px;
+    font-weight: 700;
+}
+
+/* Deploying progress */
+.db-deploy-progress {
+    background: #0d1117;
+    border: 1px solid var(--gh-border);
+    border-radius: 0;
+    padding: 24px;
+    margin-top: 16px;
+}
+
+.db-deploy-progress h4 {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+    color: var(--text-main);
+    margin-bottom: 16px;
+}
+
+.db-deploy-logs {
+    background: rgba(0, 0, 0, 0.3);
+    padding: 16px;
+    max-height: 200px;
+    overflow-y: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--text-muted);
+    white-space: pre-wrap;
+    word-break: break-all;
+    line-height: 1.6;
+}
+
+/* Action Buttons */
+.db-btn-action {
+    width: 36px;
+    height: 36px;
+    border-radius: 0;
+    border: 1px solid var(--gh-border);
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.db-btn-action:disabled {
+    opacity: 0.5;
+    cursor: wait;
+}
+
+.db-btn-action.start:hover {
+    color: #3fb950;
+    border-color: #3fb950;
+    background: rgba(63, 185, 80, 0.1);
+}
+
+.db-btn-action.stop:hover {
+    color: #f85149;
+    border-color: #f85149;
+    background: rgba(248, 81, 73, 0.1);
+}
+
+.db-btn-action.restart:hover {
+    color: var(--primary);
+    border-color: var(--primary);
+    background: rgba(88, 166, 255, 0.1);
+}
+
+.db-btn-action.delete:hover {
+    color: #f85149;
+    border-color: #f85149;
+    background: rgba(248, 81, 73, 0.15);
+}
+
+/* Credentials section */
+.db-credentials {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+}
+
+.db-credential-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--gh-border);
+    padding: 4px 10px;
+    border-radius: 0;
+    font-size: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-muted);
+}
+
+.db-credential-chip .chip-label {
+    color: var(--text-dim);
+    font-weight: 600;
+    font-size: 10px;
+    text-transform: uppercase;
+    font-family: 'Inter', sans-serif;
+}
+
+/* Empty State */
+.db-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 80px 40px;
+    text-align: center;
+    background: rgba(255, 255, 255, 0.01);
+    border: 1px dashed var(--gh-border);
+    border-radius: 0;
+}
+
+.db-empty-icon {
+    font-size: 48px;
+    color: var(--primary);
+    margin-bottom: 20px;
+    filter: drop-shadow(0 0 15px rgba(88, 166, 255, 0.2));
+    animation: dbFloat 3s ease-in-out infinite;
+}
+
+@keyframes dbFloat {
+    0% {
+        transform: translateY(0px);
+    }
+
+    50% {
+        transform: translateY(-15px);
+    }
+
+    100% {
+        transform: translateY(0px);
+    }
+}
+
+.db-empty-state h3 {
+    font-size: 1.6rem;
+    font-weight: 700;
+    margin-bottom: 12px;
+    color: var(--text-main);
+}
+
+.db-empty-state p {
+    color: var(--text-muted);
+    max-width: 450px;
+    line-height: 1.6;
+    margin-bottom: 32px;
+}
+
+/* Connection string section */
+.db-connection-string {
+    margin-top: 12px;
+    padding: 12px 16px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--gh-border);
+    border-radius: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.db-connection-string code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+}
+
+.db-copy-btn {
+    background: transparent;
+    border: 1px solid var(--gh-border);
+    color: var(--text-muted);
+    padding: 4px 10px;
+    border-radius: 0;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 600;
+    transition: all 0.2s;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.db-copy-btn:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+    background: rgba(88, 166, 255, 0.05);
+}
+
+/* phpMyAdmin card footer */
+.db-card-footer {
+    padding: 14px 24px;
+    background: rgba(255, 255, 255, 0.015);
+    border-top: 1px solid var(--gh-border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.db-card-footer-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+/* Spinner */
+.db-spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(210, 153, 34, 0.2);
+    border-top: 2px solid #d29922;
+    border-radius: 50%;
+    animation: dbSpin 0.8s linear infinite;
+}
+
+@keyframes dbSpin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Password toggle */
+.db-password-field {
+    position: relative;
+}
+
+.db-password-toggle {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+}
+
+.db-password-toggle:hover {
+    color: var(--text-main);
+}
