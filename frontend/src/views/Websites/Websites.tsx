@@ -334,10 +334,16 @@ const Websites = () => {
                                         <div className="website-meta">
                                             <div className="meta-item"><HardDrive size={14} /> {site.serverIp}</div>
                                             <div className="meta-item"><ExternalLink size={14} /> Port {site.port}</div>
-                                            {site.domain && <div className="meta-item"><Globe size={14} /> {site.domain}</div>}
+                                            {site.domain ? (
+                                                <div className="meta-item"><Globe size={14} /> {site.domain}</div>
+                                            ) : (
+                                                <div className="meta-item" style={{ cursor: 'pointer', opacity: 0.7 }} onClick={() => handleEdit(site)} title="Haga clic para agregar un dominio">
+                                                    <Globe size={14} /> <span style={{ fontStyle: 'italic', textDecoration: 'underline' }}>Sin dominio registrado</span>
+                                                </div>
+                                            )}
                                         </div>
                                         <div className="card-links">
-                                            <a href={site.domain ? `http://${site.domain}` : `http://${site.serverIp}`} target="_blank" rel="noopener noreferrer" className="site-link-premium">
+                                            <a href={site.domain ? `http://${site.domain}` : `http://${site.serverIp}:${site.port}`} target="_blank" rel="noopener noreferrer" className="site-link-premium">
                                                 <ExternalLink size={14} /> Abrir Sitio
                                             </a>
                                         </div>

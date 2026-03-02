@@ -392,15 +392,44 @@ let ServerController = class ServerController {
         `, [body.installCommand, body.buildCommand, body.startCommand, body.port, body.domain, body.entryPoint, body.envVars, websiteId]);
         const safeName = body.name.replace(/[^a-zA-Z0-9_-]/g, '').toLowerCase();
         const projectPath = `/var/www/${safeName}`;
+        const finalDomain = body.domain && body.domain.trim() !== '' ? body.domain : '_';
         const updateEnvCmd = `
             cd ${projectPath}
             echo "PORT=${body.port}" > .env
             ${body.envVars ? `echo "${body.envVars.replace(/\r/g, '')}" >> .env` : ''}
             echo "✅ .env actualizado."
             pm2 restart ${safeName} || true
+
+            # Configuración de Nginx Reverse Proxy
+            if command -v nginx > /dev/null; then
+                echo "⚙️ Reconfigurando Nginx Reverse Proxy..."
+                sudo bash -c 'cat > /etc/nginx/sites-available/${safeName} << "EOF"
+server {
+    listen 80;
+    server_name ${finalDomain};
+
+    location / {
+        proxy_pass http://localhost:${body.port};
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+EOF'
+                sudo ln -sf /etc/nginx/sites-available/${safeName} /etc/nginx/sites-enabled/
+                
+                if [ "${finalDomain}" = "_" ]; then
+                    sudo rm -f /etc/nginx/sites-enabled/default
+                fi
+
+                sudo nginx -t && sudo systemctl reload nginx
+                echo "✅ Nginx reconfigurado exitosamente."
+            fi
         `;
         await this.sshService.executeCommand(server, updateEnvCmd);
-        return { success: true, message: 'Configuración actualizada y sitio reiniciado' };
+        return { success: true, message: 'Configuración actualizada, sitio y proxy reiniciados' };
     }
     async getWebsites(userId) {
         try {
