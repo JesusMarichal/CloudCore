@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { serverService } from '../../services/server.service';
 import type { CreateServerData } from '../../services/server.service';
-import { Database as DatabaseIcon, Plus, Play, Square, RotateCcw, Trash2, ExternalLink, Copy, Eye, EyeOff, X, HardDrive } from 'lucide-react';
+import { Database as DatabaseIcon, Plus, Play, Square, RotateCcw, Trash2, ExternalLink, Eye, EyeOff, X, HardDrive } from 'lucide-react';
 import './Database.css';
 
 interface DatabaseInstance {
@@ -42,7 +42,7 @@ const DatabaseView = () => {
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
     const [showPasswords, setShowPasswords] = useState<{ [key: string]: boolean }>({});
-    const [copiedField, setCopiedField] = useState<string | null>(null);
+
     const logsEndRef = useRef<HTMLDivElement>(null);
 
     const [formData, setFormData] = useState<DbFormData>({
@@ -121,9 +121,9 @@ const DatabaseView = () => {
                 setDeployLogs(prev => prev + chunk);
             });
 
-            setShowForm(false);
+            // setShowForm(false); // Mantener el formulario abierto para ver los logs
             setFormData({
-                serverId: servers[0]?.id || '',
+                serverId: formData.serverId, // Mantener el mismo servidor
                 name: '',
                 engine: 'mysql',
                 port: '3306',
@@ -132,7 +132,7 @@ const DatabaseView = () => {
                 dbPassword: '',
                 adminPort: '8080',
             });
-            setDeployLogs('');
+            // setDeployLogs(''); // No limpiar los logs automáticamente
 
             // Reload databases
             const userId2 = getUserId();
@@ -178,19 +178,6 @@ const DatabaseView = () => {
         } finally {
             setActionLoading(null);
         }
-    };
-
-    const handleCopy = (text: string, fieldId: string) => {
-        navigator.clipboard.writeText(text);
-        setCopiedField(fieldId);
-        setTimeout(() => setCopiedField(null), 2000);
-    };
-
-    const getConnectionString = (db: DatabaseInstance) => {
-        if (db.engine === 'mysql') {
-            return `mysql://${db.dbUser}:${db.dbPassword}@${db.serverIp}:${db.port}/${db.dbName}`;
-        }
-        return `postgresql://${db.dbUser}:${db.dbPassword}@${db.serverIp}:${db.port}/${db.dbName}`;
     };
 
     const getAdminUrl = (db: DatabaseInstance) => {
@@ -245,7 +232,6 @@ const DatabaseView = () => {
                     <div className="db-list">
                         {databases.map(db => {
                             const adminUrl = getAdminUrl(db);
-                            const connStr = getConnectionString(db);
                             return (
                                 <div key={db.id} className="db-card">
                                     <div className="db-card-header">
@@ -261,7 +247,7 @@ const DatabaseView = () => {
                                                     </span>
                                                     <span>•</span>
                                                     <HardDrive size={12} />
-                                                    <span>{db.serverIp}</span>
+                                                    <span>{db.serverName} ({db.serverIp})</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -322,20 +308,6 @@ const DatabaseView = () => {
                                                 <span className="db-label">Usuario</span>
                                                 <span className="db-value">{db.dbUser}</span>
                                             </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Connection string */}
-                                    <div style={{ padding: '0 24px 16px' }}>
-                                        <div className="db-connection-string">
-                                            <code>{connStr}</code>
-                                            <button
-                                                className="db-copy-btn"
-                                                onClick={() => handleCopy(connStr, `conn-${db.id}`)}
-                                            >
-                                                <Copy size={12} />
-                                                {copiedField === `conn-${db.id}` ? '¡Copiado!' : 'Copiar'}
-                                            </button>
                                         </div>
                                     </div>
 
@@ -491,19 +463,6 @@ const DatabaseView = () => {
                             )}
                         </div>
 
-                        {deploying && (
-                            <div className="db-deploy-progress">
-                                <h4>
-                                    <div className="db-spinner"></div>
-                                    Desplegando {formData.engine === 'mysql' ? 'MySQL + phpMyAdmin' : 'PostgreSQL'}...
-                                </h4>
-                                <div className="db-deploy-logs">
-                                    {deployLogs}
-                                    <div ref={logsEndRef} />
-                                </div>
-                            </div>
-                        )}
-
                         <div className="form-actions">
                             <button type="button" className="btn-secondary" onClick={() => { setShowForm(false); setDeployLogs(''); }}>
                                 Cancelar
@@ -513,6 +472,50 @@ const DatabaseView = () => {
                             </button>
                         </div>
                     </form>
+                </div>
+            )}
+
+            {/* Modal for Deployment Progress */}
+            {(deploying || deployLogs.trim() !== '') && (
+                <div className="db-deploy-modal-overlay">
+                    <div className="db-deploy-modal">
+                        <div className="db-deploy-modal-header">
+                            <h3>
+                                {deploying ? (
+                                    <><div className="db-spinner" style={{ display: 'inline-block', marginRight: '10px' }}></div> Desplegando {formData.engine === 'mysql' ? 'MySQL + phpMyAdmin' : 'PostgreSQL'}...</>
+                                ) : (
+                                    <>✅ ¡Despliegue Completado!</>
+                                )}
+                            </h3>
+                            {!deploying && (
+                                <button className="btn-close" onClick={() => { setShowForm(false); setDeployLogs(''); }}><X size={20} /></button>
+                            )}
+                        </div>
+                        <div className="db-deploy-modal-body">
+                            <div className="db-deploy-terminal">
+                                <div className="db-deploy-terminal-header">
+                                    <span className="dot" style={{ background: '#ff5f56' }}></span>
+                                    <span className="dot" style={{ background: '#ffbd2e' }}></span>
+                                    <span className="dot" style={{ background: '#27c93f' }}></span>
+                                    <span className="title">Terminal - Instalación</span>
+                                </div>
+                                <div className="db-deploy-logs console-scroll">
+                                    {deployLogs}
+                                    <div ref={logsEndRef} />
+                                </div>
+                            </div>
+                        </div>
+                        {!deploying && (
+                            <div className="db-deploy-modal-footer">
+                                <button type="button" className="btn-secondary" onClick={() => setDeployLogs('')}>
+                                    Limpiar
+                                </button>
+                                <button type="button" className="btn-primary" onClick={() => { setShowForm(false); setDeployLogs(''); }}>
+                                    Terminar
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div>
             )}
         </div>

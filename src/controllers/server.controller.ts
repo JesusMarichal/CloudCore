@@ -370,11 +370,15 @@ export class ServerController {
     @Post(':id/deploy-website')
     async deployWebsite(
         @Param('id') id: string,
-        @Body() body: any
-    ): Promise<any> {
+        @Body() body: any,
+        @Res() res: Response
+    ): Promise<void> {
         const result = await this.dbService.query('SELECT * FROM servers WHERE id = $1', [id]);
         const serverData = result.rows[0];
-        if (!serverData) return { success: false, message: 'Servidor no encontrado' };
+        if (!serverData) {
+            res.status(404).json({ success: false, message: 'Servidor no encontrado' });
+            return;
+        }
 
         const server: Server = {
             id: serverData.id,
@@ -389,7 +393,29 @@ export class ServerController {
             lastHealthCheck: serverData.last_health_check || new Date(),
         };
 
-        const success = await this.sshService.deployWebsite(server, body);
+        res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+        res.setHeader('Transfer-Encoding', 'chunked');
+
+        let repoUrlWithToken = body.repo;
+        if (body.userId && body.repo.startsWith('https://github.com/')) {
+            const userRes = await this.dbService.query('SELECT github_token FROM users WHERE id = $1', [body.userId]);
+            const token = userRes.rows[0]?.github_token;
+            if (token) {
+                // Agregar el token HTTP basic auth a la URL de Github
+                repoUrlWithToken = body.repo.replace('https://github.com/', `https://${token}@github.com/`);
+            }
+        }
+
+        const deployBody = { ...body, repo: repoUrlWithToken };
+
+        const success = await this.sshService.deployWebsite(server, deployBody, (chunk) => {
+            // Enmascarar el token en el stream de log para no enviarlo al panel web
+            if (body.userId && repoUrlWithToken !== body.repo) {
+                const tokenRegex = new RegExp(`https://[^@]+@github\\.com`, 'g');
+                chunk = chunk.replace(tokenRegex, 'https://github.com');
+            }
+            res.write(chunk);
+        });
 
         if (success) {
             try {
@@ -425,7 +451,7 @@ export class ServerController {
             }
         }
 
-        return { success, message: success ? 'Sitio web desplegado' : 'Error al desplegar sitio' };
+        res.end();
     }
 
     @Post(':id/websites/:websiteId/update')
@@ -842,6 +868,16 @@ EOF'
             // Deploy MySQL + phpMyAdmin using Docker
             deployCmd = prepDockerCmd + `
                 echo "🐬 Desplegando MySQL con Docker..."
+
+                # Verificar puertos libres antes de empezar
+                if sudo ss -tulpn | grep -q ":${body.port} "; then
+                    echo "❌ ERROR: El puerto ${body.port} ya está en uso. Por favor, elige otro puerto para MySQL."
+                    exit 1
+                fi
+                if sudo ss -tulpn | grep -q ":${body.adminPort || '8080'} "; then
+                    echo "❌ ERROR: El puerto ${body.adminPort || '8080'} ya está en uso. Por favor, elige otro para phpMyAdmin."
+                    exit 1
+                fi
                 
                 # Crear red Docker para comunicación entre contenedores
                 sudo docker network create cloudcore_${safeName}_net 2>/dev/null || true
@@ -858,6 +894,7 @@ EOF'
                 sudo docker run -d \\
                     --name ${containerName} \\
                     --network cloudcore_${safeName}_net \\
+                    --network-alias db \\
                     -e MYSQL_ROOT_PASSWORD=${body.dbPassword} \\
                     -e MYSQL_DATABASE=${body.dbName} \\
                     -e MYSQL_USER=${body.dbUser} \\
@@ -875,7 +912,7 @@ EOF'
                 sudo docker run -d \\
                     --name ${adminContainerName} \\
                     --network cloudcore_${safeName}_net \\
-                    -e PMA_HOST=${containerName} \\
+                    -e PMA_HOST=db \\
                     -e PMA_PORT=3306 \\
                     -e MYSQL_ROOT_PASSWORD=${body.dbPassword} \\
                     -p ${body.adminPort || '8080'}:80 \\
@@ -891,6 +928,12 @@ EOF'
             deployCmd = prepDockerCmd + `
                 echo "🐘 Desplegando PostgreSQL con Docker..."
                 
+                # Verificar puerto
+                if sudo ss -tulpn | grep -q ":${body.port} "; then
+                    echo "❌ ERROR: El puerto ${body.port} ya está en uso. Por favor, elige otro."
+                    exit 1
+                fi
+
                 # Detener y eliminar contenedor previo si existe
                 sudo docker rm -f ${containerName} 2>/dev/null || true
                 

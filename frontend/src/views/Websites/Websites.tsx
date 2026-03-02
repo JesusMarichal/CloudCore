@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { serverService } from '../../services/server.service';
 import type { CreateServerData } from '../../services/server.service';
@@ -35,6 +35,14 @@ const Websites = () => {
     const [editingSite, setEditingSite] = useState<any>(null);
     const [showEnvModal, setShowEnvModal] = useState(false);
     const [envList, setEnvList] = useState<{ key: string, value: string }[]>([]);
+    const [deployLogs, setDeployLogs] = useState('');
+    const logsEndRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (logsEndRef.current) {
+            logsEndRef.current.scrollIntoView({ behavior: 'smooth' });
+        }
+    }, [deployLogs]);
 
     // New states for commits and deploying updates
     const [commits, setCommits] = useState<{ [key: string]: { hash: string, message: string, author: string, time: string } | null }>({});
@@ -114,14 +122,17 @@ const Websites = () => {
             if (editingSite) {
                 await serverService.updateWebsite(formData.serverId, editingSite.id, formData);
                 alert('¡Configuración actualizada con éxito!');
+                setShowForm(false);
             } else {
-                await serverService.deployWebsite(formData.serverId, { ...formData, userId: currentUserId });
-                alert('¡Sitio web desplegado con éxito!');
+                setDeployLogs('Iniciando despliegue de sitio web...\n');
+                await serverService.deployWebsite(formData.serverId, { ...formData, userId: currentUserId }, (chunk) => {
+                    setDeployLogs(prev => prev + chunk);
+                });
+                // alert('¡Sitio web desplegado con éxito!'); // Omitir para mostrar la terminal completada
             }
 
-            setShowForm(false);
             setFormData({
-                serverId: servers[0]?.id || formData.serverId,
+                serverId: formData.serverId, // Mantener servidor seleccionado
                 name: '',
                 repo: '',
                 installCommand: 'npm install',
@@ -343,7 +354,7 @@ const Websites = () => {
                                             )}
                                         </div>
                                         <div className="card-links">
-                                            <a href={site.domain ? `http://${site.domain}` : `http://${site.serverIp}:${site.port}`} target="_blank" rel="noopener noreferrer" className="site-link-premium">
+                                            <a href={site.domain ? `http://${site.domain}` : `http://${site.serverIp}`} target="_blank" rel="noopener noreferrer" className="site-link-premium">
                                                 <ExternalLink size={14} /> Abrir Sitio
                                             </a>
                                         </div>
@@ -481,7 +492,7 @@ const Websites = () => {
                                 </div>
                             </div>
                             <div className="form-actions">
-                                <button type="button" className="btn-secondary" onClick={() => { setShowForm(false); setEditingSite(null); }}>Cancelar</button>
+                                <button type="button" className="btn-secondary" onClick={() => { setShowForm(false); setEditingSite(null); setDeployLogs(''); }}>Cancelar</button>
                                 <button type="submit" className="btn-primary" disabled={deploying}>
                                     {deploying ? 'Procesando...' : (editingSite ? 'Guardar' : 'Desplegar')}
                                 </button>
@@ -526,6 +537,50 @@ const Websites = () => {
                                 {deploying ? 'Guardando...' : 'Aplicar'}
                             </button>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal for Deployment Progress */}
+            {(!editingSite && (deploying || deployLogs.trim() !== '')) && (
+                <div className="site-deploy-modal-overlay">
+                    <div className="site-deploy-modal">
+                        <div className="site-deploy-modal-header">
+                            <h3>
+                                {deploying ? (
+                                    <><div className="db-spinner" style={{ display: 'inline-block', marginRight: '10px' }}></div> Desplegando {formData.name || 'Proyecto'}...</>
+                                ) : (
+                                    <>✅ ¡Despliegue Completado!</>
+                                )}
+                            </h3>
+                            {!deploying && (
+                                <button className="btn-close" onClick={() => { setShowForm(false); setDeployLogs(''); }}><X size={20} /></button>
+                            )}
+                        </div>
+                        <div className="site-deploy-modal-body">
+                            <div className="site-deploy-terminal">
+                                <div className="site-deploy-terminal-header">
+                                    <span className="dot" style={{ background: '#ff5f56' }}></span>
+                                    <span className="dot" style={{ background: '#ffbd2e' }}></span>
+                                    <span className="dot" style={{ background: '#27c93f' }}></span>
+                                    <span className="title">Terminal - Instalación</span>
+                                </div>
+                                <div className="site-deploy-logs console-scroll">
+                                    {deployLogs}
+                                    <div ref={logsEndRef} />
+                                </div>
+                            </div>
+                        </div>
+                        {!deploying && (
+                            <div className="site-deploy-modal-footer">
+                                <button type="button" className="btn-secondary" onClick={() => setDeployLogs('')}>
+                                    Limpiar
+                                </button>
+                                <button type="button" className="btn-primary" onClick={() => { setShowForm(false); setDeployLogs(''); }}>
+                                    Terminar
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}

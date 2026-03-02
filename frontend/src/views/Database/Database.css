@@ -58,7 +58,7 @@
 }
 
 .db-card-header {
-    padding: 20px 24px;
+    padding: 12px 16px;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -73,12 +73,12 @@
 }
 
 .db-engine-icon {
-    width: 42px;
-    height: 42px;
+    width: 32px;
+    height: 32px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 22px;
+    font-size: 18px;
     border-radius: 0;
 }
 
@@ -136,7 +136,7 @@
 }
 
 .db-card-body {
-    padding: 20px 24px;
+    padding: 12px 16px;
     display: flex;
     align-items: center;
     gap: 24px;
@@ -145,7 +145,7 @@
 .db-info-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 16px;
+    gap: 12px;
     flex: 1;
 }
 
@@ -531,7 +531,7 @@
 
 /* phpMyAdmin card footer */
 .db-card-footer {
-    padding: 14px 24px;
+    padding: 10px 16px;
     background: rgba(255, 255, 255, 0.015);
     border-top: 1px solid var(--gh-border);
     display: flex;
@@ -582,4 +582,125 @@
 
 .db-password-toggle:hover {
     color: var(--text-main);
+}
+
+/* Modal Deploy Progress */
+.db-deploy-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    animation: dbFadeIn 0.3s ease;
+}
+
+.db-deploy-modal {
+    background: #161b22;
+    border: 1px solid var(--gh-border);
+    border-radius: 8px;
+    width: 90%;
+    max-width: 600px;
+    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.db-deploy-modal-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--gh-border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.db-deploy-modal-header h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-main);
+    display: flex;
+    align-items: center;
+}
+
+.db-deploy-modal-body {
+    padding: 24px;
+    background: #0d1117;
+}
+
+/* MacOS Terminal styling */
+.db-deploy-terminal {
+    background: #000;
+    border-radius: 6px;
+    border: 1px solid #333;
+    overflow: hidden;
+}
+
+.db-deploy-terminal-header {
+    background: #1e1e1e;
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    border-bottom: 1px solid #333;
+}
+
+.db-deploy-terminal-header .dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.db-deploy-terminal-header .title {
+    margin-left: auto;
+    margin-right: auto;
+    color: #888;
+    font-size: 11px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    letter-spacing: 0.5px;
+}
+
+.db-deploy-logs {
+    padding: 16px;
+    margin: 0;
+    font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+    font-size: 13px;
+    color: #0f0;
+    background: transparent;
+    max-height: 300px;
+    /* console-scroll styling included here */
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+    line-height: 1.5;
+}
+
+.db-deploy-logs::-webkit-scrollbar {
+    width: 8px;
+}
+
+.db-deploy-logs::-webkit-scrollbar-track {
+    background: #111;
+}
+
+.db-deploy-logs::-webkit-scrollbar-thumb {
+    background: #444;
+    border-radius: 4px;
+}
+
+.db-deploy-modal-footer {
+    padding: 16px 24px;
+    border-top: 1px solid var(--gh-border);
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    background: rgba(255, 255, 255, 0.02);
 }

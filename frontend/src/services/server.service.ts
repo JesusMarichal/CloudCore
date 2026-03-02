@@ -120,12 +120,24 @@ export const serverService = {
         return response.json();
     },
 
-    async deployWebsite(serverId: string, data: any) {
+    async deployWebsite(serverId: string, data: any, onData?: (chunk: string) => void) {
         const response = await fetch(`${API_URL}/${serverId}/deploy-website`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
         });
+
+        if (onData && response.body) {
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                onData(decoder.decode(value, { stream: true }));
+            }
+            return { success: true };
+        }
+
         if (!response.ok) throw new Error('Error al desplegar sitio web');
         return response.json();
     },

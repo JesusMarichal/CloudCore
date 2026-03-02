@@ -19,5 +19,5 @@ export declare class SshService {
         domain?: string;
         envVars?: string;
         entryPoint?: string;
-    }): Promise<boolean>;
+    }, onData?: (chunk: string) => void): Promise<boolean>;
 }

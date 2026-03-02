@@ -273,7 +273,7 @@ let SshService = SshService_1 = class SshService {
             return false;
         }
     }
-    async deployWebsite(server, data) {
+    async deployWebsite(server, data, onData) {
         const safeName = data.name.replace(/[^a-zA-Z0-9_-]/g, '').toLowerCase();
         const projectPath = `/var/www/${safeName}`;
         const finalDomain = data.domain && data.domain.trim() !== '' ? data.domain : '_';
@@ -291,6 +291,7 @@ let SshService = SshService_1 = class SshService {
         fi
         
         # Clonar e instalar
+        echo "⬇️ Clonando repositorio ${data.repo}..."
         git clone ${data.repo} ${projectPath}
         cd ${projectPath}
 
@@ -302,8 +303,11 @@ let SshService = SshService_1 = class SshService {
         # Instalar dependencias
         if [ -f "package.json" ]; then
             echo "📦 Instalando dependencias..."
-            # Forzar instalación de dependencias incluso si hay errores previos
-            npm install --prefer-offline --no-audit || npm install
+            ${data.installCommand && data.installCommand.trim() !== '' ? data.installCommand : 'npm install'}
+            
+            # Asegurar permisos de ejecución en binarios (evita errores como "tsc: Permission denied")
+            chmod -R +x node_modules/.bin 2>/dev/null || true
+            chmod -R +x */node_modules/.bin 2>/dev/null || true
             
             # Ejecutar comando de construcción si existe
             ${data.buildCommand && data.buildCommand.trim() !== '' ? `echo "🏗️  Ejecutando build: ${data.buildCommand}"\n${data.buildCommand}` : ''}
@@ -311,7 +315,10 @@ let SshService = SshService_1 = class SshService {
         
         # Iniciar/Reiniciar la aplicación con PM2
         echo "🚀 Iniciando aplicación con PM2..."
-        pm2 delete ${safeName} || true
+        pm2 delete ${safeName} >/dev/null 2>&1 || true
+        
+        # Mantenemos el contexto de directorio firme
+        cd ${projectPath}
         
         # Detectar si es un script de NPM o un archivo directo
         if [[ "${pm2Exec}" == npm* ]]; then
@@ -361,11 +368,15 @@ EOF'
         fi
         `;
         try {
-            await this.executeCommand(server, bashScript);
+            await this.executeCommand(server, bashScript, onData);
+            if (onData)
+                onData("\n\n---DONE---\n");
             return true;
         }
         catch (error) {
             this.logger.error(`Error desplegando sitio web ${safeName} en ${server.ip}: ${error.message}`);
+            if (onData)
+                onData(`\n❌ Error de despliegue: ${error.message}\n`);
             return false;
         }
     }

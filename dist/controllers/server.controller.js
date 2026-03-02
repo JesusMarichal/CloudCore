@@ -11,7 +11,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
-var _a, _b, _c, _d;
+var _a, _b, _c, _d, _e;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ServerController = void 0;
 const common_1 = require("@nestjs/common");
@@ -316,11 +316,13 @@ let ServerController = class ServerController {
         }
         res.end();
     }
-    async deployWebsite(id, body) {
+    async deployWebsite(id, body, res) {
         const result = await this.dbService.query('SELECT * FROM servers WHERE id = $1', [id]);
         const serverData = result.rows[0];
-        if (!serverData)
-            return { success: false, message: 'Servidor no encontrado' };
+        if (!serverData) {
+            res.status(404).json({ success: false, message: 'Servidor no encontrado' });
+            return;
+        }
         const server = {
             id: serverData.id,
             name: serverData.name,
@@ -333,7 +335,24 @@ let ServerController = class ServerController {
             status: serverData.status,
             lastHealthCheck: serverData.last_health_check || new Date(),
         };
-        const success = await this.sshService.deployWebsite(server, body);
+        res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+        res.setHeader('Transfer-Encoding', 'chunked');
+        let repoUrlWithToken = body.repo;
+        if (body.userId && body.repo.startsWith('https://github.com/')) {
+            const userRes = await this.dbService.query('SELECT github_token FROM users WHERE id = $1', [body.userId]);
+            const token = userRes.rows[0]?.github_token;
+            if (token) {
+                repoUrlWithToken = body.repo.replace('https://github.com/', `https://${token}@github.com/`);
+            }
+        }
+        const deployBody = { ...body, repo: repoUrlWithToken };
+        const success = await this.sshService.deployWebsite(server, deployBody, (chunk) => {
+            if (body.userId && repoUrlWithToken !== body.repo) {
+                const tokenRegex = new RegExp(`https://[^@]+@github\\.com`, 'g');
+                chunk = chunk.replace(tokenRegex, 'https://github.com');
+            }
+            res.write(chunk);
+        });
         if (success) {
             try {
                 await this.dbService.query(`
@@ -365,7 +384,7 @@ let ServerController = class ServerController {
                 console.error("Error guardando el sitio en la base de datos:", error);
             }
         }
-        return { success, message: success ? 'Sitio web desplegado' : 'Error al desplegar sitio' };
+        res.end();
     }
     async updateWebsite(id, websiteId, body) {
         const result = await this.dbService.query('SELECT * FROM servers WHERE id = $1', [id]);
@@ -694,6 +713,16 @@ EOF'
         if (body.engine === 'mysql') {
             deployCmd = prepDockerCmd + `
                 echo "🐬 Desplegando MySQL con Docker..."
+
+                # Verificar puertos libres antes de empezar
+                if sudo ss -tulpn | grep -q ":${body.port} "; then
+                    echo "❌ ERROR: El puerto ${body.port} ya está en uso. Por favor, elige otro puerto para MySQL."
+                    exit 1
+                fi
+                if sudo ss -tulpn | grep -q ":${body.adminPort || '8080'} "; then
+                    echo "❌ ERROR: El puerto ${body.adminPort || '8080'} ya está en uso. Por favor, elige otro para phpMyAdmin."
+                    exit 1
+                fi
                 
                 # Crear red Docker para comunicación entre contenedores
                 sudo docker network create cloudcore_${safeName}_net 2>/dev/null || true
@@ -710,6 +739,7 @@ EOF'
                 sudo docker run -d \\
                     --name ${containerName} \\
                     --network cloudcore_${safeName}_net \\
+                    --network-alias db \\
                     -e MYSQL_ROOT_PASSWORD=${body.dbPassword} \\
                     -e MYSQL_DATABASE=${body.dbName} \\
                     -e MYSQL_USER=${body.dbUser} \\
@@ -727,7 +757,7 @@ EOF'
                 sudo docker run -d \\
                     --name ${adminContainerName} \\
                     --network cloudcore_${safeName}_net \\
-                    -e PMA_HOST=${containerName} \\
+                    -e PMA_HOST=db \\
                     -e PMA_PORT=3306 \\
                     -e MYSQL_ROOT_PASSWORD=${body.dbPassword} \\
                     -p ${body.adminPort || '8080'}:80 \\
@@ -743,6 +773,12 @@ EOF'
             deployCmd = prepDockerCmd + `
                 echo "🐘 Desplegando PostgreSQL con Docker..."
                 
+                # Verificar puerto
+                if sudo ss -tulpn | grep -q ":${body.port} "; then
+                    echo "❌ ERROR: El puerto ${body.port} ya está en uso. Por favor, elige otro."
+                    exit 1
+                fi
+
                 # Detener y eliminar contenedor previo si existe
                 sudo docker rm -f ${containerName} 2>/dev/null || true
                 
@@ -964,8 +1000,9 @@ __decorate([
     (0, common_1.Post)(':id/deploy-website'),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.Res)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:paramtypes", [String, Object, typeof (_d = typeof express_1.Response !== "undefined" && express_1.Response) === "function" ? _d : Object]),
     __metadata("design:returntype", Promise)
 ], ServerController.prototype, "deployWebsite", null);
 __decorate([
@@ -1038,7 +1075,7 @@ __decorate([
     __param(1, (0, common_1.Body)()),
     __param(2, (0, common_1.Res)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, Object, typeof (_d = typeof express_1.Response !== "undefined" && express_1.Response) === "function" ? _d : Object]),
+    __metadata("design:paramtypes", [String, Object, typeof (_e = typeof express_1.Response !== "undefined" && express_1.Response) === "function" ? _e : Object]),
     __metadata("design:returntype", Promise)
 ], ServerController.prototype, "deployDatabase", null);
 __decorate([
