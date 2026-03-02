@@ -180,6 +180,19 @@ export class SshService {
             if command -v pm2 >/dev/null 2>&1; then
                 echo "pm2|active|loaded"
             fi
+            
+            # Chequear contenedores Docker (ej. MySQL, PostgreSQL desplegados por CloudCore)
+            if command -v docker >/dev/null 2>&1; then
+                # Si existe algún contenedor con imagen "mysql"
+                if sudo docker ps -a --format '{{.Image}}' | grep -qi 'mysql'; then
+                    echo "mysql|active|loaded"
+                fi
+                # Si existe algún contenedor con imagen "postgres"
+                if sudo docker ps -a --format '{{.Image}}' | grep -qi 'postgres'; then
+                    echo "postgresql|active|loaded"
+                fi
+            fi
+            
             echo "---SERVICES_END---"
         `;
 
@@ -189,16 +202,20 @@ export class SshService {
 
             if (!match) return [];
 
-            const lines = match[1].trim().split('\n');
-            return lines.filter(l => l.includes('|')).map(line => {
+            const lines = match[1].trim().split('\n').filter(l => l.includes('|'));
+            const uniqueServices = new Map<string, any>();
+
+            for (const line of lines) {
                 const [unit, state, active] = line.split('|');
                 const name = unit.split('.')[0];
-                return {
-                    name: name,
-                    status: state === 'running' ? 'active' : (state === 'exited' ? 'stopped' : state),
-                    active: active === 'loaded'
-                };
-            });
+                const status = state === 'running' ? 'active' : (state === 'exited' ? 'stopped' : state);
+
+                // Keep the 'active' status if any variation of the service is active
+                if (!uniqueServices.has(name) || (status === 'active' && uniqueServices.get(name).status !== 'active')) {
+                    uniqueServices.set(name, { name, status, active: active === 'loaded' });
+                }
+            }
+            return Array.from(uniqueServices.values());
         } catch (error) {
             this.logger.error(`Error listando servicios en ${server.ip}: ${error.message}`);
             return [];
@@ -233,6 +250,7 @@ export class SshService {
             'docker': 'sudo apt-get update && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y docker.io',
             'pm2': 'sudo npm install -g pm2',
             'mysql': 'sudo apt-get update && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y mysql-server',
+            'postgresql': 'sudo apt-get update && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y postgresql postgresql-contrib',
             'redis': 'sudo apt-get update && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y redis-server',
             'nodejs': 'curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash - && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y nodejs',
             'php': 'sudo apt-get update && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y php',

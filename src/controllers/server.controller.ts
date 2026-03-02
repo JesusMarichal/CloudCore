@@ -216,32 +216,7 @@ export class ServerController {
         return this.sshService.listServices(server);
     }
 
-    @Post(':id/services/:serviceName/:action')
-    async manageService(
-        @Param('id') id: string,
-        @Param('serviceName') serviceName: string,
-        @Param('action') action: string
-    ): Promise<any> {
-        const result = await this.dbService.query('SELECT * FROM servers WHERE id = $1', [id]);
-        const serverData = result.rows[0];
-        if (!serverData) return { success: false, message: 'Servidor no encontrado' };
 
-        const server: Server = {
-            id: serverData.id,
-            name: serverData.name,
-            ip: serverData.ip,
-            sshPort: serverData.ssh_port,
-            sshUser: serverData.ssh_user,
-            authType: serverData.auth_type,
-            privateKey: serverData.private_key,
-            password: serverData.password,
-            status: serverData.status as any,
-            lastHealthCheck: serverData.last_health_check || new Date(),
-        };
-
-        const success = await this.sshService.manageService(server, serviceName, action);
-        return { success };
-    }
 
     @Post(':id/services/install/:serviceName')
     async installService(
@@ -323,6 +298,33 @@ export class ServerController {
             res.write('\n\n---ERROR---\n');
         }
         res.end();
+    }
+
+    @Post(':id/services/:serviceName/:action')
+    async manageService(
+        @Param('id') id: string,
+        @Param('serviceName') serviceName: string,
+        @Param('action') action: string
+    ): Promise<any> {
+        const result = await this.dbService.query('SELECT * FROM servers WHERE id = $1', [id]);
+        const serverData = result.rows[0];
+        if (!serverData) return { success: false, message: 'Servidor no encontrado' };
+
+        const server: Server = {
+            id: serverData.id,
+            name: serverData.name,
+            ip: serverData.ip,
+            sshPort: serverData.ssh_port,
+            sshUser: serverData.ssh_user,
+            authType: serverData.auth_type,
+            privateKey: serverData.private_key,
+            password: serverData.password,
+            status: serverData.status as any,
+            lastHealthCheck: serverData.last_health_check || new Date(),
+        };
+
+        const success = await this.sshService.manageService(server, serviceName, action);
+        return { success };
     }
 
     @Post(':id/update-system')

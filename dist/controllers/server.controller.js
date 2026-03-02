@@ -200,26 +200,6 @@ let ServerController = class ServerController {
         };
         return this.sshService.listServices(server);
     }
-    async manageService(id, serviceName, action) {
-        const result = await this.dbService.query('SELECT * FROM servers WHERE id = $1', [id]);
-        const serverData = result.rows[0];
-        if (!serverData)
-            return { success: false, message: 'Servidor no encontrado' };
-        const server = {
-            id: serverData.id,
-            name: serverData.name,
-            ip: serverData.ip,
-            sshPort: serverData.ssh_port,
-            sshUser: serverData.ssh_user,
-            authType: serverData.auth_type,
-            privateKey: serverData.private_key,
-            password: serverData.password,
-            status: serverData.status,
-            lastHealthCheck: serverData.last_health_check || new Date(),
-        };
-        const success = await this.sshService.manageService(server, serviceName, action);
-        return { success };
-    }
     async installService(id, serviceName, res) {
         const result = await this.dbService.query('SELECT * FROM servers WHERE id = $1', [id]);
         const serverData = result.rows[0];
@@ -283,6 +263,26 @@ let ServerController = class ServerController {
             res.write('\n\n---ERROR---\n');
         }
         res.end();
+    }
+    async manageService(id, serviceName, action) {
+        const result = await this.dbService.query('SELECT * FROM servers WHERE id = $1', [id]);
+        const serverData = result.rows[0];
+        if (!serverData)
+            return { success: false, message: 'Servidor no encontrado' };
+        const server = {
+            id: serverData.id,
+            name: serverData.name,
+            ip: serverData.ip,
+            sshPort: serverData.ssh_port,
+            sshUser: serverData.ssh_user,
+            authType: serverData.auth_type,
+            privateKey: serverData.private_key,
+            password: serverData.password,
+            status: serverData.status,
+            lastHealthCheck: serverData.last_health_check || new Date(),
+        };
+        const success = await this.sshService.manageService(server, serviceName, action);
+        return { success };
     }
     async updateSystem(id, res) {
         const result = await this.dbService.query('SELECT * FROM servers WHERE id = $1', [id]);
@@ -897,15 +897,6 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], ServerController.prototype, "getServices", null);
 __decorate([
-    (0, common_1.Post)(':id/services/:serviceName/:action'),
-    __param(0, (0, common_1.Param)('id')),
-    __param(1, (0, common_1.Param)('serviceName')),
-    __param(2, (0, common_1.Param)('action')),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String, String]),
-    __metadata("design:returntype", Promise)
-], ServerController.prototype, "manageService", null);
-__decorate([
     (0, common_1.Post)(':id/services/install/:serviceName'),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Param)('serviceName')),
@@ -923,6 +914,15 @@ __decorate([
     __metadata("design:paramtypes", [String, String, typeof (_b = typeof express_1.Response !== "undefined" && express_1.Response) === "function" ? _b : Object]),
     __metadata("design:returntype", Promise)
 ], ServerController.prototype, "uninstallService", null);
+__decorate([
+    (0, common_1.Post)(':id/services/:serviceName/:action'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Param)('serviceName')),
+    __param(2, (0, common_1.Param)('action')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, String]),
+    __metadata("design:returntype", Promise)
+], ServerController.prototype, "manageService", null);
 __decorate([
     (0, common_1.Post)(':id/update-system'),
     __param(0, (0, common_1.Param)('id')),

@@ -12,9 +12,9 @@ export declare class ServerController {
     deleteServer(id: string): Promise<any>;
     refreshHealth(id: string): Promise<any>;
     getServices(id: string): Promise<any[]>;
-    manageService(id: string, serviceName: string, action: string): Promise<any>;
     installService(id: string, serviceName: string, res: Response): Promise<void>;
     uninstallService(id: string, serviceName: string, res: Response): Promise<void>;
+    manageService(id: string, serviceName: string, action: string): Promise<any>;
     updateSystem(id: string, res: Response): Promise<void>;
     deployWebsite(id: string, body: any): Promise<any>;
     updateWebsite(id: string, websiteId: string, body: any): Promise<any>;

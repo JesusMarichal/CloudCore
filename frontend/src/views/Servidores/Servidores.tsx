@@ -479,6 +479,7 @@ const Servidores: React.FC = () => {
                                             { name: 'PM2', desc: 'Gestor de procesos para Node' },
                                             { name: 'Docker', desc: 'Plataforma para contenedores' },
                                             { name: 'MySQL', desc: 'Sistema de Base de Datos' },
+                                            { name: 'PostgreSQL', desc: 'Sistema de Base de Datos Open Source' },
                                             { name: 'Redis', desc: 'Almacén de estructura de datos en memoria' },
                                         ].map(app => {
                                             const isInstalled = services.some(s => s.name.toLowerCase() === app.name.toLowerCase());
