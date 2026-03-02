@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { serverService } from '../../services/server.service';
 import type { CreateServerData } from '../../services/server.service';
-import { Database as DatabaseIcon, Plus, Play, Square, RotateCcw, Trash2, ExternalLink, Eye, EyeOff, X, HardDrive } from 'lucide-react';
+import { Database as DatabaseIcon, Plus, Play, Square, RotateCcw, Trash2, ExternalLink, Eye, EyeOff, X, HardDrive, Copy, Check, Link } from 'lucide-react';
 import './Database.css';
 
 interface DatabaseInstance {
@@ -42,6 +42,17 @@ const DatabaseView = () => {
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
     const [showPasswords, setShowPasswords] = useState<{ [key: string]: boolean }>({});
+    const [connectionModal, setConnectionModal] = useState<DatabaseInstance | null>(null);
+    const [copied, setCopied] = useState(false);
+    const [closingConnModal, setClosingConnModal] = useState(false);
+
+    const closeConnectionModal = () => {
+        setClosingConnModal(true);
+        setTimeout(() => {
+            setConnectionModal(null);
+            setClosingConnModal(false);
+        }, 250);
+    };
 
     const logsEndRef = useRef<HTMLDivElement>(null);
 
@@ -308,6 +319,15 @@ const DatabaseView = () => {
                                                 <span className="db-label">Usuario</span>
                                                 <span className="db-value">{db.dbUser}</span>
                                             </div>
+                                            <div className="db-info-item db-info-connect">
+                                                <button
+                                                    className="db-connect-btn"
+                                                    onClick={() => { setConnectionModal(db); setCopied(false); setClosingConnModal(false); }}
+                                                >
+                                                    <Link size={14} />
+                                                    Datos de Conexión
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
 
@@ -515,6 +535,76 @@ const DatabaseView = () => {
                                 </button>
                             </div>
                         )}
+                    </div>
+                </div>
+            )}
+            {/* Connection Info Modal */}
+            {connectionModal && (
+                <div className={`db-conn-modal-overlay ${closingConnModal ? 'closing' : ''}`} onClick={closeConnectionModal}>
+                    <div className={`db-conn-modal ${closingConnModal ? 'closing' : ''}`} onClick={(e) => e.stopPropagation()}>
+                        <div className="db-conn-modal-header">
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <div className={`db-engine-icon ${connectionModal.engine}`} style={{ width: '36px', height: '36px', fontSize: '20px' }}>
+                                    {connectionModal.engine === 'mysql' ? '🐬' : '🐘'}
+                                </div>
+                                <div>
+                                    <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700 }}>Datos de Conexión</h3>
+                                    <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-muted)' }}>{connectionModal.name} • {connectionModal.engine === 'mysql' ? 'MySQL' : 'PostgreSQL'}</p>
+                                </div>
+                            </div>
+                            <button className="btn-close" onClick={closeConnectionModal}><X size={18} /></button>
+                        </div>
+                        <div className="db-conn-modal-body">
+                            <div className="db-conn-grid">
+                                <div className="db-conn-item">
+                                    <span className="db-conn-label">Host</span>
+                                    <span className="db-conn-value">127.0.0.1</span>
+                                </div>
+                                <div className="db-conn-item">
+                                    <span className="db-conn-label">Puerto</span>
+                                    <span className="db-conn-value">{connectionModal.port}</span>
+                                </div>
+                                <div className="db-conn-item">
+                                    <span className="db-conn-label">Base de Datos</span>
+                                    <span className="db-conn-value">{connectionModal.dbName}</span>
+                                </div>
+                                <div className="db-conn-item">
+                                    <span className="db-conn-label">Usuario</span>
+                                    <span className="db-conn-value">{connectionModal.dbUser}</span>
+                                </div>
+                                <div className="db-conn-item" style={{ gridColumn: '1 / -1' }}>
+                                    <span className="db-conn-label">Contraseña</span>
+                                    <span className="db-conn-value">{connectionModal.dbPassword}</span>
+                                </div>
+                            </div>
+                            <div className="db-conn-env-section">
+                                <div className="db-conn-env-header">
+                                    <span>Variables para tu archivo .env</span>
+                                    <button
+                                        className={`db-conn-copy-btn ${copied ? 'copied' : ''}`}
+                                        onClick={() => {
+                                            const envText = connectionModal.engine === 'mysql'
+                                                ? `DB_HOST=127.0.0.1\nDB_PORT=${connectionModal.port}\nDB_USERNAME=${connectionModal.dbUser}\nDB_PASSWORD=${connectionModal.dbPassword}\nDB_DATABASE=${connectionModal.dbName}`
+                                                : `DATABASE_HOST=127.0.0.1\nDATABASE_PORT=${connectionModal.port}\nDATABASE_USER=${connectionModal.dbUser}\nDATABASE_PASSWORD=${connectionModal.dbPassword}\nDATABASE_NAME=${connectionModal.dbName}`;
+                                            navigator.clipboard.writeText(envText);
+                                            setCopied(true);
+                                            setTimeout(() => setCopied(false), 2500);
+                                        }}
+                                    >
+                                        {copied ? <><Check size={13} /> Copiado</> : <><Copy size={13} /> Copiar</>}
+                                    </button>
+                                </div>
+                                <pre className="db-connection-pre">{
+                                    connectionModal.engine === 'mysql'
+                                        ? `DB_HOST=127.0.0.1\nDB_PORT=${connectionModal.port}\nDB_USERNAME=${connectionModal.dbUser}\nDB_PASSWORD=${connectionModal.dbPassword}\nDB_DATABASE=${connectionModal.dbName}`
+                                        : `DATABASE_HOST=127.0.0.1\nDATABASE_PORT=${connectionModal.port}\nDATABASE_USER=${connectionModal.dbUser}\nDATABASE_PASSWORD=${connectionModal.dbPassword}\nDATABASE_NAME=${connectionModal.dbName}`
+                                }</pre>
+                            </div>
+                            <div className="db-conn-hint">
+                                <span className="db-conn-hint-icon">💡</span>
+                                <p>El Host es <strong>127.0.0.1</strong> porque Docker expone el puerto al servidor local. Copia estas variables y pégalas en la sección <strong>"Variables .env"</strong> de tu sitio web.</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}

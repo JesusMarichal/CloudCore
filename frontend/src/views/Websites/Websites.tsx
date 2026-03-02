@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { serverService } from '../../services/server.service';
 import type { CreateServerData } from '../../services/server.service';
-import { Globe, Plus, Play, X, ExternalLink, HardDrive, Settings, GitCommit, RefreshCw, CloudUpload } from 'lucide-react';
+import { Globe, Plus, X, ExternalLink, HardDrive, Settings, GitCommit, RefreshCw, CloudUpload, Terminal, RotateCcw } from 'lucide-react';
 import './Websites.css';
 
 interface WebsiteFormData {
@@ -31,7 +31,10 @@ const Websites = () => {
     const [websites, setWebsites] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [viewingLogs, setViewingLogs] = useState<string | null>(null);
-    const [logsContent, setLogsContent] = useState('');
+    const [logsSiteName, setLogsSiteName] = useState('');
+    const [logsContent, setLogsContent] = useState<any>({ out: '', error: '', nginx: '', diag: '' });
+    const [activeLogTab, setActiveLogTab] = useState<'out' | 'error' | 'nginx' | 'diag'>('out');
+    const [closingLogsModal, setClosingLogsModal] = useState(false);
     const [editingSite, setEditingSite] = useState<any>(null);
     const [showEnvModal, setShowEnvModal] = useState(false);
     const [envList, setEnvList] = useState<{ key: string, value: string }[]>([]);
@@ -47,6 +50,15 @@ const Websites = () => {
     // New states for commits and deploying updates
     const [commits, setCommits] = useState<{ [key: string]: { hash: string, message: string, author: string, time: string } | null }>({});
     const [deployingSites, setDeployingSites] = useState<{ [key: string]: boolean }>({});
+
+    // Toast and Confirm System
+    const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' | 'info' } | null>(null);
+    const [confirmDialog, setConfirmDialog] = useState<{ message: string, onConfirm: () => void } | null>(null);
+
+    const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
+        setToast({ message, type });
+        setTimeout(() => setToast(null), 4000);
+    };
 
     const [formData, setFormData] = useState<WebsiteFormData>({
         serverId: '',
@@ -121,14 +133,14 @@ const Websites = () => {
 
             if (editingSite) {
                 await serverService.updateWebsite(formData.serverId, editingSite.id, formData);
-                alert('¡Configuración actualizada con éxito!');
+                showToast('¡Configuración actualizada con éxito!', 'success');
                 setShowForm(false);
             } else {
                 setDeployLogs('Iniciando despliegue de sitio web...\n');
                 await serverService.deployWebsite(formData.serverId, { ...formData, userId: currentUserId }, (chunk) => {
                     setDeployLogs(prev => prev + chunk);
                 });
-                // alert('¡Sitio web desplegado con éxito!'); // Omitir para mostrar la terminal completada
+                // showToast('¡Sitio web desplegado con éxito!', 'success'); // Omitir para mostrar la terminal completada
             }
 
             setFormData({
@@ -147,7 +159,7 @@ const Websites = () => {
             setEditingSite(null);
         } catch (error) {
             console.error('Error desplegando el sitio:', error);
-            alert('Hubo un error al procesar el sitio.');
+            showToast('Hubo un error al procesar el sitio.', 'error');
         } finally {
             setDeploying(false);
             const userStr = localStorage.getItem('user');
@@ -229,7 +241,7 @@ const Websites = () => {
             };
 
             await serverService.updateWebsite(editingSite.server_id, editingSite.id, updatedData);
-            alert('¡Variables de entorno actualizadas y sitio reiniciado!');
+            showToast('¡Variables de entorno actualizadas y sitio reiniciado!', 'success');
             setShowEnvModal(false);
 
             const userStr = localStorage.getItem('user');
@@ -240,55 +252,123 @@ const Websites = () => {
             }
         } catch (error) {
             console.error('Error saving env:', error);
-            alert('Error al guardar variables');
+            showToast('Error al guardar variables', 'error');
         } finally {
             setDeploying(false);
         }
     };
 
     const handleDelete = async (serverId: string, websiteId: string) => {
-        if (!window.confirm('¿Estás seguro de que deseas eliminar este sitio web?')) return;
+        setConfirmDialog({
+            message: '¿Estás seguro de que deseas eliminar este sitio web?',
+            onConfirm: async () => {
+                setConfirmDialog(null);
+                try {
+                    await serverService.deleteWebsite(serverId, websiteId);
+                    setWebsites(websites.filter(w => w.id !== websiteId));
+                    showToast('Sitio web eliminado correctamente.', 'success');
+                } catch (error) {
+                    console.error('Error eliminando sitio:', error);
+                    showToast('No se pudo eliminar el sitio web.', 'error');
+                }
+            }
+        });
+    };
+
+    const handleViewLogs = async (serverId: string, websiteId: string, siteName: string) => {
+        if (viewingLogs !== websiteId) {
+            setActiveLogTab('out');
+        }
+        setViewingLogs(websiteId);
+        setLogsSiteName(siteName);
+        setLogsContent((prev: any) => ({ ...prev, out: 'Cargando logs...', error: 'Cargando logs...', nginx: 'Cargando logs...' }));
+        setClosingLogsModal(false);
         try {
-            await serverService.deleteWebsite(serverId, websiteId);
-            setWebsites(websites.filter(w => w.id !== websiteId));
+            const res = await serverService.getWebsiteLogs(serverId, websiteId);
+            setLogsContent((prev: any) => ({
+                ...prev,
+                out: res.logs?.out || 'Logs de salida vacíos.',
+                error: res.logs?.error || 'Logs de errores vacíos.',
+                nginx: res.logs?.nginx || 'Logs de nginx vacíos.'
+            }));
         } catch (error) {
-            console.error('Error eliminando sitio:', error);
-            alert('No se pudo eliminar el sitio web.');
+            setLogsContent((prev: any) => ({ ...prev, out: 'Error al obtener logs.', error: 'Error al obtener logs.', nginx: 'Error al obtener logs.' }));
         }
     };
 
-    const handleViewLogs = async (serverId: string, websiteId: string) => {
-        setViewingLogs(websiteId);
-        setLogsContent('Cargando logs...');
+    const closeLogsModal = () => {
+        setClosingLogsModal(true);
+        setTimeout(() => {
+            setViewingLogs(null);
+            setClosingLogsModal(false);
+        }, 250);
+    };
+
+    const handleRunDiagnostic = async (serverId: string, siteName: string) => {
+        setLogsContent((prev: any) => ({ ...prev, diag: 'Ejecutando diagnóstico del servidor...\n\n' }));
+        const safeName = siteName.replace(/[^a-zA-Z0-9_-]/g, '').toLowerCase();
+        const diagCmd = `echo "=== DOCKER CONTAINERS ==="
+echo "---"
+sudo docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" 2>/dev/null || docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" 2>/dev/null || echo "Docker no instalado o sin contenedores."
+echo ""
+echo "=== PM2 STATUS ==="
+echo "---"
+pm2 list 2>/dev/null || echo "PM2 no instalado."
+echo ""
+echo "=== ARCHIVO .ENV ==="
+echo "---"
+cat /var/www/${safeName}/.env 2>/dev/null || echo "No existe archivo .env en /var/www/${safeName}/"
+echo ""
+echo "=== PUERTO APP ==="
+echo "---"
+ss -tlnp | grep ':3000\|:3306' || echo "NADA escucha en los puertos 3000/3306"
+echo ""
+echo "=== DOCKER NETWORK (MySQL IP) ==="
+echo "---"
+sudo docker network inspect bridge --format '{{range .Containers}}{{.Name}}: {{.IPv4Address}}{{println}}{{end}}' 2>/dev/null || echo "Sin red Docker bridge."
+echo ""
+echo "=== ARCHIVOS DE LOG PM2 ==="
+echo "---"
+ls -la ~/.pm2/logs/ 2>/dev/null | grep ${safeName} || echo "No se encontraron archivos de log para ${safeName}"
+echo ""
+echo "=== ARCHIVOS EN /var/www/${safeName}/ ==="
+echo "---"
+ls -la /var/www/${safeName}/ 2>/dev/null | head -20 || echo "Carpeta no existe."
+echo ""
+echo "=== DIAGNÓSTICO COMPLETADO ==="`;
         try {
-            const res = await serverService.getWebsiteLogs(serverId, websiteId);
-            setLogsContent(res.logs || 'Sin logs disponibles.');
+            const res = await serverService.executeCommand(serverId, diagCmd);
+            setLogsContent((prev: any) => ({ ...prev, diag: res.output || res.message || 'Sin resultado.' }));
         } catch (error) {
-            setLogsContent('Error al obtener logs.');
+            setLogsContent((prev: any) => ({ ...prev, diag: 'Error ejecutando diagnóstico.' }));
         }
     };
 
     const handleDeployLatest = async (serverId: string, websiteId: string) => {
-        if (!window.confirm('¿Obtener el último commit de tu repositorio y hacer un re-despliegue ahora mismo?')) return;
-
-        setDeployingSites(prev => ({ ...prev, [websiteId]: true }));
-        try {
-            const res = await serverService.deployLatestCommit(serverId, websiteId);
-            if (res.success) {
-                alert('¡Sitio reconstruido y actualizado exitosamente al último commit!');
-                const commitRes = await serverService.getWebsiteCommit(serverId, websiteId);
-                if (commitRes.success && commitRes.commit) {
-                    setCommits(prev => ({ ...prev, [websiteId]: commitRes.commit }));
+        setConfirmDialog({
+            message: '¿Obtener el último commit de tu repositorio y hacer un re-despliegue ahora mismo?',
+            onConfirm: async () => {
+                setConfirmDialog(null);
+                setDeployingSites(prev => ({ ...prev, [websiteId]: true }));
+                try {
+                    const res = await serverService.deployLatestCommit(serverId, websiteId);
+                    if (res.success) {
+                        showToast('¡Sitio reconstruido y actualizado exitosamente al último commit!', 'success');
+                        const commitRes = await serverService.getWebsiteCommit(serverId, websiteId);
+                        if (commitRes.success && commitRes.commit) {
+                            setCommits(prev => ({ ...prev, [websiteId]: commitRes.commit }));
+                        }
+                    } else {
+                        showToast('Error al desplegar commit: ' + (res.message || 'Error desconocido'), 'error');
+                    }
+                } catch (error) {
+                    console.error('Error deploy latest:', error);
+                    showToast('Error al ejecutar el despliegue del último commit.', 'error');
+                } finally {
+                    setDeployingSites(prev => ({ ...prev, [websiteId]: false }));
                 }
-            } else {
-                alert('Error al desplegar commit: ' + (res.message || 'Error desconocido'));
             }
-        } catch (error) {
-            console.error('Error deploy latest:', error);
-            alert('Error al ejecutar el despliegue del último commit.');
-        } finally {
-            setDeployingSites(prev => ({ ...prev, [websiteId]: false }));
-        }
+        });
     };
 
     return (
@@ -334,7 +414,7 @@ const Websites = () => {
                     <div className="website-list">
                         {websites.map(site => (
                             <div key={site.id}>
-                                <div className="website-card">
+                                <div className={`website-card ${deployingSites[site.id] ? 'deploying' : ''}`}>
                                     <div className="website-info">
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                             <h3>{site.name}</h3>
@@ -394,21 +474,12 @@ const Websites = () => {
                                         )}
                                     </div>
                                     <div className="website-actions" style={{ flexDirection: 'column', borderTop: 'none', paddingTop: 0, paddingLeft: '15px', borderLeft: '1px solid rgba(255, 255, 255, 0.05)', gap: '10px' }}>
-                                        <button className="btn-action" onClick={() => handleViewLogs(site.server_id, site.id)} title="Ver Logs"><Play size={18} /></button>
+                                        <button className="btn-action" onClick={() => handleViewLogs(site.server_id, site.id, site.name)} title="Ver Logs"><Terminal size={18} /></button>
                                         <button className="btn-action" onClick={() => handleOpenEnvModal(site)} title="Variables .env"><Globe size={18} /></button>
                                         <button className="btn-action" onClick={() => handleEdit(site)} title="Configuración"><Settings size={18} /></button>
                                         <button className="btn-action-danger" onClick={() => handleDelete(site.server_id, site.id)} title="Eliminar"><X size={18} /></button>
                                     </div>
                                 </div>
-                                {viewingLogs === site.id && (
-                                    <div className="logs-panel">
-                                        <div className="logs-header">
-                                            <span>Logs - {site.name}</span>
-                                            <button onClick={() => setViewingLogs(null)}><X size={14} /></button>
-                                        </div>
-                                        <pre className="logs-pre">{logsContent}</pre>
-                                    </div>
-                                )}
                             </div>
                         ))}
                     </div>
@@ -584,6 +655,99 @@ const Websites = () => {
                     </div>
                 </div>
             )}
+
+            {/* Custom Toast Notification */}
+            {toast && (
+                <div className={`modern-toast toast-${toast.type}`}>
+                    <div className="toast-icon">
+                        {toast.type === 'success' && <div className="icon-success"><RefreshCw size={16} />✓</div>}
+                        {toast.type === 'error' && <div className="icon-error"><X size={16} /></div>}
+                        {toast.type === 'info' && <div className="icon-info">i</div>}
+                    </div>
+                    <div className="toast-message">{toast.message}</div>
+                    <button className="toast-close" onClick={() => setToast(null)}><X size={14} /></button>
+                </div>
+            )}
+
+            {/* Custom Confirm Modal */}
+            {confirmDialog && (
+                <div className="site-deploy-modal-overlay">
+                    <div className="confirm-modal-box">
+                        <h3>¿Estás seguro?</h3>
+                        <p>{confirmDialog.message}</p>
+                        <div className="confirm-modal-actions">
+                            <button className="btn-ghost" onClick={() => setConfirmDialog(null)}>Cancelar</button>
+                            <button className="btn-primary" onClick={confirmDialog.onConfirm}>Confirmar Acción</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* Logs Modal */}
+            {viewingLogs && (() => {
+                const site = websites.find((s: any) => s.id === viewingLogs);
+                return (
+                    <div className={`logs-modal-overlay ${closingLogsModal ? 'closing' : ''}`} onClick={closeLogsModal}>
+                        <div className={`logs-modal ${closingLogsModal ? 'closing' : ''}`} onClick={(e) => e.stopPropagation()}>
+                            <div className="logs-modal-header">
+                                <div className="logs-modal-title">
+                                    <div className="logs-terminal-dots">
+                                        <span className="dot-red"></span>
+                                        <span className="dot-yellow"></span>
+                                        <span className="dot-green"></span>
+                                    </div>
+                                    <Terminal size={16} />
+                                    <span className="logs-modal-name">{logsSiteName}</span>
+                                    <span className="logs-modal-sep">—</span>
+                                    <span className="logs-modal-subtitle">Logs del Servidor</span>
+                                </div>
+                                <div className="logs-modal-actions">
+                                    {site && (
+                                        <button className="logs-refresh-btn" onClick={() => handleViewLogs(site.server_id, site.id, site.name)} title="Recargar logs">
+                                            <RotateCcw size={14} />
+                                        </button>
+                                    )}
+                                    <button className="logs-close-btn" onClick={closeLogsModal}><X size={16} /></button>
+                                </div>
+                            </div>
+                            <div className="logs-modal-tabs">
+                                <button
+                                    className={`logs-tab ${activeLogTab === 'out' ? 'active' : ''}`}
+                                    onClick={() => setActiveLogTab('out')}
+                                >
+                                    <span className="logs-tab-dot" style={{ background: 'var(--primary)' }}></span>
+                                    App Logs
+                                </button>
+                                <button
+                                    className={`logs-tab ${activeLogTab === 'error' ? 'active' : ''}`}
+                                    onClick={() => setActiveLogTab('error')}
+                                >
+                                    <span className="logs-tab-dot" style={{ background: '#f85149' }}></span>
+                                    Errores
+                                </button>
+                                <button
+                                    className={`logs-tab ${activeLogTab === 'nginx' ? 'active' : ''}`}
+                                    onClick={() => setActiveLogTab('nginx')}
+                                >
+                                    <span className="logs-tab-dot" style={{ background: '#3fb950' }}></span>
+                                    Nginx
+                                </button>
+                                <button
+                                    className={`logs-tab ${activeLogTab === 'diag' ? 'active' : ''}`}
+                                    onClick={() => { setActiveLogTab('diag'); if (site) handleRunDiagnostic(site.server_id, site.name); }}
+                                >
+                                    <span className="logs-tab-dot" style={{ background: '#f0883e' }}></span>
+                                    Diagnóstico
+                                </button>
+                            </div>
+                            <div className="logs-modal-body">
+                                <pre className="logs-modal-pre" style={{ color: activeLogTab === 'error' ? '#ff7b72' : '#e6edf3' }}>
+                                    {typeof logsContent === 'string' ? logsContent : logsContent[activeLogTab] || 'No hay contenido para mostrar en esta pesta\u00f1a.'}
+                                </pre>
+                            </div>
+                        </div>
+                    </div>
+                );
+            })()}
         </div>
     );
 };

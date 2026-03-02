@@ -493,16 +493,14 @@ export class ServerController {
 
         const updateEnvCmd = `
             cd ${projectPath}
-            echo "PORT=${body.port}" > .env
-            ${body.envVars ? `echo "${body.envVars.replace(/\r/g, '')}" >> .env` : ''}
+            node -e "const fs = require('fs'); fs.writeFileSync('.env', Buffer.from('${Buffer.from(`PORT=${body.port}\n${body.envVars ? body.envVars.replace(/\r/g, '') : ''}`).toString('base64')}', 'base64'));"
             echo "✅ .env actualizado."
             pm2 restart ${safeName} || true
 
             # Configuración de Nginx Reverse Proxy
             if command -v nginx > /dev/null; then
                 echo "⚙️ Reconfigurando Nginx Reverse Proxy..."
-                sudo bash -c 'cat > /etc/nginx/sites-available/${safeName} << "EOF"
-server {
+                echo 'server {
     listen 80;
     server_name ${finalDomain};
 
@@ -514,8 +512,8 @@ server {
         proxy_set_header Host $host;
         proxy_cache_bypass $http_upgrade;
     }
-}
-EOF'
+}' | sudo tee /etc/nginx/sites-available/${safeName} > /dev/null
+
                 sudo ln -sf /etc/nginx/sites-available/${safeName} /etc/nginx/sites-enabled/
                 
                 if [ "${finalDomain}" = "_" ]; then
@@ -666,10 +664,25 @@ EOF'
         };
 
         const safeName = site.name.replace(/[^a-zA-Z0-9_-]/g, '').toLowerCase();
-        // Obtener las últimas 50 líneas de logs de PM2
-        const logs = await this.sshService.executeCommand(server, `pm2 logs ${safeName} --lines 50 --nostream`);
+        const pm2LogName = safeName.replace(/_/g, '-');
+        const pmDir = `/home/${server.sshUser}/.pm2/logs`;
 
-        return { success: true, logs };
+        const outCmd = `tail -n 100 ${pmDir}/${safeName}-out.log 2>/dev/null || tail -n 100 ${pmDir}/${pm2LogName}-out.log 2>/dev/null || pm2 logs ${safeName} --out --lines 50 --nostream 2>/dev/null || echo "Sin logs de salida disponibles."`;
+        const errCmd = `tail -n 100 ${pmDir}/${safeName}-error.log 2>/dev/null || tail -n 100 ${pmDir}/${pm2LogName}-error.log 2>/dev/null || pm2 logs ${safeName} --err --lines 50 --nostream 2>/dev/null || echo "Sin logs de errores disponibles."`;
+        const nginxCmd = `sudo tail -n 100 /var/log/nginx/error.log 2>/dev/null || echo "Sin logs de nginx."`;
+
+        const outLogs = await this.sshService.executeCommand(server, outCmd);
+        const errLogs = await this.sshService.executeCommand(server, errCmd);
+        const nginxLogs = await this.sshService.executeCommand(server, nginxCmd);
+
+        return {
+            success: true,
+            logs: {
+                out: outLogs,
+                error: errLogs,
+                nginx: nginxLogs
+            }
+        };
     }
 
     @Get(':id/websites/:websiteId/commit')
@@ -737,15 +750,62 @@ EOF'
         };
 
         const safeName = site.name.replace(/[^a-zA-Z0-9_-]/g, '').toLowerCase();
-        const projectPath = `/var/www/${safeName}`;
+        const projectPath = `/var/www/${safeName} `;
 
         const deployCmd = `
-            cd ${projectPath}
-            git reset --hard
-            git pull
-            ${site.install_command || 'npm install'}
-            ${site.build_command ? site.build_command : ''}
-            pm2 restart ${safeName} || true
+cd /var/www/${safeName}
+echo "📥 Obteniendo último commit..."
+git reset --hard
+git pull
+
+echo "⚙️ Re-inyectando variables de entorno..."
+node -e "const fs = require('fs'); fs.writeFileSync('.env', Buffer.from('${Buffer.from(`PORT=${site.port}\n${site.env_vars ? site.env_vars.replace(/\r/g, '') : ''}`).toString('base64')}', 'base64'));"
+
+echo "📦 Instalando dependencias..."
+${site.install_command || 'npm install'}
+
+# Asegurar permisos de ejecución en binarios
+chmod -R +x node_modules/.bin 2>/dev/null || true
+
+${site.build_command ? `echo "🏗️ Ejecutando build: ${site.build_command}"\n${site.build_command}` : ''}
+
+echo "🧹 Limpiando logs anteriores..."
+pm2 flush ${safeName} >/dev/null 2>&1 || true
+rm -f /home/$USER/.pm2/logs/${safeName}*.log 2>/dev/null || true
+rm -f /home/$USER/.pm2/logs/${safeName.replace(/_/g, '-')}*.log 2>/dev/null || true
+sudo truncate -s 0 /var/log/nginx/error.log 2>/dev/null || true
+sudo truncate -s 0 /var/log/nginx/access.log 2>/dev/null || true
+
+echo "🚀 Reiniciando aplicación..."
+pm2 delete ${safeName} >/dev/null 2>&1 || true
+
+# Auto-detectar el punto de entrada correcto
+ENTRY_POINT=""
+if [ -f "dist/main.js" ]; then
+    ENTRY_POINT="dist/main.js"
+elif [ -f "${site.entry_point || 'index.js'}" ]; then
+    ENTRY_POINT="${site.entry_point || 'index.js'}"
+elif [ -f "index.js" ]; then
+    ENTRY_POINT="index.js"
+elif [ -f "server.js" ]; then
+    ENTRY_POINT="server.js"
+fi
+
+if [ -n "$ENTRY_POINT" ]; then
+    pm2 start "$ENTRY_POINT" --name "${safeName}" --cwd "/var/www/${safeName}"
+else
+    pm2 start npm --name "${safeName}" --cwd "/var/www/${safeName}" -- run start
+fi
+
+pm2 save
+sleep 5
+
+if pm2 show ${safeName} | grep -q "online"; then
+    echo "✅ App reiniciada correctamente."
+else
+    echo "⚠️ La app puede haber fallado. Logs:"
+    pm2 logs ${safeName} --lines 10 --nostream 2>/dev/null || true
+fi
         `;
 
         try {
@@ -820,34 +880,34 @@ EOF'
 
         // Ensure database_instances table exists
         await this.dbService.query(`
-            CREATE TABLE IF NOT EXISTS database_instances (
-                id VARCHAR(255) PRIMARY KEY,
-                server_id VARCHAR(255) NOT NULL,
-                user_id VARCHAR(255) NOT NULL,
-                name VARCHAR(255) NOT NULL,
-                engine VARCHAR(50) NOT NULL,
-                port VARCHAR(10) NOT NULL,
-                db_name VARCHAR(255) NOT NULL,
-                db_user VARCHAR(255) NOT NULL,
-                db_password VARCHAR(255) NOT NULL,
-                admin_port VARCHAR(10),
-                container_name VARCHAR(255),
-                admin_container_name VARCHAR(255),
-                status VARCHAR(50) DEFAULT 'deploying',
-                created_at TIMESTAMP DEFAULT NOW()
-            );
-        `);
+            CREATE TABLE IF NOT EXISTS database_instances(
+        id VARCHAR(255) PRIMARY KEY,
+        server_id VARCHAR(255) NOT NULL,
+        user_id VARCHAR(255) NOT NULL,
+        name VARCHAR(255) NOT NULL,
+        engine VARCHAR(50) NOT NULL,
+        port VARCHAR(10) NOT NULL,
+        db_name VARCHAR(255) NOT NULL,
+        db_user VARCHAR(255) NOT NULL,
+        db_password VARCHAR(255) NOT NULL,
+        admin_port VARCHAR(10),
+        container_name VARCHAR(255),
+        admin_container_name VARCHAR(255),
+        status VARCHAR(50) DEFAULT 'deploying',
+        created_at TIMESTAMP DEFAULT NOW()
+    );
+`);
 
         const dbId = crypto.randomUUID();
         const safeName = body.name.replace(/[^a-zA-Z0-9_-]/g, '').toLowerCase();
-        const containerName = `cloudcore_db_${safeName}`;
-        const adminContainerName = `cloudcore_pma_${safeName}`;
+        const containerName = `cloudcore_db_${safeName} `;
+        const adminContainerName = `cloudcore_pma_${safeName} `;
 
         // Save to database first
         await this.dbService.query(`
-            INSERT INTO database_instances (id, server_id, user_id, name, engine, port, db_name, db_user, db_password, admin_port, container_name, admin_container_name, status)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'deploying')
-        `, [dbId, id, body.userId || '', body.name, body.engine, body.port, body.dbName, body.dbUser, body.dbPassword, body.adminPort || '', containerName, adminContainerName]);
+            INSERT INTO database_instances(id, server_id, user_id, name, engine, port, db_name, db_user, db_password, admin_port, container_name, admin_container_name, status)
+VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'deploying')
+    `, [dbId, id, body.userId || '', body.name, body.engine, body.port, body.dbName, body.dbUser, body.dbPassword, body.adminPort || '', containerName, adminContainerName]);
 
         res.setHeader('Content-Type', 'text/plain; charset=utf-8');
         res.setHeader('Transfer-Encoding', 'chunked');
@@ -855,14 +915,14 @@ EOF'
         let deployCmd = '';
 
         const prepDockerCmd = `
-            if ! command -v docker > /dev/null 2>&1; then
+if !command - v docker > /dev/null 2 >& 1; then
                 echo "📦 Preparando servidor: Instalando Docker..."
-                sudo apt-get update -qq
-                sudo DEBIAN_FRONTEND=noninteractive apt-get install -y docker.io
-                sudo systemctl enable --now docker
+                sudo apt - get update - qq
+                sudo DEBIAN_FRONTEND = noninteractive apt - get install - y docker.io
+                sudo systemctl enable--now docker
                 echo "✅ Docker instalado correctamente."
-            fi
-        `;
+fi
+    `;
 
         if (body.engine === 'mysql') {
             // Deploy MySQL + phpMyAdmin using Docker
@@ -870,94 +930,103 @@ EOF'
                 echo "🐬 Desplegando MySQL con Docker..."
 
                 # Verificar puertos libres antes de empezar
-                if sudo ss -tulpn | grep -q ":${body.port} "; then
+if sudo ss - tulpn | grep - q ":${body.port} "; then
                     echo "❌ ERROR: El puerto ${body.port} ya está en uso. Por favor, elige otro puerto para MySQL."
                     exit 1
-                fi
-                if sudo ss -tulpn | grep -q ":${body.adminPort || '8080'} "; then
+fi
+if sudo ss - tulpn | grep - q ":${body.adminPort || '8080'} "; then
                     echo "❌ ERROR: El puerto ${body.adminPort || '8080'} ya está en uso. Por favor, elige otro para phpMyAdmin."
                     exit 1
-                fi
+fi
                 
                 # Crear red Docker para comunicación entre contenedores
-                sudo docker network create cloudcore_${safeName}_net 2>/dev/null || true
+                sudo docker network create cloudcore_${safeName}_net 2 > /dev/null || true
                 
                 # Detener y eliminar contenedores previos si existen
-                sudo docker rm -f ${containerName} 2>/dev/null || true
-                sudo docker rm -f ${adminContainerName} 2>/dev/null || true
+                sudo docker rm - f ${containerName} 2 > /dev/null || true
+                sudo docker rm - f ${adminContainerName} 2 > /dev/null || true
                 
                 # Crear volumen persistente
-                sudo docker volume create ${containerName}_data 2>/dev/null || true
+                sudo docker volume create ${containerName}_data 2 > /dev/null || true
                 
-                # Iniciar MySQL
+                # Iniciar MySQL con autenticación compatible con Node.js
                 echo "📦 Iniciando contenedor MySQL..."
-                sudo docker run -d \\
-                    --name ${containerName} \\
-                    --network cloudcore_${safeName}_net \\
-                    --network-alias db \\
-                    -e MYSQL_ROOT_PASSWORD=${body.dbPassword} \\
-                    -e MYSQL_DATABASE=${body.dbName} \\
-                    -e MYSQL_USER=${body.dbUser} \\
-                    -e MYSQL_PASSWORD=${body.dbPassword} \\
-                    -p ${body.port}:3306 \\
-                    -v ${containerName}_data:/var/lib/mysql \\
-                    --restart unless-stopped \\
-                    mysql:8.0
+                sudo docker run - d \\
+--name ${containerName} \\
+--network cloudcore_${safeName} _net \\
+--network - alias db \\
+-e MYSQL_ROOT_PASSWORD = ${body.dbPassword} \\
+-e MYSQL_DATABASE = ${body.dbName} \\
+-e MYSQL_USER = ${body.dbUser} \\
+-e MYSQL_PASSWORD = ${body.dbPassword} \\
+-p ${body.port}: 3306 \\
+-v ${containerName} _data: /var/lib / mysql \\
+--restart unless - stopped \\
+mysql: 8.0 --default -authentication - plugin=mysql_native_password
                 
-                echo "⏳ Esperando a que MySQL inicie..."
-                sleep 10
+                echo "⏳ Esperando a que MySQL inicie completamente..."
+                sleep 15
+                
+                # Configurar usuario con permisos correctos y autenticación compatible
+                echo "🔧 Configurando permisos de usuario..."
+                sudo docker exec ${containerName} mysql - uroot - p${body.dbPassword} -e "
+                    ALTER USER '${body.dbUser}'@'%' IDENTIFIED WITH mysql_native_password BY '${body.dbPassword}';
+                    GRANT ALL PRIVILEGES ON ${body.dbName}.* TO '${body.dbUser}'@'%';
+                    GRANT ALL PRIVILEGES ON ${body.dbName}.* TO '${body.dbUser}'@'172.18.0.%' IDENTIFIED BY '${body.dbPassword}';
+                    FLUSH PRIVILEGES;
+" 2>/dev/null || echo "Nota: Los permisos se configurarán cuando MySQL termine de iniciar."
                 
                 # Iniciar phpMyAdmin
                 echo "🖥️ Iniciando phpMyAdmin..."
-                sudo docker run -d \\
-                    --name ${adminContainerName} \\
-                    --network cloudcore_${safeName}_net \\
-                    -e PMA_HOST=db \\
-                    -e PMA_PORT=3306 \\
-                    -e MYSQL_ROOT_PASSWORD=${body.dbPassword} \\
-                    -p ${body.adminPort || '8080'}:80 \\
-                    --restart unless-stopped \\
-                    phpmyadmin/phpmyadmin
+                sudo docker run - d \\
+--name ${adminContainerName} \\
+--network cloudcore_${safeName} _net \\
+-e PMA_HOST = db \\
+-e PMA_PORT = 3306 \\
+-e MYSQL_ROOT_PASSWORD = ${body.dbPassword} \\
+-p ${body.adminPort || '8080'}: 80 \\
+--restart unless - stopped \\
+phpmyadmin / phpmyadmin
                 
                 echo "✅ MySQL y phpMyAdmin desplegados correctamente."
                 echo "📊 MySQL disponible en el puerto ${body.port}"
                 echo "🔗 phpMyAdmin disponible en http://$(hostname -I | awk '{print $1}'):${body.adminPort || '8080'}"
-            `;
+    `;
         } else {
             // Deploy PostgreSQL using Docker
             deployCmd = prepDockerCmd + `
                 echo "🐘 Desplegando PostgreSQL con Docker..."
                 
                 # Verificar puerto
-                if sudo ss -tulpn | grep -q ":${body.port} "; then
+if sudo ss - tulpn | grep - q ":${body.port} "; then
                     echo "❌ ERROR: El puerto ${body.port} ya está en uso. Por favor, elige otro."
                     exit 1
-                fi
+fi
 
                 # Detener y eliminar contenedor previo si existe
-                sudo docker rm -f ${containerName} 2>/dev/null || true
+                sudo docker rm - f ${containerName} 2 > /dev/null || true
                 
                 # Crear volumen persistente
-                sudo docker volume create ${containerName}_data 2>/dev/null || true
+                sudo docker volume create ${containerName}_data 2 > /dev/null || true
                 
                 # Iniciar PostgreSQL
                 echo "📦 Iniciando contenedor PostgreSQL..."
-                sudo docker run -d \\
-                    --name ${containerName} \\
-                    -e POSTGRES_DB=${body.dbName} \\
-                    -e POSTGRES_USER=${body.dbUser} \\
-                    -e POSTGRES_PASSWORD=${body.dbPassword} \\
-                    -p ${body.port}:5432 \\
-                    -v ${containerName}_data:/var/lib/postgresql/data \\
-                    --restart unless-stopped \\
-                    postgres:16-alpine
+                sudo docker run - d \\
+--name ${containerName} \\
+-e POSTGRES_DB = ${body.dbName} \\
+-e POSTGRES_USER = ${body.dbUser} \\
+-e POSTGRES_PASSWORD = ${body.dbPassword} \\
+-p ${body.port}: 5432 \\
+-v ${containerName} _data: /var/lib / postgresql / data \\
+--restart unless - stopped \\
+postgres: 16 - alpine
                 
                 echo "⏳ Esperando a que PostgreSQL inicie..."
                 sleep 5
                 
                 echo "✅ PostgreSQL desplegado correctamente."
                 echo "📊 PostgreSQL disponible en el puerto ${body.port}"
-            `;
+    `;
         }
 
         try {
@@ -988,31 +1057,31 @@ EOF'
         try {
             // Ensure table exists
             await this.dbService.query(`
-                CREATE TABLE IF NOT EXISTS database_instances (
-                    id VARCHAR(255) PRIMARY KEY,
-                    server_id VARCHAR(255) NOT NULL,
-                    user_id VARCHAR(255) NOT NULL,
-                    name VARCHAR(255) NOT NULL,
-                    engine VARCHAR(50) NOT NULL,
-                    port VARCHAR(10) NOT NULL,
-                    db_name VARCHAR(255) NOT NULL,
-                    db_user VARCHAR(255) NOT NULL,
-                    db_password VARCHAR(255) NOT NULL,
-                    admin_port VARCHAR(10),
-                    container_name VARCHAR(255),
-                    admin_container_name VARCHAR(255),
-                    status VARCHAR(50) DEFAULT 'deploying',
-                    created_at TIMESTAMP DEFAULT NOW()
-                );
-            `);
+                CREATE TABLE IF NOT EXISTS database_instances(
+        id VARCHAR(255) PRIMARY KEY,
+        server_id VARCHAR(255) NOT NULL,
+        user_id VARCHAR(255) NOT NULL,
+        name VARCHAR(255) NOT NULL,
+        engine VARCHAR(50) NOT NULL,
+        port VARCHAR(10) NOT NULL,
+        db_name VARCHAR(255) NOT NULL,
+        db_user VARCHAR(255) NOT NULL,
+        db_password VARCHAR(255) NOT NULL,
+        admin_port VARCHAR(10),
+        container_name VARCHAR(255),
+        admin_container_name VARCHAR(255),
+        status VARCHAR(50) DEFAULT 'deploying',
+        created_at TIMESTAMP DEFAULT NOW()
+    );
+`);
 
             const result = await this.dbService.query(`
                 SELECT di.*, s.name as "serverName", s.ip as "serverIp"
                 FROM database_instances di
-                JOIN servers s ON di.server_id = s.id::text
-                WHERE di.user_id = $1::text
+                JOIN servers s ON di.server_id = s.id:: text
+                WHERE di.user_id = $1:: text
                 ORDER BY di.created_at DESC
-            `, [userId]);
+    `, [userId]);
 
             return result.rows.map(row => ({
                 id: row.id,
@@ -1052,15 +1121,15 @@ EOF'
         const safeName = dbInstance.name.replace(/[^a-zA-Z0-9_-]/g, '').toLowerCase();
 
         let cleanCmd = `
-            sudo docker rm -f ${dbInstance.container_name} 2>/dev/null || true
-            sudo docker volume rm ${dbInstance.container_name}_data 2>/dev/null || true
-        `;
+            sudo docker rm - f ${dbInstance.container_name} 2 > /dev/null || true
+            sudo docker volume rm ${dbInstance.container_name}_data 2 > /dev/null || true
+    `;
 
         if (dbInstance.engine === 'mysql' && dbInstance.admin_container_name) {
             cleanCmd += `
-                sudo docker rm -f ${dbInstance.admin_container_name} 2>/dev/null || true
-                sudo docker network rm cloudcore_${safeName}_net 2>/dev/null || true
-            `;
+                sudo docker rm - f ${dbInstance.admin_container_name} 2 > /dev/null || true
+                sudo docker network rm cloudcore_${safeName}_net 2 > /dev/null || true
+    `;
         }
 
         // Intentar limpiar contenedores Docker (best-effort, no bloquea la eliminación)
@@ -1094,10 +1163,10 @@ EOF'
 
         const server = this.getServerFromData(serverData);
 
-        let cmd = `sudo docker ${action} ${dbInstance.container_name}`;
+        let cmd = `sudo docker ${action} ${dbInstance.container_name} `;
         // Also manage phpMyAdmin container for MySQL
         if (dbInstance.engine === 'mysql' && dbInstance.admin_container_name) {
-            cmd += ` && sudo docker ${action} ${dbInstance.admin_container_name}`;
+            cmd += ` && sudo docker ${action} ${dbInstance.admin_container_name} `;
         }
 
         try {
@@ -1109,7 +1178,7 @@ EOF'
             );
             return { success: true };
         } catch (error) {
-            console.error(`Error ${action} database container:`, error);
+            console.error(`Error ${action} database container: `, error);
             return { success: false, message: error.message };
         }
     }
