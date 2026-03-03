@@ -48,7 +48,7 @@ const Websites = () => {
     }, [deployLogs]);
 
     // New states for commits and deploying updates
-    const [commits, setCommits] = useState<{ [key: string]: { hash: string, message: string, author: string, time: string } | null }>({});
+    const [commits, setCommits] = useState<{ [key: string]: { hash: string, message: string, author: string, time: string, isOutdated?: boolean, latestHash?: string } | null }>({});
     const [deployingSites, setDeployingSites] = useState<{ [key: string]: boolean }>({});
 
     // Toast and Confirm System
@@ -414,7 +414,7 @@ echo "=== DIAGNÓSTICO COMPLETADO ==="`;
                     <div className="website-list">
                         {websites.map(site => (
                             <div key={site.id}>
-                                <div className={`website-card ${deployingSites[site.id] ? 'deploying' : ''}`}>
+                                <div className={`website-card ${deployingSites[site.id] ? 'deploying' : (commits[site.id]?.isOutdated ? 'outdated' : '')}`}>
                                     <div className="website-info">
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                             <h3>{site.name}</h3>
@@ -462,8 +462,18 @@ echo "=== DIAGNÓSTICO COMPLETADO ==="`;
                                                 <div style={{ fontWeight: 500, color: 'var(--text-main)', marginBottom: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                                     {commits[site.id]!.message}
                                                 </div>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                    <span className="mono" style={{ color: 'var(--gh-text-link)' }}>{commits[site.id]!.hash}</span>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <span className="mono" style={{ color: 'var(--gh-text-link)', display: 'flex', alignItems: 'center' }}>
+                                                        {commits[site.id]!.hash}
+                                                        {commits[site.id]!.isOutdated && (
+                                                            <span
+                                                                style={{ color: '#ff7b72', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', background: 'rgba(255,123,114,0.1)', padding: '2px 6px', borderRadius: '10px', marginLeft: '8px' }}
+                                                                title={`Commit remoto disponible: ${commits[site.id]!.latestHash}`}
+                                                            >
+                                                                <RefreshCw size={10} className="spinning" /> Desactualizado
+                                                            </span>
+                                                        )}
+                                                    </span>
                                                     <span>{commits[site.id]!.time}</span>
                                                 </div>
                                             </div>

@@ -21,6 +21,27 @@ export interface CreateServerData {
 
 
 
+const cache: Record<string, { value: any; expiry: number }> = {};
+const CACHE_TTL = 3 * 60 * 1000; // 3 minutos
+
+async function withCache<T>(key: string, fetcher: () => Promise<T>): Promise<T> {
+    const now = Date.now();
+    if (cache[key] && cache[key].expiry > now) {
+        return cache[key].value;
+    }
+    const res = await fetcher();
+    cache[key] = { value: res, expiry: now + CACHE_TTL };
+    return res;
+}
+
+function invalidateCache(prefix: string) {
+    Object.keys(cache).forEach(k => {
+        if (k.startsWith(prefix)) {
+            delete cache[k];
+        }
+    });
+}
+
 export const serverService = {
     async create(data: CreateServerData) {
         const response = await fetch(API_URL, {
@@ -33,19 +54,23 @@ export const serverService = {
         if (!response.ok) {
             throw new Error('Error al crear el servidor');
         }
+        invalidateCache('servers_');
         return response.json();
     },
 
     async list(userId: string) {
-        const response = await fetch(`${API_URL}?userId=${userId}`);
-        if (!response.ok) return [];
-        return response.json();
+        return withCache(`servers_${userId}`, async () => {
+            const response = await fetch(`${API_URL}?userId=${userId}`);
+            if (!response.ok) return [];
+            return response.json();
+        });
     },
 
     async deleteServer(id: string) {
         const response = await fetch(`${API_URL}/${id}`, {
             method: 'DELETE'
         });
+        invalidateCache('servers_');
         return response.json();
     },
 
@@ -57,15 +82,19 @@ export const serverService = {
     },
 
     async getServices(id: string) {
-        const response = await fetch(`${API_URL}/${id}/services`);
-        if (!response.ok) return [];
-        return response.json();
+        return withCache(`services_${id}`, async () => {
+            const response = await fetch(`${API_URL}/${id}/services`);
+            if (!response.ok) return [];
+            return response.json();
+        });
     },
 
     async manageService(id: string, serviceName: string, action: string) {
         const response = await fetch(`${API_URL}/${id}/services/${serviceName}/${action}`, {
             method: 'POST'
         });
+        invalidateCache(`services_${id}`);
+        invalidateCache('servers_');
         return response.json();
     },
 
@@ -81,8 +110,12 @@ export const serverService = {
                 if (done) break;
                 onData(decoder.decode(value, { stream: true }));
             }
+            invalidateCache(`services_${id}`);
+            invalidateCache('servers_');
             return { success: true };
         }
+        invalidateCache(`services_${id}`);
+        invalidateCache('servers_');
         return response.json();
     },
 
@@ -98,8 +131,12 @@ export const serverService = {
                 if (done) break;
                 onData(decoder.decode(value, { stream: true }));
             }
+            invalidateCache(`services_${id}`);
+            invalidateCache('servers_');
             return { success: true };
         }
+        invalidateCache(`services_${id}`);
+        invalidateCache('servers_');
         return response.json();
     },
 
@@ -135,23 +172,28 @@ export const serverService = {
                 if (done) break;
                 onData(decoder.decode(value, { stream: true }));
             }
+            invalidateCache('websites_');
             return { success: true };
         }
 
         if (!response.ok) throw new Error('Error al desplegar sitio web');
+        invalidateCache('websites_');
         return response.json();
     },
 
     async listWebsites(userId: string) {
-        const response = await fetch(`${API_URL}/websites/${userId}`);
-        if (!response.ok) return [];
-        return response.json();
+        return withCache(`websites_${userId}`, async () => {
+            const response = await fetch(`${API_URL}/websites/${userId}`);
+            if (!response.ok) return [];
+            return response.json();
+        });
     },
 
     async deleteWebsite(serverId: string, websiteId: string) {
         const response = await fetch(`${API_URL}/${serverId}/websites/${websiteId}/delete`, {
             method: 'POST'
         });
+        invalidateCache('websites_');
         return response.json();
     },
 
@@ -161,6 +203,7 @@ export const serverService = {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
         });
+        invalidateCache('websites_');
         return response.json();
     },
 
@@ -192,6 +235,7 @@ export const serverService = {
         const response = await fetch(`${API_URL}/${serverId}/websites/${websiteId}/deploy-latest`, {
             method: 'POST'
         });
+        invalidateCache('websites_');
         return response.json();
     },
 
@@ -211,15 +255,19 @@ export const serverService = {
                 if (done) break;
                 onData(decoder.decode(value, { stream: true }));
             }
+            invalidateCache('databases_');
             return { success: true };
         }
+        invalidateCache('databases_');
         return response.json();
     },
 
     async listDatabases(userId: string) {
-        const response = await fetch(`${API_URL}/databases/${userId}`);
-        if (!response.ok) return [];
-        return response.json();
+        return withCache(`databases_${userId}`, async () => {
+            const response = await fetch(`${API_URL}/databases/${userId}`);
+            if (!response.ok) return [];
+            return response.json();
+        });
     },
 
     async manageDatabaseContainer(serverId: string, dbId: string, action: string) {
@@ -233,6 +281,7 @@ export const serverService = {
         const response = await fetch(`${API_URL}/${serverId}/databases/${dbId}/delete`, {
             method: 'POST'
         });
+        invalidateCache('databases_');
         return response.json();
     }
 };

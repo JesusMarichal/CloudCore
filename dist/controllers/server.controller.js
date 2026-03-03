@@ -589,10 +589,36 @@ let ServerController = class ServerController {
         const safeName = site.name.replace(/[^a-zA-Z0-9_-]/g, '').toLowerCase();
         const projectPath = `/var/www/${safeName}`;
         try {
-            const output = await this.sshService.executeCommand(server, `cd ${projectPath} && git log -1 --format="%h|%s|%cr|%an"`);
-            const parts = output.trim().split('|');
-            if (parts.length >= 4) {
-                return { success: true, commit: { hash: parts[0], message: parts[1], time: parts[2], author: parts[3] } };
+            const checkCmd = `
+                cd ${projectPath}
+                git fetch origin -q || true
+                LOCAL=$(git rev-parse HEAD 2>/dev/null || echo "")
+                REMOTE=$(git ls-remote origin HEAD 2>/dev/null | awk '{print $1}')
+                LOG=$(git log -1 --format="%h|%s|%cr|%an" 2>/dev/null || echo "")
+                
+                if [ -n "$REMOTE" ] && [ -n "$LOCAL" ] && [ "$LOCAL" != "$REMOTE" ]; then
+                    SHORT_REMOTE=$(echo $REMOTE | cut -c1-7)
+                    echo "$LOG|OUTDATED|$SHORT_REMOTE"
+                else
+                    echo "$LOG|UPTODATE|"
+                fi
+            `;
+            const output = await this.sshService.executeCommand(server, checkCmd);
+            const lines = output.trim().split('\n');
+            const lastLine = lines[lines.length - 1].trim();
+            const parts = lastLine.split('|');
+            if (parts.length >= 4 && parts[0] !== '') {
+                return {
+                    success: true,
+                    commit: {
+                        hash: parts[0],
+                        message: parts[1],
+                        time: parts[2],
+                        author: parts[3],
+                        isOutdated: parts[4] === 'OUTDATED',
+                        latestHash: parts[5] || null
+                    }
+                };
             }
             return { success: false, message: 'No se pudo obtener el commit o el folder no es un repo git' };
         }
