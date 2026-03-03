@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { RefreshCw, Play, Square, RotateCcw, Activity, Shield, Cpu, HardDrive, Thermometer, ChevronRight, X, Plus } from 'lucide-react';
+import { RefreshCw, Play, Square, RotateCcw, Activity, Shield, Cpu, HardDrive, Thermometer, ChevronRight, X, Plus, KeyRound, Lock, Upload, Server } from 'lucide-react';
 import { serverService } from '../../services/server.service';
 import type { CreateServerData } from '../../services/server.service';
 import './Servidores.css';
@@ -544,36 +544,44 @@ const Servidores: React.FC = () => {
             )}
 
             {showForm && (
-                <div className="modal-overlay">
-                    <div className="server-form-card">
-                        <div className="detail-header">
-                            <h2>Agregar Nuevo Servidor</h2>
-                            <button className="btn-close" onClick={() => setShowForm(false)}>
-                                <X size={20} />
+                <div className="modal-overlay" onClick={() => setShowForm(false)}>
+                    <div className="server-form-card" onClick={(e) => e.stopPropagation()}>
+                        <div className="server-form-header">
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <div className="server-engine-icon" style={{ width: '32px', height: '32px', borderRadius: '4px' }}>
+                                    <Server size={16} />
+                                </div>
+                                <div>
+                                    <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: 'var(--text-main)' }}>Agregar Servidor</h3>
+                                    <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-muted)' }}>Conecta un VPS a la plataforma</p>
+                                </div>
+                            </div>
+                            <button type="button" className="btn-close" onClick={() => setShowForm(false)}>
+                                <X size={16} />
                             </button>
                         </div>
-                        <form onSubmit={handleSubmit}>
-                            <div className="form-group">
-                                <label>Nombre del Servidor</label>
-                                <input
-                                    type="text"
-                                    placeholder="Mi VPS"
-                                    value={formData.name}
-                                    onChange={e => setFormData({ ...formData, name: e.target.value })}
-                                    required
-                                />
-                            </div>
-                            <div className="form-group">
-                                <label>Dirección IP o Hostname</label>
-                                <input
-                                    type="text"
-                                    placeholder="ec2-52-15... o 1.2.3.4"
-                                    value={formData.ip}
-                                    onChange={e => setFormData({ ...formData, ip: e.target.value })}
-                                    required
-                                />
-                            </div>
-                            <div className="form-row">
+                        <form onSubmit={handleSubmit} className="server-form-body">
+                            <div className="server-conn-grid">
+                                <div className="form-group">
+                                    <label>Nombre del Servidor</label>
+                                    <input
+                                        type="text"
+                                        placeholder="Mi VPS"
+                                        value={formData.name}
+                                        onChange={e => setFormData({ ...formData, name: e.target.value })}
+                                        required
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label>Dirección IP o Hostname</label>
+                                    <input
+                                        type="text"
+                                        placeholder="1.2.3.4 o ec2-52-15..."
+                                        value={formData.ip}
+                                        onChange={e => setFormData({ ...formData, ip: e.target.value })}
+                                        required
+                                    />
+                                </div>
                                 <div className="form-group">
                                     <label>Puerto SSH</label>
                                     <input
@@ -587,79 +595,87 @@ const Servidores: React.FC = () => {
                                     <label>Usuario SSH</label>
                                     <input
                                         type="text"
-                                        placeholder="ubuntu, root, deploy..."
+                                        placeholder="root"
                                         value={formData.sshUser}
                                         onChange={e => setFormData({ ...formData, sshUser: e.target.value })}
                                         required
                                     />
                                 </div>
-                            </div>
-                            <div className="form-group">
-                                <label>Método de Autenticación</label>
-                                <select
-                                    value={formData.authType}
-                                    onChange={e => setFormData({ ...formData, authType: e.target.value as 'key' | 'password' })}
-                                >
-                                    <option value="key">🔑 Private Key (.pem / .key)</option>
-                                    <option value="password">🔐 Password</option>
-                                </select>
-                            </div>
-
-                            {formData.authType === 'key' ? (
-                                <div className="form-group">
-                                    <div className="label-with-action">
-                                        <label>Private Key (Contenido o archivo)</label>
-                                        <label className="file-upload-link">
-                                            📁 Cargar archivo .pem
-                                            <input
-                                                type="file"
-                                                accept=".pem,.key,.txt,*"
-                                                onChange={(e) => {
-                                                    const file = e.target.files?.[0];
-                                                    if (file) {
-                                                        const reader = new FileReader();
-                                                        reader.onload = (ev) => {
-                                                            setFormData({ ...formData, privateKey: ev.target?.result as string });
-                                                        };
-                                                        reader.readAsText(file);
-                                                    }
-                                                }}
-                                                style={{ display: 'none' }}
-                                            />
-                                        </label>
+                                <div className="form-group full-width">
+                                    <label>Método de Autenticación</label>
+                                    <div className="auth-toggle">
+                                        <div
+                                            className={`auth-toggle-option ${formData.authType === 'key' ? 'active' : ''}`}
+                                            onClick={() => setFormData({ ...formData, authType: 'key' })}
+                                        >
+                                            <KeyRound size={14} />
+                                            <span>Private Key</span>
+                                        </div>
+                                        <div
+                                            className={`auth-toggle-option ${formData.authType === 'password' ? 'active' : ''}`}
+                                            onClick={() => setFormData({ ...formData, authType: 'password' })}
+                                        >
+                                            <Lock size={14} />
+                                            <span>Password</span>
+                                        </div>
                                     </div>
-                                    <textarea
-                                        rows={5}
-                                        placeholder="-----BEGIN RSA PRIVATE KEY-----..."
-                                        className="mono"
-                                        value={formData.privateKey}
-                                        onChange={e => setFormData({ ...formData, privateKey: e.target.value })}
-                                        required
-                                    />
                                 </div>
-                            ) : (
 
-                                <div className="form-group">
-                                    <label>Password</label>
-                                    <input
-                                        type="password"
-                                        placeholder="**********"
-                                        value={formData.password}
-                                        onChange={e => setFormData({ ...formData, password: e.target.value })}
-                                        required
-                                    />
-                                </div>
-                            )}
-
-                            <div className="form-actions">
-                                <button type="button" className="btn-secondary" onClick={() => setShowForm(false)}>
-                                    Cancelar
-                                </button>
-                                <button type="submit" className="btn-primary" disabled={loading}>
-                                    {loading ? 'Conectando...' : 'Conectar Servidor'}
-                                </button>
+                                {formData.authType === 'key' ? (
+                                    <div className="form-group full-width">
+                                        <div className="label-with-action">
+                                            <label>Private Key</label>
+                                            <label className="file-upload-link">
+                                                <Upload size={12} /> Cargar .pem
+                                                <input
+                                                    type="file"
+                                                    accept=".pem,.key,.txt,*"
+                                                    onChange={(e) => {
+                                                        const file = e.target.files?.[0];
+                                                        if (file) {
+                                                            const reader = new FileReader();
+                                                            reader.onload = (ev) => {
+                                                                setFormData({ ...formData, privateKey: ev.target?.result as string });
+                                                            };
+                                                            reader.readAsText(file);
+                                                        }
+                                                    }}
+                                                    style={{ display: 'none' }}
+                                                />
+                                            </label>
+                                        </div>
+                                        <textarea
+                                            rows={2}
+                                            style={{ resize: 'none' }}
+                                            placeholder="-----BEGIN RSA PRIVATE KEY-----..."
+                                            className="mono"
+                                            value={formData.privateKey}
+                                            onChange={e => setFormData({ ...formData, privateKey: e.target.value })}
+                                            required
+                                        />
+                                    </div>
+                                ) : (
+                                    <div className="form-group full-width">
+                                        <label>Password</label>
+                                        <input
+                                            type="password"
+                                            placeholder="••••••••"
+                                            value={formData.password}
+                                            onChange={e => setFormData({ ...formData, password: e.target.value })}
+                                            required
+                                        />
+                                    </div>
+                                )}
                             </div>
                         </form>
+                        <div className="server-form-footer">
+                            <button type="button" className="btn-secondary" onClick={() => setShowForm(false)}>
+                                Cancelar
+                            </button>
+                            <button type="button" className="btn-primary" onClick={handleSubmit} disabled={loading}>
+                                {loading ? 'Conectando...' : 'Conectar Servidor'}
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
@@ -668,5 +684,3 @@ const Servidores: React.FC = () => {
 };
 
 export default Servidores;
-
-

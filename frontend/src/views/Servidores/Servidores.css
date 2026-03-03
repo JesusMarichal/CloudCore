@@ -162,8 +162,7 @@
     padding: 20px;
 }
 
-.server-detail-card,
-.server-form-card {
+.server-detail-card {
     background: #161b22;
     border: 1px solid var(--gh-border);
     border-radius: 0;
@@ -175,6 +174,108 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
+}
+
+.server-form-card {
+    background: var(--gh-canvas);
+    border: 1px solid var(--gh-border);
+    width: 580px;
+    max-width: 95vw;
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.05);
+    animation: dbConnSlide 0.25s ease-out;
+    overflow: hidden;
+    border-radius: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+@keyframes dbConnSlide {
+    from {
+        opacity: 0;
+        transform: translateY(30px) scale(0.95);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.server-form-header {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--gh-border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.server-form-body {
+    padding: 18px 20px;
+}
+
+.server-conn-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px 18px;
+}
+
+.server-conn-grid .full-width {
+    grid-column: 1 / -1;
+}
+
+.server-form-footer {
+    padding: 12px 20px;
+    border-top: 1px solid var(--gh-border);
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    background: rgba(255, 255, 255, 0.02);
+}
+
+/* Auth method toggle */
+.auth-toggle {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.auth-toggle-option {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 8px 14px;
+    border: 1px solid var(--gh-border);
+    background: rgba(255, 255, 255, 0.02);
+    color: var(--text-muted);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border-radius: 4px;
+}
+
+.auth-toggle-option:hover {
+    border-color: var(--text-muted);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-main);
+}
+
+.auth-toggle-option.active {
+    border-color: var(--primary);
+    background: rgba(88, 166, 255, 0.08);
+    color: var(--primary);
+    box-shadow: 0 0 0 1px var(--primary);
+}
+
+.server-engine-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(88, 166, 255, 0.1);
+    border: 1px solid rgba(88, 166, 255, 0.2);
+    color: #58a6ff;
 }
 
 @keyframes modalScaleUp {
@@ -444,28 +545,54 @@
 }
 
 /* Modificadores del Formulario */
-.server-form-card {
-    max-width: 500px;
-}
-
-.server-form-card form {
-    padding: 32px;
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-    overflow-y: auto;
-}
-
 .form-group {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 5px;
 }
 
-.form-group label {
-    color: var(--text-main);
-    font-size: 13px;
+.server-form-card .form-group label {
+    font-size: 11px;
     font-weight: 600;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+}
+
+.server-form-card input,
+.server-form-card select,
+.server-form-card textarea {
+    font-size: 14px;
+    color: var(--text-main);
+    font-family: 'JetBrains Mono', monospace;
+    background: rgba(255, 255, 255, 0.03);
+    padding: 8px 12px;
+    border: 1px solid var(--gh-border);
+    border-radius: 4px;
+    width: 100%;
+    box-sizing: border-box;
+    transition: all 0.2s ease;
+}
+
+.server-form-card input:focus,
+.server-form-card select:focus,
+.server-form-card textarea:focus {
+    border-color: var(--primary);
+    background: rgba(88, 166, 255, 0.05);
+    box-shadow: 0 0 0 1px var(--primary);
+    outline: none;
+}
+
+/* Remove number input arrows */
+.server-form-card input[type="number"]::-webkit-inner-spin-button,
+.server-form-card input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.server-form-card input[type="number"] {
+    -moz-appearance: textfield;
+    appearance: textfield;
 }
 
 .form-row {
@@ -503,14 +630,6 @@ textarea:focus {
     background: #11151d;
 }
 
-.form-actions {
-    margin-top: 10px;
-    display: flex;
-    justify-content: flex-end;
-    gap: 12px;
-    padding-top: 20px;
-    border-top: 1px solid var(--gh-border);
-}
 
 /* Botones Globales Refinados */
 .btn-primary {
@@ -580,7 +699,6 @@ textarea:focus {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 0.5rem;
 }
 
 .file-upload-link {
