@@ -45,6 +45,12 @@ const Login: React.FC = () => {
 
     return (
         <div className="login-container">
+            <div className="background-animation">
+                <div className="shape shape-1"></div>
+                <div className="shape shape-2"></div>
+                <div className="shape shape-3"></div>
+                <div className="shape shape-4"></div>
+            </div>
             <div className="login-card">
                 <div className="login-header">
                     <h1>CloudCore</h1>

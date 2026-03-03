@@ -24,6 +24,91 @@
     background-size: 40px 40px;
     mask-image: radial-gradient(circle at center, black, transparent 80%);
     pointer-events: none;
+    z-index: 0;
+}
+
+/* Beautiful Floating Animation Background */
+.background-animation {
+    position: absolute;
+    width: 100vw;
+    height: 100vh;
+    top: 0;
+    left: 0;
+    overflow: hidden;
+    z-index: 0;
+    pointer-events: none;
+}
+
+.shape {
+    position: absolute;
+    filter: blur(80px);
+    opacity: 0.6;
+    border-radius: 50%;
+    animation: float 20s infinite ease-in-out alternate;
+}
+
+.shape-1 {
+    width: 500px;
+    height: 500px;
+    background: rgba(88, 166, 255, 0.15);
+    /* Soft GitHub Blue */
+    top: -150px;
+    left: -150px;
+    animation-delay: 0s;
+    animation-duration: 25s;
+}
+
+.shape-2 {
+    width: 600px;
+    height: 400px;
+    background: rgba(46, 160, 67, 0.12);
+    /* Soft GitHub Green */
+    bottom: -100px;
+    right: -100px;
+    animation-delay: -5s;
+    animation-duration: 22s;
+    animation-direction: alternate-reverse;
+}
+
+.shape-3 {
+    width: 300px;
+    height: 300px;
+    background: rgba(163, 113, 247, 0.1);
+    /* Soft Purple */
+    top: 40%;
+    left: 60%;
+    animation-delay: -10s;
+    animation-duration: 18s;
+}
+
+.shape-4 {
+    width: 400px;
+    height: 400px;
+    background: rgba(248, 81, 73, 0.08);
+    /* Soft Red */
+    bottom: 20%;
+    left: 10%;
+    animation-delay: -15s;
+    animation-duration: 30s;
+    animation-direction: alternate-reverse;
+}
+
+@keyframes float {
+    0% {
+        transform: translate(0, 0) scale(1) rotate(0deg);
+    }
+
+    33% {
+        transform: translate(30px, -50px) scale(1.1) rotate(5deg);
+    }
+
+    66% {
+        transform: translate(-30px, 20px) scale(0.9) rotate(-3deg);
+    }
+
+    100% {
+        transform: translate(0, 0) scale(1) rotate(0deg);
+    }
 }
 
 .login-card {
@@ -38,7 +123,65 @@
     max-width: 440px;
     z-index: 1;
     animation: fadeInScale 0.6s cubic-bezier(0.16, 1, 0.3, 1);
-    border: 1px solid rgba(88, 166, 255, 0.1);
+    position: relative;
+    /* Removed overflow: hidden so the outer shadow can glow out smoothly */
+}
+
+@property --angle {
+    syntax: '<angle>';
+    initial-value: 0deg;
+    inherits: false;
+}
+
+/* Sharp Laser Border */
+.login-card::before,
+.login-card::after {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    padding: 1px;
+    background: conic-gradient(from var(--angle), transparent 70%, rgba(63, 185, 80, 0.2) 80%, rgba(63, 185, 80, 1) 100%);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+    z-index: -1;
+    animation: rotateLaser 8s linear infinite;
+}
+
+/* Glowing Shadow of the same laser */
+.login-card::after {
+    filter: blur(6px);
+    opacity: 0.7;
+    z-index: -2;
+}
+
+@keyframes rotateLaser {
+    0% {
+        --angle: 0deg;
+        opacity: 0;
+    }
+
+    2% {
+        opacity: 1;
+    }
+
+    30% {
+        --angle: 360deg;
+        opacity: 1;
+    }
+
+    32% {
+        opacity: 0;
+        --angle: 360deg;
+    }
+
+    100% {
+        opacity: 0;
+        --angle: 360deg;
+    }
 }
 
 @keyframes fadeInScale {
