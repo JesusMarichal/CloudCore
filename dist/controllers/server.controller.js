@@ -646,7 +646,7 @@ let ServerController = class ServerController {
             lastHealthCheck: serverData.last_health_check || new Date(),
         };
         const safeName = site.name.replace(/[^a-zA-Z0-9_-]/g, '').toLowerCase();
-        const projectPath = `/var/www/${safeName} `;
+        const projectPath = `/var/www/${safeName}`;
         const deployCmd = `
 cd /var/www/${safeName}
 echo "📥 Obteniendo último commit..."
@@ -777,126 +777,141 @@ fi
 `);
         const dbId = crypto.randomUUID();
         const safeName = body.name.replace(/[^a-zA-Z0-9_-]/g, '').toLowerCase();
-        const containerName = `cloudcore_db_${safeName} `;
-        const adminContainerName = `cloudcore_pma_${safeName} `;
+        const containerName = `cloudcore_db_${safeName}`;
+        const adminContainerName = `cloudcore_pma_${safeName}`;
         await this.dbService.query(`
             INSERT INTO database_instances(id, server_id, user_id, name, engine, port, db_name, db_user, db_password, admin_port, container_name, admin_container_name, status)
-VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'deploying')
-    `, [dbId, id, body.userId || '', body.name, body.engine, body.port, body.dbName, body.dbUser, body.dbPassword, body.adminPort || '', containerName, adminContainerName]);
+            VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'deploying')
+        `, [dbId, id, body.userId || '', body.name, body.engine, body.port, body.dbName, body.dbUser, body.dbPassword, body.adminPort || '', containerName, adminContainerName]);
         res.setHeader('Content-Type', 'text/plain; charset=utf-8');
         res.setHeader('Transfer-Encoding', 'chunked');
         let deployCmd = '';
         const prepDockerCmd = `
-if !command - v docker > /dev/null 2 >& 1; then
-                echo "📦 Preparando servidor: Instalando Docker..."
-                sudo apt - get update - qq
-                sudo DEBIAN_FRONTEND = noninteractive apt - get install - y docker.io
-                sudo systemctl enable--now docker
-                echo "✅ Docker instalado correctamente."
+if ! command -v docker > /dev/null 2>&1; then
+    echo "📦 Preparando servidor: Instalando Docker..."
+    sudo apt-get update -qq
+    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y docker.io
+    sudo systemctl enable --now docker
+    echo "✅ Docker instalado correctamente."
 fi
-    `;
+        `;
         if (body.engine === 'mysql') {
             deployCmd = prepDockerCmd + `
-                echo "🐬 Desplegando MySQL con Docker..."
+echo "🐬 Desplegando MySQL con Docker..."
 
-                # Verificar puertos libres antes de empezar
-if sudo ss - tulpn | grep - q ":${body.port} "; then
-                    echo "❌ ERROR: El puerto ${body.port} ya está en uso. Por favor, elige otro puerto para MySQL."
-                    exit 1
+# Limpiar puertos si están en uso
+if sudo ss -tulpn | grep -q ":${body.port} "; then
+    echo "🧹 Limpiando puerto MySQL (${body.port})..."
+    for id in \$(sudo docker ps -q); do
+        if sudo docker port \$id | grep -q "${body.port}"; then
+            sudo docker rm -f \$id 2>/dev/null || true
+        fi
+    done
+    sudo ss -lptn 'sport = :'"${body.port}" 2>/dev/null | grep -o 'pid=[0-9]*' | cut -d= -f2 | xargs -r sudo kill -9 2>/dev/null || true
 fi
-if sudo ss - tulpn | grep - q ":${body.adminPort || '8080'} "; then
-                    echo "❌ ERROR: El puerto ${body.adminPort || '8080'} ya está en uso. Por favor, elige otro para phpMyAdmin."
-                    exit 1
+if sudo ss -tulpn | grep -q ":${body.adminPort || '8080'} "; then
+    echo "🧹 Limpiando puerto phpMyAdmin (${body.adminPort || '8080'})..."
+    for id in \$(sudo docker ps -q); do
+        if sudo docker port \$id | grep -q "${body.adminPort || '8080'}"; then
+            sudo docker rm -f \$id 2>/dev/null || true
+        fi
+    done
+    sudo ss -lptn 'sport = :'"${body.adminPort || '8080'}" 2>/dev/null | grep -o 'pid=[0-9]*' | cut -d= -f2 | xargs -r sudo kill -9 2>/dev/null || true
 fi
-                
-                # Crear red Docker para comunicación entre contenedores
-                sudo docker network create cloudcore_${safeName}_net 2 > /dev/null || true
-                
-                # Detener y eliminar contenedores previos si existen
-                sudo docker rm - f ${containerName} 2 > /dev/null || true
-                sudo docker rm - f ${adminContainerName} 2 > /dev/null || true
-                
-                # Crear volumen persistente
-                sudo docker volume create ${containerName}_data 2 > /dev/null || true
-                
-                # Iniciar MySQL con autenticación compatible con Node.js
-                echo "📦 Iniciando contenedor MySQL..."
-                sudo docker run - d \\
---name ${containerName} \\
---network cloudcore_${safeName} _net \\
---network - alias db \\
--e MYSQL_ROOT_PASSWORD = ${body.dbPassword} \\
--e MYSQL_DATABASE = ${body.dbName} \\
--e MYSQL_USER = ${body.dbUser} \\
--e MYSQL_PASSWORD = ${body.dbPassword} \\
--p ${body.port}: 3306 \\
--v ${containerName} _data: /var/lib / mysql \\
---restart unless - stopped \\
-mysql: 8.0 --default -authentication - plugin=mysql_native_password
-                
-                echo "⏳ Esperando a que MySQL inicie completamente..."
-                sleep 15
-                
-                # Configurar usuario con permisos correctos y autenticación compatible
-                echo "🔧 Configurando permisos de usuario..."
-                sudo docker exec ${containerName} mysql - uroot - p${body.dbPassword} -e "
-                    ALTER USER '${body.dbUser}'@'%' IDENTIFIED WITH mysql_native_password BY '${body.dbPassword}';
-                    GRANT ALL PRIVILEGES ON ${body.dbName}.* TO '${body.dbUser}'@'%';
-                    GRANT ALL PRIVILEGES ON ${body.dbName}.* TO '${body.dbUser}'@'172.18.0.%' IDENTIFIED BY '${body.dbPassword}';
-                    FLUSH PRIVILEGES;
+
+# Crear red Docker para comunicación entre contenedores
+sudo docker network create cloudcore_${safeName}_net 2>/dev/null || true
+
+# Detener y eliminar contenedores previos si existen
+sudo docker rm -f ${containerName} 2>/dev/null || true
+sudo docker rm -f ${adminContainerName} 2>/dev/null || true
+
+# Crear volumen persistente
+sudo docker volume create ${containerName}_data 2>/dev/null || true
+
+# Iniciar MySQL con autenticación compatible con Node.js
+echo "📦 Iniciando contenedor MySQL..."
+sudo docker run -d \\
+    --name ${containerName} \\
+    --network cloudcore_${safeName}_net \\
+    --network-alias db \\
+    -e MYSQL_ROOT_PASSWORD=${body.dbPassword} \\
+    -e MYSQL_DATABASE=${body.dbName} \\
+    -e MYSQL_USER=${body.dbUser} \\
+    -e MYSQL_PASSWORD=${body.dbPassword} \\
+    -p ${body.port}:3306 \\
+    -v ${containerName}_data:/var/lib/mysql \\
+    --restart unless-stopped \\
+    mysql:8.0 --default-authentication-plugin=mysql_native_password
+
+echo "⏳ Esperando a que MySQL inicie completamente..."
+sleep 15
+
+# Configurar usuario con permisos correctos y autenticación compatible
+echo "🔧 Configurando permisos de usuario..."
+sudo docker exec ${containerName} mysql -uroot -p${body.dbPassword} -e "
+    ALTER USER '${body.dbUser}'@'%' IDENTIFIED WITH mysql_native_password BY '${body.dbPassword}';
+    GRANT ALL PRIVILEGES ON ${body.dbName}.* TO '${body.dbUser}'@'%';
+    GRANT ALL PRIVILEGES ON ${body.dbName}.* TO '${body.dbUser}'@'172.18.0.%' IDENTIFIED BY '${body.dbPassword}';
+    FLUSH PRIVILEGES;
 " 2>/dev/null || echo "Nota: Los permisos se configurarán cuando MySQL termine de iniciar."
-                
-                # Iniciar phpMyAdmin
-                echo "🖥️ Iniciando phpMyAdmin..."
-                sudo docker run - d \\
---name ${adminContainerName} \\
---network cloudcore_${safeName} _net \\
--e PMA_HOST = db \\
--e PMA_PORT = 3306 \\
--e MYSQL_ROOT_PASSWORD = ${body.dbPassword} \\
--p ${body.adminPort || '8080'}: 80 \\
---restart unless - stopped \\
-phpmyadmin / phpmyadmin
-                
-                echo "✅ MySQL y phpMyAdmin desplegados correctamente."
-                echo "📊 MySQL disponible en el puerto ${body.port}"
-                echo "🔗 phpMyAdmin disponible en http://$(hostname -I | awk '{print $1}'):${body.adminPort || '8080'}"
-    `;
+
+# Iniciar phpMyAdmin
+echo "🖥️ Iniciando phpMyAdmin..."
+sudo docker run -d \\
+    --name ${adminContainerName} \\
+    --network cloudcore_${safeName}_net \\
+    -e PMA_HOST=db \\
+    -e PMA_PORT=3306 \\
+    -e MYSQL_ROOT_PASSWORD=${body.dbPassword} \\
+    -p ${body.adminPort || '8080'}:80 \\
+    --restart unless-stopped \\
+    phpmyadmin/phpmyadmin
+
+echo "✅ MySQL y phpMyAdmin desplegados correctamente."
+echo "📊 MySQL disponible en el puerto ${body.port}"
+echo "🔗 phpMyAdmin disponible en http://$(hostname -I | awk '{print $1}'):${body.adminPort || '8080'}"
+            `;
         }
         else {
             deployCmd = prepDockerCmd + `
-                echo "🐘 Desplegando PostgreSQL con Docker..."
-                
-                # Verificar puerto
-if sudo ss - tulpn | grep - q ":${body.port} "; then
-                    echo "❌ ERROR: El puerto ${body.port} ya está en uso. Por favor, elige otro."
-                    exit 1
+echo "🐘 Desplegando PostgreSQL con Docker..."
+
+# Limpiar puerto si está en uso
+if sudo ss -tulpn | grep -q ":${body.port} "; then
+    echo "🧹 Limpiando puerto PostgreSQL (${body.port})..."
+    for id in \$(sudo docker ps -q); do
+        if sudo docker port \$id | grep -q "${body.port}"; then
+            sudo docker rm -f \$id 2>/dev/null || true
+        fi
+    done
+    sudo ss -lptn 'sport = :'"${body.port}" 2>/dev/null | grep -o 'pid=[0-9]*' | cut -d= -f2 | xargs -r sudo kill -9 2>/dev/null || true
 fi
 
-                # Detener y eliminar contenedor previo si existe
-                sudo docker rm - f ${containerName} 2 > /dev/null || true
-                
-                # Crear volumen persistente
-                sudo docker volume create ${containerName}_data 2 > /dev/null || true
-                
-                # Iniciar PostgreSQL
-                echo "📦 Iniciando contenedor PostgreSQL..."
-                sudo docker run - d \\
---name ${containerName} \\
--e POSTGRES_DB = ${body.dbName} \\
--e POSTGRES_USER = ${body.dbUser} \\
--e POSTGRES_PASSWORD = ${body.dbPassword} \\
--p ${body.port}: 5432 \\
--v ${containerName} _data: /var/lib / postgresql / data \\
---restart unless - stopped \\
-postgres: 16 - alpine
-                
-                echo "⏳ Esperando a que PostgreSQL inicie..."
-                sleep 5
-                
-                echo "✅ PostgreSQL desplegado correctamente."
-                echo "📊 PostgreSQL disponible en el puerto ${body.port}"
-    `;
+# Detener y eliminar contenedor previo si existe
+sudo docker rm -f ${containerName} 2>/dev/null || true
+
+# Crear volumen persistente
+sudo docker volume create ${containerName}_data 2>/dev/null || true
+
+# Iniciar PostgreSQL
+echo "📦 Iniciando contenedor PostgreSQL..."
+sudo docker run -d \\
+    --name ${containerName} \\
+    -e POSTGRES_DB=${body.dbName} \\
+    -e POSTGRES_USER=${body.dbUser} \\
+    -e POSTGRES_PASSWORD=${body.dbPassword} \\
+    -p ${body.port}:5432 \\
+    -v ${containerName}_data:/var/lib/postgresql/data \\
+    --restart unless-stopped \\
+    postgres:16-alpine
+
+echo "⏳ Esperando a que PostgreSQL inicie..."
+sleep 5
+
+echo "✅ PostgreSQL desplegado correctamente."
+echo "📊 PostgreSQL disponible en el puerto ${body.port}"
+            `;
         }
         try {
             const success = await this.sshService.executeCommand(server, deployCmd, (chunk) => {
@@ -971,15 +986,24 @@ postgres: 16 - alpine
             return { success: false, message: 'Base de datos no encontrada' };
         const server = this.getServerFromData(serverData);
         const safeName = dbInstance.name.replace(/[^a-zA-Z0-9_-]/g, '').toLowerCase();
-        let cleanCmd = `
-            sudo docker rm - f ${dbInstance.container_name} 2 > /dev/null || true
-            sudo docker volume rm ${dbInstance.container_name}_data 2 > /dev/null || true
-    `;
-        if (dbInstance.engine === 'mysql' && dbInstance.admin_container_name) {
+        const containerName = dbInstance.container_name ? dbInstance.container_name.trim() : '';
+        const adminContainerName = dbInstance.admin_container_name ? dbInstance.admin_container_name.trim() : '';
+        let cleanCmd = '';
+        if (containerName) {
             cleanCmd += `
-                sudo docker rm - f ${dbInstance.admin_container_name} 2 > /dev/null || true
-                sudo docker network rm cloudcore_${safeName}_net 2 > /dev/null || true
-    `;
+                sudo docker stop ${containerName} 2>/dev/null || true
+                sudo docker rm -f ${containerName} 2>/dev/null || true
+                sleep 2
+                sudo docker volume rm ${containerName}_data 2>/dev/null || true
+                sudo rm -rf /var/lib/docker/volumes/${containerName}_data 2>/dev/null || true
+            `;
+        }
+        if (dbInstance.engine === 'mysql' && adminContainerName) {
+            cleanCmd += `
+                sudo docker stop ${adminContainerName} 2>/dev/null || true
+                sudo docker rm -f ${adminContainerName} 2>/dev/null || true
+                sudo docker network rm cloudcore_${safeName}_net 2>/dev/null || true
+            `;
         }
         try {
             await this.sshService.executeCommand(server, cleanCmd);
@@ -1003,9 +1027,9 @@ postgres: 16 - alpine
         if (!dbInstance)
             return { success: false, message: 'Base de datos no encontrada' };
         const server = this.getServerFromData(serverData);
-        let cmd = `sudo docker ${action} ${dbInstance.container_name} `;
+        let cmd = `sudo docker ${action} ${dbInstance.container_name}`;
         if (dbInstance.engine === 'mysql' && dbInstance.admin_container_name) {
-            cmd += ` && sudo docker ${action} ${dbInstance.admin_container_name} `;
+            cmd += ` && sudo docker ${action} ${dbInstance.admin_container_name}`;
         }
         try {
             await this.sshService.executeCommand(server, cmd);
