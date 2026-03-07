@@ -19,6 +19,8 @@ export class SshService {
                 host: server.ip,
                 port: server.sshPort || 22,
                 username: server.sshUser || 'root',
+                readyTimeout: 60000, // 60 segundos de handshake
+                keepaliveInterval: 10000, // Evitar que la conexión se cierre por inactividad
             };
 
             if (server.authType === 'key' && server.privateKey) {
@@ -65,13 +67,14 @@ export class SshService {
 
         const steps = [
             { name: 'Actualizando sistema', cmd: 'sudo DEBIAN_FRONTEND=noninteractive apt update && sudo DEBIAN_FRONTEND=noninteractive apt upgrade -y' },
-            { name: 'Instalando Nginx', cmd: 'sudo DEBIAN_FRONTEND=noninteractive apt install -y nginx' },
+            { name: 'Instalando Nginx', cmd: 'sudo DEBIAN_FRONTEND=noninteractive apt install -y nginx python3-certbot-nginx' },
             { name: 'Instalando Node.js', cmd: 'curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - && sudo DEBIAN_FRONTEND=noninteractive apt install -y nodejs' },
             { name: 'Instalando PM2', cmd: 'sudo npm install -y -g pm2' },
             { name: 'Instalando dependencias de Docker', cmd: 'sudo DEBIAN_FRONTEND=noninteractive apt install -y ca-certificates curl gnupg lsb-release' },
             { name: 'Configurando repositorio Docker', cmd: 'sudo mkdir -p /etc/apt/keyrings && curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor --yes -o /etc/apt/keyrings/docker.gpg && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null' },
             { name: 'Instalando Docker', cmd: 'sudo DEBIAN_FRONTEND=noninteractive apt update && sudo DEBIAN_FRONTEND=noninteractive apt install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin' },
-            { name: 'Habilitando servicios', cmd: 'sudo systemctl enable docker && sudo systemctl start docker' }
+            { name: 'Habilitando servicios', cmd: 'sudo systemctl enable docker && sudo systemctl start docker' },
+            { name: 'Abriendo puertos Firewall (80, 443)', cmd: 'sudo ufw allow "Nginx Full" || (sudo iptables -A INPUT -p tcp --dport 80 -j ACCEPT && sudo iptables -A INPUT -p tcp --dport 443 -j ACCEPT)' }
         ];
 
         try {
@@ -313,10 +316,21 @@ export class SshService {
     /**
      * Despliega un sitio web (clona repo, instala deps, inicia con PM2 y configura Nginx opcional)
      */
-    async deployWebsite(server: Server, data: { name: string, repo: string, installCommand: string, buildCommand?: string, startCommand: string, port: string, domain?: string, envVars?: string, entryPoint?: string }, onData?: (chunk: string) => void): Promise<boolean> {
+    async deployWebsite(server: Server, data: { name: string, repo: string, installCommand: string, buildCommand?: string, startCommand: string, port: string, domain?: string, envVars?: string, entryPoint?: string, useLetsEncrypt?: boolean, setupWwwAlias?: boolean, userEmail?: string }, onData?: (chunk: string) => void): Promise<boolean> {
         const safeName = data.name.replace(/[^a-zA-Z0-9_-]/g, '').toLowerCase();
         const projectPath = `/var/www/${safeName}`;
-        const finalDomain = data.domain && data.domain.trim() !== '' ? data.domain : '_';
+        let finalDomain = data.domain && data.domain.trim() !== '' ? data.domain : '_';
+
+        // Manejar alias WWW
+        const hasDomain = finalDomain !== '_';
+        const serverNames = (hasDomain && data.setupWwwAlias)
+            ? `${finalDomain} www.${finalDomain}`
+            : finalDomain;
+
+        const useSSL = data.useLetsEncrypt && hasDomain;
+        const certbotDomains = (hasDomain && data.setupWwwAlias)
+            ? `-d ${finalDomain} -d www.${finalDomain}`
+            : `-d ${finalDomain}`;
 
         // Determinar qué comando de inicio usar
         // Si hay entryPoint, lo usamos directamente. Si no, usamos startCommand.
@@ -416,14 +430,14 @@ export class SshService {
             pm2 logs ${safeName} --lines 15 --nostream 2>/dev/null || true
         fi
 
-        # Configuración de Nginx Reverse Proxy
+        # Configuración de Nginx Reverse Proxy (Estilo Cleavr)
         if command -v nginx > /dev/null; then
-            echo "⚙️ Configurando Nginx Reverse Proxy..."
+            echo "⚙️ Configurando Nginx Reverse Proxy para ${serverNames}..."
             
-            # Escribir config de Nginx usando tee (evita problemas de comillas)
+            # 1. Configuración temporal para validación HTTP (para que Certbot pueda validar)
             echo 'server {
     listen 80;
-    server_name ${finalDomain};
+    server_name ${serverNames};
 
     location / {
         proxy_pass http://localhost:${data.port};
@@ -442,9 +456,29 @@ export class SshService {
             fi
 
             sudo nginx -t && sudo systemctl reload nginx
-            echo "✅ Nginx configurado exitosamente."
+            
+            # 2. Generar SSL si se solicitó
+            if [ "${useSSL ? 'true' : 'false'}" = "true" ]; then
+                if ! command -v certbot > /dev/null; then
+                    echo "📦 Certbot no detectado, instalando..."
+                    sudo apt update && sudo DEBIAN_FRONTEND=noninteractive apt install -y certbot python3-certbot-nginx
+                fi
+                echo "🔐 Solicitando certificado SSL con Let's Encrypt para ${serverNames}..."
+                # Intentar obtener el certificado. --redirect forzará la redirección automática en Nginx
+                if sudo certbot --nginx ${certbotDomains} --non-interactive --agree-tos --email ${data.userEmail || 'admin@' + (finalDomain !== '_' ? finalDomain : 'example.com')} --redirect; then
+                    echo "✅ Certificado SSL instalado y redirección HTTPS activa."
+                else
+                    echo "❌ ERROR: No se pudo obtener el certificado. Verifica que el dominio apunte a la IP de este servidor."
+                    echo "🔔 El sitio seguirá funcionando por HTTP (puerto 80)."
+                fi
+            else
+                echo "ℹ️ SSL no solicitado. El sitio estará disponible por HTTP."
+            fi
+
+            sudo nginx -t && sudo systemctl reload nginx
+            echo "✅ Configuración final de Nginx completada."
         else
-            echo "⚠️ Nginx no está instalado en este servidor, omitiendo proxy inverso."
+            echo "⚠️ ADVERTENCIA: Nginx no instalado. El sitio solo será accesible internamente o por IP:puerto."
         fi
         `;
 

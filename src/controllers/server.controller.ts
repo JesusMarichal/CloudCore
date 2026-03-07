@@ -6,6 +6,10 @@ import { Server } from '../models/server.model';
 import { DatabaseService } from '../database/database.service';
 import { encrypt } from '../common/utils/encryption.util';
 import * as crypto from 'crypto';
+import * as dns from 'dns';
+import { promisify } from 'util';
+
+const resolve4 = promisify(dns.resolve4);
 
 @Controller('servers')
 export class ServerController {
@@ -373,11 +377,33 @@ export class ServerController {
         @Body() body: any,
         @Res() res: Response
     ): Promise<void> {
+        res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+        res.setHeader('Transfer-Encoding', 'chunked');
+
         const result = await this.dbService.query('SELECT * FROM servers WHERE id = $1', [id]);
         const serverData = result.rows[0];
         if (!serverData) {
-            res.status(404).json({ success: false, message: 'Servidor no encontrado' });
+            res.status(404).write('---ERROR---\nServidor no encontrado');
+            res.end();
             return;
+        }
+
+        // 1. Verificar DNS si se usa Let's Encrypt
+        if (body.useLetsEncrypt && body.domain && body.domain !== '_') {
+            res.write(`🔍 Verificando propagación DNS para ${body.domain}...\n`);
+            try {
+                const addresses = await resolve4(body.domain);
+                const serverIp = serverData.ip;
+                if (!addresses.includes(serverIp)) {
+                    res.write(`⚠️ ADVERTENCIA: El dominio ${body.domain} apunta a ${addresses.join(', ')} pero el servidor es ${serverIp}.\n`);
+                    res.write(`❌ La generación de SSL podría fallar. Asegúrate de que el registro A en Spaceship sea correcto.\n\n`);
+                } else {
+                    res.write(`✅ DNS verificado correctamente.\n\n`);
+                }
+            } catch (error) {
+                res.write(`⚠️ No se pudo resolver el dominio ${body.domain}. Es posible que los DNS no hayan propagado aún.\n`);
+                res.write(`❌ Procediendo con precaución, pero SSL podría fallar.\n\n`);
+            }
         }
 
         const server: Server = {
@@ -397,16 +423,18 @@ export class ServerController {
         res.setHeader('Transfer-Encoding', 'chunked');
 
         let repoUrlWithToken = body.repo;
-        if (body.userId && body.repo.startsWith('https://github.com/')) {
-            const userRes = await this.dbService.query('SELECT github_token FROM users WHERE id = $1', [body.userId]);
-            const token = userRes.rows[0]?.github_token;
-            if (token) {
+        let userEmail = '';
+        if (body.userId) {
+            const userRes = await this.dbService.query('SELECT github_token, email FROM users WHERE id = $1', [body.userId]);
+            const userData = userRes.rows[0];
+            if (userData?.github_token && body.repo.startsWith('https://github.com/')) {
                 // Agregar el token HTTP basic auth a la URL de Github
-                repoUrlWithToken = body.repo.replace('https://github.com/', `https://${token}@github.com/`);
+                repoUrlWithToken = body.repo.replace('https://github.com/', `https://${userData.github_token}@github.com/`);
             }
+            userEmail = userData?.email || '';
         }
 
-        const deployBody = { ...body, repo: repoUrlWithToken };
+        const deployBody = { ...body, repo: repoUrlWithToken, userEmail };
 
         const success = await this.sshService.deployWebsite(server, deployBody, (chunk) => {
             // Enmascarar el token en el stream de log para no enviarlo al panel web
@@ -438,14 +466,20 @@ export class ServerController {
                         IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='websites' AND column_name='env_vars') THEN
                             ALTER TABLE websites ADD COLUMN env_vars TEXT;
                         END IF;
+                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='websites' AND column_name='use_letsencrypt') THEN
+                            ALTER TABLE websites ADD COLUMN use_letsencrypt BOOLEAN DEFAULT FALSE;
+                        END IF;
+                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='websites' AND column_name='setup_www_alias') THEN
+                            ALTER TABLE websites ADD COLUMN setup_www_alias BOOLEAN DEFAULT FALSE;
+                        END IF;
                     END $$;
                 `);
 
                 // Registrar el sitio en la base de datos para los webhooks
                 await this.dbService.query(`
-                    INSERT INTO websites (server_id, user_id, repo_url, name, install_command, build_command, start_command, port, domain, entry_point, env_vars)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-                `, [id, body.userId || '', body.repo, body.name, body.installCommand, body.buildCommand, body.startCommand, body.port, body.domain, body.entryPoint, body.envVars]);
+                    INSERT INTO websites (server_id, user_id, repo_url, name, install_command, build_command, start_command, port, domain, entry_point, env_vars, use_letsencrypt, setup_www_alias)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+                `, [id, body.userId || '', body.repo, body.name, body.installCommand, body.buildCommand, body.startCommand, body.port, body.domain, body.entryPoint, body.envVars, body.useLetsEncrypt || false, body.setupWwwAlias || false]);
             } catch (error) {
                 console.error("Error guardando el sitio en la base de datos:", error);
             }
@@ -458,11 +492,19 @@ export class ServerController {
     async updateWebsite(
         @Param('id') id: string, // serverId
         @Param('websiteId') websiteId: string,
-        @Body() body: any
-    ): Promise<any> {
+        @Body() body: any,
+        @Res() res: Response
+    ): Promise<void> {
+        res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+        res.setHeader('Transfer-Encoding', 'chunked');
+
         const result = await this.dbService.query('SELECT * FROM servers WHERE id = $1', [id]);
         const serverData = result.rows[0];
-        if (!serverData) return { success: false, message: 'Servidor no encontrado' };
+        if (!serverData) {
+            res.status(404).write('---ERROR---\nServidor no encontrado');
+            res.end();
+            return;
+        }
 
         const server: Server = {
             id: serverData.id,
@@ -477,19 +519,40 @@ export class ServerController {
             lastHealthCheck: serverData.last_health_check || new Date(),
         };
 
-        // 1. Actualizar en la base de datos
+        // 1. Asegurar que las columnas existen migrando si es necesario
+        await this.dbService.query(`
+            DO $$ 
+            BEGIN 
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='websites' AND column_name='use_letsencrypt') THEN
+                    ALTER TABLE websites ADD COLUMN use_letsencrypt BOOLEAN DEFAULT FALSE;
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='websites' AND column_name='setup_www_alias') THEN
+                    ALTER TABLE websites ADD COLUMN setup_www_alias BOOLEAN DEFAULT FALSE;
+                END IF;
+            END $$;
+        `);
+
+        // 2. Actualizar en la base de datos
         await this.dbService.query(`
             UPDATE websites 
             SET install_command = $1, build_command = $2, start_command = $3, 
-                port = $4, domain = $5, entry_point = $6, env_vars = $7
-            WHERE id = $8
-        `, [body.installCommand, body.buildCommand, body.startCommand, body.port, body.domain, body.entryPoint, body.envVars, websiteId]);
+                port = $4, domain = $5, entry_point = $6, env_vars = $7,
+                use_letsencrypt = $8, setup_www_alias = $9
+            WHERE id = $10
+        `, [body.installCommand, body.buildCommand, body.startCommand, body.port, body.domain, body.entryPoint, body.envVars, body.useLetsEncrypt || false, body.setupWwwAlias || false, websiteId]);
 
-        // 2. Si hay cambios en .env o comandos, podemos redesplegar o solo actualizar .env
-        // Por ahora, actualizaremos el .env en el servidor para que los cambios surtan efecto
+        // Obtener el email del usuario para Let's Encrypt
+        const userRes = await this.dbService.query('SELECT email FROM users WHERE id = $1', [body.userId]);
+        const userEmail = userRes.rows[0]?.email || '';
+
+        // 3. Variables para el script de Nginx/SSL
         const safeName = body.name.replace(/[^a-zA-Z0-9_-]/g, '').toLowerCase();
         const projectPath = `/var/www/${safeName}`;
         const finalDomain = body.domain && body.domain.trim() !== '' ? body.domain : '_';
+        const hasDomain = finalDomain !== '_';
+        const serverNames = (hasDomain && body.setupWwwAlias) ? `${finalDomain} www.${finalDomain}` : finalDomain;
+        const certbotDomains = (hasDomain && body.setupWwwAlias) ? `-d ${finalDomain} -d www.${finalDomain}` : `-d ${finalDomain}`;
+        const useSSL = body.useLetsEncrypt && hasDomain;
 
         const updateEnvCmd = `
             cd ${projectPath}
@@ -497,12 +560,12 @@ export class ServerController {
             echo "✅ .env actualizado."
             pm2 restart ${safeName} || true
 
-            # Configuración de Nginx Reverse Proxy
+            # Configuración de Nginx (Estilo Cleavr)
             if command -v nginx > /dev/null; then
-                echo "⚙️ Reconfigurando Nginx Reverse Proxy..."
+                echo "⚙️ Reconfigurando Nginx Reverse Proxy para ${serverNames}..."
                 echo 'server {
     listen 80;
-    server_name ${finalDomain};
+    server_name ${serverNames};
 
     location / {
         proxy_pass http://localhost:${body.port};
@@ -521,23 +584,44 @@ export class ServerController {
                 fi
 
                 sudo nginx -t && sudo systemctl reload nginx
+                
+                # 4. Gestionar SSL
+                if [ "${useSSL ? 'true' : 'false'}" = "true" ]; then
+                    if ! command -v certbot > /dev/null; then
+                        echo "📦 Certbot no detectado, instalando..."
+                        sudo apt update && sudo DEBIAN_FRONTEND=noninteractive apt install -y certbot python3-certbot-nginx
+                    fi
+                    echo "🔐 Asegurando certificado SSL para ${serverNames}..."
+                    sudo certbot --nginx ${certbotDomains} --non-interactive --agree-tos --email ${userEmail || 'admin@' + (finalDomain !== '_' ? finalDomain : 'example.com')} --redirect || echo "⚠️ Error al configurar SSL."
+                fi
+
+                sudo nginx -t && sudo systemctl reload nginx
                 echo "✅ Nginx reconfigurado exitosamente."
             fi
         `;
 
-        await this.sshService.executeCommand(server, updateEnvCmd);
+        await this.sshService.executeCommand(server, updateEnvCmd, (chunk) => {
+            res.write(chunk);
+        });
 
-        return { success: true, message: 'Configuración actualizada, sitio y proxy reiniciados' };
+        res.write('\n✅ Proceso completado exitosamente.');
+        res.end();
     }
 
     @Get('websites/:userId')
     async getWebsites(@Param('userId') userId: string): Promise<any[]> {
         try {
-            // Asegurar que la columna env_vars existe
+            // Asegurar que las columnas necesarias existen
             await this.dbService.query(`
                 DO $$ BEGIN 
                     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='websites' AND column_name='env_vars') THEN
                         ALTER TABLE websites ADD COLUMN env_vars TEXT;
+                    END IF;
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='websites' AND column_name='use_letsencrypt') THEN
+                        ALTER TABLE websites ADD COLUMN use_letsencrypt BOOLEAN DEFAULT FALSE;
+                    END IF;
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='websites' AND column_name='setup_www_alias') THEN
+                        ALTER TABLE websites ADD COLUMN setup_www_alias BOOLEAN DEFAULT FALSE;
                     END IF;
                 END $$;
             `);

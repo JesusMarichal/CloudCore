@@ -116,6 +116,37 @@
     margin-top: 6px;
 }
 
+.form-group-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+    padding: 12px;
+    background: rgba(56, 139, 253, 0.05);
+    border: 1px solid rgba(56, 139, 253, 0.2);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.form-group-checkbox:hover {
+    background: rgba(56, 139, 253, 0.1);
+    border-color: var(--primary);
+}
+
+.form-group-checkbox input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+}
+
+.form-group-checkbox label {
+    margin-bottom: 0;
+    cursor: pointer;
+    font-weight: 500;
+    color: var(--text-main);
+}
+
 .form-actions {
     display: flex;
     justify-content: flex-end;

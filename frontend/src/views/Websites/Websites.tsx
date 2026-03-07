@@ -15,6 +15,8 @@ interface WebsiteFormData {
     entryPoint: string;
     port: string;
     domain: string;
+    useLetsEncrypt: boolean;
+    setupWwwAlias: boolean;
     envVars: string;
     userId: string;
 }
@@ -70,6 +72,8 @@ const Websites = () => {
         entryPoint: 'index.js',
         port: '3000',
         domain: '',
+        useLetsEncrypt: false,
+        setupWwwAlias: false,
         envVars: '',
         userId: ''
     });
@@ -132,8 +136,10 @@ const Websites = () => {
             const currentUserId = currentUser?.id || '';
 
             if (editingSite) {
-                await serverService.updateWebsite(formData.serverId, editingSite.id, formData);
-                showToast('¡Configuración actualizada con éxito!', 'success');
+                setDeployLogs('Iniciando actualización de configuración...\n');
+                await serverService.updateWebsite(formData.serverId, editingSite.id, formData, (chunk) => {
+                    setDeployLogs(prev => prev + chunk);
+                });
                 setShowForm(false);
             } else {
                 setDeployLogs('Iniciando despliegue de sitio web...\n');
@@ -153,6 +159,8 @@ const Websites = () => {
                 entryPoint: 'index.js',
                 port: '3000',
                 domain: '',
+                useLetsEncrypt: false,
+                setupWwwAlias: false,
                 envVars: '',
                 userId: currentUserId
             });
@@ -183,6 +191,8 @@ const Websites = () => {
             entryPoint: site.entry_point || 'index.js',
             port: site.port || '3000',
             domain: site.domain || '',
+            useLetsEncrypt: !!site.use_letsencrypt,
+            setupWwwAlias: !!site.setup_www_alias,
             envVars: site.env_vars || '',
             userId: site.user_id
         });
@@ -236,6 +246,8 @@ const Websites = () => {
                 entryPoint: editingSite.entry_point,
                 port: editingSite.port,
                 domain: editingSite.domain,
+                useLetsEncrypt: !!editingSite.use_letsencrypt,
+                setupWwwAlias: !!editingSite.setup_www_alias,
                 envVars: envString,
                 userId: editingSite.user_id
             };
@@ -304,36 +316,28 @@ const Websites = () => {
         }, 250);
     };
 
-    const handleRunDiagnostic = async (serverId: string, siteName: string) => {
+    const handleRunDiagnostic = async (serverId: string) => {
         setLogsContent((prev: any) => ({ ...prev, diag: 'Ejecutando diagnóstico del servidor...\n\n' }));
-        const safeName = siteName.replace(/[^a-zA-Z0-9_-]/g, '').toLowerCase();
         const diagCmd = `echo "=== DOCKER CONTAINERS ==="
 echo "---"
-sudo docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" 2>/dev/null || docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" 2>/dev/null || echo "Docker no instalado o sin contenedores."
+sudo docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" 2>/dev/null || echo "Docker no instalado o sin contenedores."
 echo ""
 echo "=== PM2 STATUS ==="
 echo "---"
 pm2 list 2>/dev/null || echo "PM2 no instalado."
 echo ""
-echo "=== ARCHIVO .ENV ==="
+echo "=== NGINX CONFIG TEST ==="
 echo "---"
-cat /var/www/${safeName}/.env 2>/dev/null || echo "No existe archivo .env en /var/www/${safeName}/"
+sudo nginx -t 2>&1 || echo "Error en configuración de Nginx."
 echo ""
-echo "=== PUERTO APP ==="
+echo "=== SSL CERTIFICATES (Let's Encrypt) ==="
 echo "---"
-ss -tlnp | grep ':3000\|:3306' || echo "NADA escucha en los puertos 3000/3306"
+sudo certbot certificates 2>/dev/null || echo "No se encontraron certificados de Certbot."
+ls -la /etc/nginx/sites-enabled/ || echo "No hay sitios habilitados en Nginx."
 echo ""
-echo "=== DOCKER NETWORK (MySQL IP) ==="
+echo "=== PUERTOS ABIERTOS ==="
 echo "---"
-sudo docker network inspect bridge --format '{{range .Containers}}{{.Name}}: {{.IPv4Address}}{{println}}{{end}}' 2>/dev/null || echo "Sin red Docker bridge."
-echo ""
-echo "=== ARCHIVOS DE LOG PM2 ==="
-echo "---"
-ls -la ~/.pm2/logs/ 2>/dev/null | grep ${safeName} || echo "No se encontraron archivos de log para ${safeName}"
-echo ""
-echo "=== ARCHIVOS EN /var/www/${safeName}/ ==="
-echo "---"
-ls -la /var/www/${safeName}/ 2>/dev/null | head -20 || echo "Carpeta no existe."
+sudo netstat -tlnp | grep -E ':(80|443|3000)' || ss -tlnp | grep -E ':(80|443|3000)' || echo "No hay servicios escuchando en 80, 443 o 3000."
 echo ""
 echo "=== DIAGNÓSTICO COMPLETADO ==="`;
         try {
@@ -430,6 +434,11 @@ echo "=== DIAGNÓSTICO COMPLETADO ==="`;
                                             ) : (
                                                 <div className="meta-item" style={{ cursor: 'pointer', opacity: 0.7 }} onClick={() => handleEdit(site)} title="Haga clic para agregar un dominio">
                                                     <Globe size={14} /> <span style={{ fontStyle: 'italic', textDecoration: 'underline' }}>Sin dominio registrado</span>
+                                                </div>
+                                            )}
+                                            {site.use_letsencrypt && site.domain && (
+                                                <div className="meta-item" style={{ background: 'rgba(56, 139, 253, 0.1)', color: 'var(--primary)', border: '1px solid rgba(56, 139, 253, 0.2)' }}>
+                                                    <RefreshCw size={12} style={{ color: '#3fb950' }} /> Let's Encrypt Activo
                                                 </div>
                                             )}
                                         </div>
@@ -558,6 +567,26 @@ echo "=== DIAGNÓSTICO COMPLETADO ==="`;
                                         <input type="text" placeholder="ejemplo.com" value={formData.domain} onChange={(e) => setFormData({ ...formData, domain: e.target.value })} />
                                     </div>
                                 </div>
+                                {formData.domain && formData.domain.trim() !== '' && formData.domain !== '_' && (
+                                    <div className="form-group-checkbox" onClick={() => setFormData({ ...formData, useLetsEncrypt: !formData.useLetsEncrypt })}>
+                                        <input
+                                            type="checkbox"
+                                            checked={formData.useLetsEncrypt}
+                                            onChange={() => { }} // Manejado por el div parent
+                                        />
+                                        <label>Habilitar Let's Encrypt (Certificado SSL Gratis)</label>
+                                    </div>
+                                )}
+                                {formData.domain && formData.domain.trim() !== '' && formData.domain !== '_' && (
+                                    <div className="form-group-checkbox" onClick={() => setFormData({ ...formData, setupWwwAlias: !formData.setupWwwAlias })}>
+                                        <input
+                                            type="checkbox"
+                                            checked={formData.setupWwwAlias}
+                                            onChange={() => { }}
+                                        />
+                                        <label>Setup www alias (redirigir www.{formData.domain} a {formData.domain})</label>
+                                    </div>
+                                )}
                                 <div className="form-group">
                                     <label>Variables de Entorno (.env)</label>
                                     <textarea
@@ -743,7 +772,7 @@ echo "=== DIAGNÓSTICO COMPLETADO ==="`;
                                 </button>
                                 <button
                                     className={`logs-tab ${activeLogTab === 'diag' ? 'active' : ''}`}
-                                    onClick={() => { setActiveLogTab('diag'); if (site) handleRunDiagnostic(site.server_id, site.name); }}
+                                    onClick={() => { setActiveLogTab('diag'); if (site) handleRunDiagnostic(site.server_id); }}
                                 >
                                     <span className="logs-tab-dot" style={{ background: '#f0883e' }}></span>
                                     Diagnóstico

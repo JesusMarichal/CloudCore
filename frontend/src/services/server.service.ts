@@ -197,12 +197,25 @@ export const serverService = {
         return response.json();
     },
 
-    async updateWebsite(serverId: string, websiteId: string, data: any) {
+    async updateWebsite(serverId: string, websiteId: string, data: any, onData?: (chunk: string) => void) {
         const response = await fetch(`${API_URL}/${serverId}/websites/${websiteId}/update`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
         });
+
+        if (onData && response.body) {
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                onData(decoder.decode(value, { stream: true }));
+            }
+            invalidateCache('websites_');
+            return { success: true };
+        }
+
         invalidateCache('websites_');
         return response.json();
     },

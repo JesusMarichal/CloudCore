@@ -19,5 +19,8 @@ export declare class SshService {
         domain?: string;
         envVars?: string;
         entryPoint?: string;
+        useLetsEncrypt?: boolean;
+        setupWwwAlias?: boolean;
+        userEmail?: string;
     }, onData?: (chunk: string) => void): Promise<boolean>;
 }
