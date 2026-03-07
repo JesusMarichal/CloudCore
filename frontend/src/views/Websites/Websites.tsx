@@ -252,9 +252,13 @@ const Websites = () => {
                 userId: editingSite.user_id
             };
 
-            await serverService.updateWebsite(editingSite.server_id, editingSite.id, updatedData);
-            showToast('¡Variables de entorno actualizadas y sitio reiniciado!', 'success');
+            setDeployLogs(`Iniciando actualización de variables para ${editingSite.name}...\n`);
+            await serverService.updateWebsite(editingSite.server_id, editingSite.id, updatedData, (chunk) => {
+                setDeployLogs(prev => prev + chunk);
+            });
+            showToast('¡Variables de entorno actualizadas!', 'success');
             setShowEnvModal(false);
+            setEditingSite(null); // Limpiar para que el modal de progreso se vea si se desea, o para resetear estado
 
             const userStr = localStorage.getItem('user');
             if (userStr) {
@@ -652,7 +656,7 @@ echo "=== DIAGNÓSTICO COMPLETADO ==="`;
             )}
 
             {/* Modal for Deployment Progress */}
-            {(!editingSite && (deploying || deployLogs.trim() !== '')) && (
+            {(deploying || deployLogs.trim() !== '') && (
                 <div className="site-deploy-modal-overlay">
                     <div className="site-deploy-modal">
                         <div className="site-deploy-modal-header">

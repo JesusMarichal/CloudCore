@@ -428,6 +428,24 @@ let ServerController = class ServerController {
             res.end();
             return;
         }
+        if (body.useLetsEncrypt && body.domain && body.domain !== '_') {
+            res.write(`🔍 Verificando propagación DNS para ${body.domain}...\n`);
+            try {
+                const addresses = await resolve4(body.domain);
+                const serverIp = serverData.ip;
+                if (!addresses.includes(serverIp)) {
+                    res.write(`⚠️ ADVERTENCIA: El dominio ${body.domain} apunta a ${addresses.join(', ')} pero el servidor es ${serverIp}.\n`);
+                    res.write(`❌ La generación de SSL podría fallar. Asegúrate de que el registro A en Spaceship sea correcto.\n\n`);
+                }
+                else {
+                    res.write(`✅ DNS verificado correctamente.\n\n`);
+                }
+            }
+            catch (error) {
+                res.write(`⚠️ No se pudo resolver el dominio ${body.domain}. Es posible que los DNS no hayan propagado aún.\n`);
+                res.write(`❌ Procediendo con precaución, pero SSL podría fallar.\n\n`);
+            }
+        }
         const server = {
             id: serverData.id,
             name: serverData.name,
@@ -470,46 +488,60 @@ let ServerController = class ServerController {
         const updateEnvCmd = `
             cd ${projectPath}
             node -e "const fs = require('fs'); fs.writeFileSync('.env', Buffer.from('${Buffer.from(`PORT=${body.port}\n${body.envVars ? body.envVars.replace(/\r/g, '') : ''}`).toString('base64')}', 'base64'));"
-            echo "✅ .env actualizado."
-            pm2 restart ${safeName} || true
+            echo "✅ Archivo .env actualizado con sus credenciales."
 
-            # Configuración de Nginx (Estilo Cleavr)
+            # Re-detectar el punto de entrada para el reinicio
+            ENTRY_POINT="${body.entryPoint || 'index.js'}"
+            if [ -f "dist/main.js" ]; then
+                ENTRY_POINT="dist/main.js"
+                echo "📌 Detectado NestJS (dist/main.js)"
+            fi
+            
+            # Reiniciar con PM2 asegurando que cargue el nuevo .env
+            echo "🔄 Reiniciando aplicación ${safeName}..."
+            
+            # Ejecutar build si existe el comando (necesario para variables VITE_)
+            ${body.buildCommand && body.buildCommand.trim() !== '' ? `echo "🏗️  Re-ejecutando build para aplicar cambios: ${body.buildCommand}"\n${body.buildCommand}` : ''}
+
+            pm2 restart ${safeName} --update-env || pm2 start "$ENTRY_POINT" --name "${safeName}" --update-env || pm2 start npm --name "${safeName}" -- run start
+            
+            # Configuración de Nginx (Forzando IPv4 127.0.0.1)
             if command -v nginx > /dev/null; then
-                echo "⚙️ Reconfigurando Nginx Reverse Proxy para ${serverNames}..."
+                echo "⚙️ Configurando Nginx para ${serverNames} (usando 127.0.0.1:${body.port})..."
                 echo 'server {
     listen 80;
     server_name ${serverNames};
 
     location / {
-        proxy_pass http://localhost:${body.port};
+        proxy_pass http://127.0.0.1:${body.port};
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
         proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
         proxy_cache_bypass $http_upgrade;
     }
 }' | sudo tee /etc/nginx/sites-available/${safeName} > /dev/null
 
                 sudo ln -sf /etc/nginx/sites-available/${safeName} /etc/nginx/sites-enabled/
+                sudo rm -f /etc/nginx/sites-enabled/default 2>/dev/null
                 
-                if [ "${finalDomain}" = "_" ]; then
-                    sudo rm -f /etc/nginx/sites-enabled/default
-                fi
-
                 sudo nginx -t && sudo systemctl reload nginx
                 
                 # 4. Gestionar SSL
                 if [ "${useSSL ? 'true' : 'false'}" = "true" ]; then
                     if ! command -v certbot > /dev/null; then
-                        echo "📦 Certbot no detectado, instalando..."
+                        echo "📦 Instalando Certbot..."
                         sudo apt update && sudo DEBIAN_FRONTEND=noninteractive apt install -y certbot python3-certbot-nginx
                     fi
                     echo "🔐 Asegurando certificado SSL para ${serverNames}..."
-                    sudo certbot --nginx ${certbotDomains} --non-interactive --agree-tos --email ${userEmail || 'admin@' + (finalDomain !== '_' ? finalDomain : 'example.com')} --redirect || echo "⚠️ Error al configurar SSL."
+                    sudo certbot --nginx ${certbotDomains} --non-interactive --agree-tos --email ${userEmail || 'admin@' + (finalDomain !== '_' ? finalDomain : 'example.com')} --redirect --reinstall || echo "❌ ERROR SSL: Verifica que el dominio primemax.lat apunte a la IP ${server.ip}"
                 fi
 
                 sudo nginx -t && sudo systemctl reload nginx
-                echo "✅ Nginx reconfigurado exitosamente."
+                echo "✅ Nginx y SSL configurados correctamente."
             fi
         `;
         await this.sshService.executeCommand(server, updateEnvCmd, (chunk) => {
