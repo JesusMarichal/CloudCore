@@ -256,12 +256,16 @@
 
 .website-info {
     flex: 1;
+    min-width: 0;
 }
 
 .website-info h3 {
     font-size: 18px;
     color: var(--text-main);
     margin-bottom: 8px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .website-meta {

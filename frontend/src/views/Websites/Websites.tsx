@@ -425,7 +425,7 @@ echo "=== DIAGNÓSTICO COMPLETADO ==="`;
                                 <div className={`website-card ${deployingSites[site.id] ? 'deploying' : (commits[site.id]?.isOutdated ? 'outdated' : '')}`}>
                                     <div className="website-info">
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                            <h3>{site.name}</h3>
+                                            <h3 title={site.name}>{site.name}</h3>
                                             <span className={`status-badge ${site.status || 'online'}`}>
                                                 {site.status === 'error' ? 'Error' : 'Activo'}
                                             </span>
@@ -452,7 +452,7 @@ echo "=== DIAGNÓSTICO COMPLETADO ==="`;
                                             </a>
                                         </div>
                                     </div>
-                                    <div className="website-commit-info" style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.02)', padding: '12px 16px', border: '1px solid var(--gh-border)' }}>
+                                    <div className="website-commit-info" style={{ flex: 1, minWidth: 0, backgroundColor: 'rgba(255,255,255,0.02)', padding: '12px 16px', border: '1px solid var(--gh-border)' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
                                             <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                                 <GitCommit size={14} color="var(--primary)" /> Último Commit
@@ -472,7 +472,7 @@ echo "=== DIAGNÓSTICO COMPLETADO ==="`;
                                         </div>
                                         {commits[site.id] ? (
                                             <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                                                <div style={{ fontWeight: 500, color: 'var(--text-main)', marginBottom: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                <div title={commits[site.id]!.message} style={{ fontWeight: 500, color: 'var(--text-main)', marginBottom: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                                     {commits[site.id]!.message}
                                                 </div>
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
