@@ -278,12 +278,12 @@ const Servidores: React.FC = () => {
                                                 <div
                                                     className="progress-fill"
                                                     style={{
-                                                        width: `${server.cpuUsage || 0}%`,
-                                                        backgroundColor: getMetricColor(server.cpuUsage || 0)
+                                                        width: `${Number(server.cpuUsage) || 0}%`,
+                                                        backgroundColor: getMetricColor(Number(server.cpuUsage) || 0)
                                                     }}
                                                 ></div>
                                             </div>
-                                            <span>{server.cpuUsage || 0}%</span>
+                                            <span>{server.cpuUsage ? Number(server.cpuUsage).toFixed(2) : '0.00'}%</span>
                                         </div>
                                     </td>
                                     <td className="metric-cell">
@@ -292,12 +292,12 @@ const Servidores: React.FC = () => {
                                                 <div
                                                     className="progress-fill"
                                                     style={{
-                                                        width: `${server.ramUsage || 0}%`,
-                                                        backgroundColor: getMetricColor(server.ramUsage || 0)
+                                                        width: `${Number(server.ramUsage) || 0}%`,
+                                                        backgroundColor: getMetricColor(Number(server.ramUsage) || 0)
                                                     }}
                                                 ></div>
                                             </div>
-                                            <span>{server.ramUsage || 0}%</span>
+                                            <span>{server.ramUsage ? Number(server.ramUsage).toFixed(2) : '0.00'}%</span>
                                         </div>
                                     </td>
                                     <td className="metric-cell">
@@ -306,17 +306,17 @@ const Servidores: React.FC = () => {
                                                 <div
                                                     className="progress-fill"
                                                     style={{
-                                                        width: `${server.diskUsage || 0}%`,
-                                                        backgroundColor: getMetricColor(server.diskUsage || 0)
+                                                        width: `${Number(server.diskUsage) || 0}%`,
+                                                        backgroundColor: getMetricColor(Number(server.diskUsage) || 0)
                                                     }}
                                                 ></div>
                                             </div>
-                                            <span>{server.diskUsage || 0}%</span>
+                                            <span>{server.diskUsage ? Math.round(Number(server.diskUsage)) : 0}%</span>
                                         </div>
                                     </td>
                                     <td>
                                         <span className="temp-badge">
-                                            {(server.temp !== null && server.temp !== undefined) ? `${Math.round(server.temp)}°C` : 'N/A'}
+                                            {(server.temp !== null && server.temp !== undefined) ? `${Number(server.temp).toFixed(1)}°C` : 'N/A'}
                                         </span>
                                     </td>
                                     <td>

@@ -57,7 +57,7 @@ const Dashboard = () => {
             // Calcular estadísticas
             const active = data.filter((s: any) => s.status === 'online').length;
             const avgCpu = data.length > 0
-                ? Math.round(data.reduce((acc: number, s: any) => acc + (s.cpuUsage || 0), 0) / data.length)
+                ? Number((data.reduce((acc: number, s: any) => acc + (Number(s.cpuUsage) || 0), 0) / data.length).toFixed(2))
                 : 0;
 
             setStats({
@@ -162,7 +162,7 @@ const Dashboard = () => {
                                         <span className="stat-title">Uso de CPU</span>
                                         <Activity size={14} color="var(--gh-text-muted)" />
                                     </div>
-                                    <div className="stat-value">{stats.cpuUsage}%</div>
+                                    <div className="stat-value">{stats.cpuUsage.toFixed(2)}%</div>
                                 </div>
                                 <div className="stat-card">
                                     <div className="stat-header">
