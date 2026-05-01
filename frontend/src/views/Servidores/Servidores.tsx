@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { RefreshCw, Play, Square, RotateCcw, Activity, Shield, Cpu, HardDrive, Thermometer, ChevronRight, X, Plus, KeyRound, Lock, Upload, Server } from 'lucide-react';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { serverService } from '../../services/server.service';
 import type { CreateServerData } from '../../services/server.service';
 import './Servidores.css';
@@ -17,12 +18,13 @@ const Servidores: React.FC = () => {
     const [selectedServer, setSelectedServer] = useState<CreateServerData | null>(null);
     const [services, setServices] = useState<ServiceInfo[]>([]);
     const [loadingServices, setLoadingServices] = useState(false);
-    const [activeTab, setActiveTab] = useState<'services' | 'install'>('services');
+    const [activeTab, setActiveTab] = useState<'stats' | 'services' | 'install'>('stats');
     const [installing, setInstalling] = useState<string | null>(null);
     const [uninstalling, setUninstalling] = useState<string | null>(null);
     const [updating, setUpdating] = useState(false);
     const [actionLogs, setActionLogs] = useState<string>('');
     const logsEndRef = useRef<HTMLDivElement>(null);
+    const [metricsHistory, setMetricsHistory] = useState<Record<string, { time: string, cpu: number, ram: number }[]>>({});
 
     const [servers, setServers] = useState<CreateServerData[]>([]);
     const [formData, setFormData] = useState<CreateServerData>({
@@ -66,6 +68,26 @@ const Servidores: React.FC = () => {
         const interval = setInterval(loadServers, 5000);
         return () => clearInterval(interval);
     }, []);
+
+    useEffect(() => {
+        setMetricsHistory(prev => {
+            const next = { ...prev };
+            const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            servers.forEach(s => {
+                if (s.id) {
+                    const h = next[s.id] ? [...next[s.id]] : [];
+                    h.push({
+                        time: now,
+                        cpu: Number(s.cpuUsage) || 0,
+                        ram: Number(s.ramUsage) || 0
+                    });
+                    if (h.length > 20) h.shift();
+                    next[s.id] = h;
+                }
+            });
+            return next;
+        });
+    }, [servers]);
 
     useEffect(() => {
         if (logsEndRef.current) {
@@ -370,6 +392,12 @@ const Servidores: React.FC = () => {
 
                         <div className="detail-tabs">
                             <div
+                                className={`tab ${activeTab === 'stats' ? 'active' : ''}`}
+                                onClick={() => setActiveTab('stats')}
+                            >
+                                Estadísticas
+                            </div>
+                            <div
                                 className={`tab ${activeTab === 'services' ? 'active' : ''}`}
                                 onClick={() => setActiveTab('services')}
                             >
@@ -384,6 +412,90 @@ const Servidores: React.FC = () => {
                         </div>
 
                         <div className="services-list">
+                            {activeTab === 'stats' && (
+                                <div className="stats-section">
+                                    <div className="stats-grid">
+                                        <div className="stat-card">
+                                            <div className="stat-header">
+                                                <h4><Cpu size={16} /> Uso de CPU</h4>
+                                                <div className="stat-value-mini">{Number(selectedServer.cpuUsage || 0).toFixed(2)}%</div>
+                                            </div>
+                                            <div className="chart-container">
+                                                <ResponsiveContainer width="100%" height="100%">
+                                                    <AreaChart data={metricsHistory[selectedServer.id!] || []}>
+                                                        <defs>
+                                                            <linearGradient id="colorCpu" x1="0" y1="0" x2="0" y2="1">
+                                                                <stop offset="5%" stopColor="#58a6ff" stopOpacity={0.3}/>
+                                                                <stop offset="95%" stopColor="#58a6ff" stopOpacity={0}/>
+                                                            </linearGradient>
+                                                        </defs>
+                                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                                                        <XAxis dataKey="time" hide />
+                                                        <YAxis stroke="var(--text-muted)" fontSize={10} tickFormatter={(v) => `${v}%`} domain={[0, 100]} width={35} />
+                                                        <Tooltip 
+                                                            contentStyle={{ background: '#161b22', border: '1px solid var(--gh-border)', borderRadius: '8px', fontSize: '12px', boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}
+                                                            itemStyle={{ color: '#58a6ff', fontWeight: 600 }}
+                                                            labelStyle={{ color: 'var(--text-muted)', marginBottom: '4px' }}
+                                                        />
+                                                        <Area type="monotone" dataKey="cpu" name="CPU" stroke="#58a6ff" strokeWidth={3} fillOpacity={1} fill="url(#colorCpu)" isAnimationActive={false} />
+                                                    </AreaChart>
+                                                </ResponsiveContainer>
+                                            </div>
+                                        </div>
+                                        <div className="stat-card">
+                                            <div className="stat-header">
+                                                <h4><Activity size={16} /> Uso de RAM</h4>
+                                                <div className="stat-value-mini">{Number(selectedServer.ramUsage || 0).toFixed(2)}%</div>
+                                            </div>
+                                            <div className="chart-container">
+                                                <ResponsiveContainer width="100%" height="100%">
+                                                    <AreaChart data={metricsHistory[selectedServer.id!] || []}>
+                                                        <defs>
+                                                            <linearGradient id="colorRam" x1="0" y1="0" x2="0" y2="1">
+                                                                <stop offset="5%" stopColor="#3fb950" stopOpacity={0.3}/>
+                                                                <stop offset="95%" stopColor="#3fb950" stopOpacity={0}/>
+                                                            </linearGradient>
+                                                        </defs>
+                                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                                                        <XAxis dataKey="time" hide />
+                                                        <YAxis stroke="var(--text-muted)" fontSize={10} tickFormatter={(v) => `${v}%`} domain={[0, 100]} width={35} />
+                                                        <Tooltip 
+                                                            contentStyle={{ background: '#161b22', border: '1px solid var(--gh-border)', borderRadius: '8px', fontSize: '12px', boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}
+                                                            itemStyle={{ color: '#3fb950', fontWeight: 600 }}
+                                                            labelStyle={{ color: 'var(--text-muted)', marginBottom: '4px' }}
+                                                        />
+                                                        <Area type="monotone" dataKey="ram" name="RAM" stroke="#3fb950" strokeWidth={3} fillOpacity={1} fill="url(#colorRam)" isAnimationActive={false} />
+                                                    </AreaChart>
+                                                </ResponsiveContainer>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="stats-row">
+                                        <div className="stat-box">
+                                            <div className="stat-box-icon"><HardDrive size={20} className="icon-blue" /></div>
+                                            <div className="stat-box-content">
+                                                <span className="stat-label">Almacenamiento (Disco)</span>
+                                                <span className="stat-number">{Number(selectedServer.diskUsage || 0).toFixed(1)}%</span>
+                                                <div className="stat-progress">
+                                                    <div className="stat-progress-fill" style={{ width: `${Number(selectedServer.diskUsage || 0)}%`, backgroundColor: getMetricColor(Number(selectedServer.diskUsage || 0)) }}></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="stat-box">
+                                            <div className="stat-box-icon"><Thermometer size={20} className={selectedServer.temp && selectedServer.temp > 70 ? 'icon-red' : 'icon-green'} style={{ color: selectedServer.temp && selectedServer.temp > 70 ? '#f85149' : '#3fb950' }} /></div>
+                                            <div className="stat-box-content">
+                                                <span className="stat-label">Temperatura del CPU</span>
+                                                <span className="stat-number">{selectedServer.temp ? `${Number(selectedServer.temp).toFixed(1)}°C` : 'N/A'}</span>
+                                                <div className="stat-progress">
+                                                    <div className="stat-progress-fill" style={{ width: `${selectedServer.temp ? Math.min(100, (selectedServer.temp / 100) * 100) : 0}%`, backgroundColor: selectedServer.temp && selectedServer.temp > 70 ? '#f85149' : '#3fb950' }}></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
                             {activeTab === 'services' && (
                                 loadingServices ? (
                                     <div className="loading-state">
