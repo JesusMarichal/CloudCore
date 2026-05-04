@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Github, KeyRound, Save, CheckCircle2, AlertCircle } from 'lucide-react';
+import { API_URL } from '../../config';
 import './Settings.css';
 
 const Settings = () => {
@@ -24,7 +25,7 @@ const Settings = () => {
             setLoading(true);
             try {
                 // Llamamos a la API para traer el token
-                const response = await fetch(`http://localhost:3000/github/settings/${userId}`);
+                const response = await fetch(`${API_URL}/github/settings/${userId}`);
                 const data = await response.json();
                 if (data.success && data.token) {
                     setGithubToken(data.token);
@@ -47,7 +48,7 @@ const Settings = () => {
         setStatus({ type: null, message: '' });
 
         try {
-            const response = await fetch(`http://localhost:3000/github/settings/${userId}`, {
+            const response = await fetch(`${API_URL}/github/settings/${userId}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ token: githubToken })

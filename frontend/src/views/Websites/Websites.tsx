@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { serverService } from '../../services/server.service';
 import type { CreateServerData } from '../../services/server.service';
 import { Globe, Plus, X, ExternalLink, HardDrive, Settings, GitCommit, RefreshCw, CloudUpload, Terminal, RotateCcw } from 'lucide-react';
+import { API_URL } from '../../config';
 import './Websites.css';
 
 interface WebsiteFormData {
@@ -90,7 +91,7 @@ const Websites = () => {
                 }
 
                 try {
-                    const reposRes = await fetch(`http://localhost:3000/github/repos/${user.id}`);
+                    const reposRes = await fetch(`${API_URL}/github/repos/${user.id}`);
                     const reposData = await reposRes.json();
                     if (reposData.success && reposData.repos) {
                         setGithubRepos(reposData.repos);

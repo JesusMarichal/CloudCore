@@ -1,4 +1,6 @@
-const API_URL = 'http://localhost:3000/servers';
+import { API_URL as BASE_URL } from '../config';
+
+const API_URL = `${BASE_URL}/servers`;
 
 export interface CreateServerData {
     id?: string;
