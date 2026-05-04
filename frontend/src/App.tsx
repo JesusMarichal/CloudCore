@@ -12,7 +12,8 @@ function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<Login />} />
+        <Route path="/" element={<Navigate to="/login" />} />
+        <Route path="/login" element={<Login />} />
         <Route path="/dashboard" element={<Dashboard />}>
           <Route path="servers" element={<Servidores />} />
           <Route path="websites" element={<Websites />} />
@@ -22,7 +23,7 @@ function App() {
         </Route>
 
         {/* Redirigir cualquier otra ruta a login */}
-        <Route path="*" element={<Navigate to="/" />} />
+        <Route path="*" element={<Navigate to="/login" />} />
       </Routes>
     </Router>
   );

@@ -46,7 +46,7 @@ const Dashboard = () => {
     const loadData = async () => {
         const userId = getUserId();
         if (!userId) {
-            navigate('/');
+            navigate('/login');
             return;
         }
 
@@ -78,7 +78,7 @@ const Dashboard = () => {
 
     const handleLogout = () => {
         localStorage.removeItem('user');
-        navigate('/');
+        navigate('/login');
     };
 
     const handleDeleteServer = async (serverId: string, serverName: string) => {
