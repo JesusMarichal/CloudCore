@@ -389,227 +389,238 @@ echo "=== DIAGNÓSTICO COMPLETADO ==="`;
                 </div>
                 {servers.length > 0 && (
                     <button className="btn-primary" onClick={() => setShowForm(true)}>
-                        <Plus size={16} /> Deployar Proyecto
+                        <Plus size={16} /> Desplegar Proyecto
                     </button>
                 )}
             </header>
 
-            {!showForm ? (
-                loading ? (
-                    <div className="empty-state"><p>Cargando...</p></div>
-                ) : servers.length === 0 ? (
-                    <div className="empty-state-list">
-                        <div className="empty-icon">🖥️</div>
-                        <h3>No tienes servidores conectados</h3>
-                        <p className="text-muted">Para desplegar un sitio web, primero debes agregar un servidor en la sección de Instancias.</p>
-                        <button className="btn-primary" onClick={() => navigate('/dashboard/servers')}>
-                            Ir a Servidores
-                        </button>
-                    </div>
-                ) : websites.length === 0 ? (
-                    <div className="empty-state-list">
-                        <div className="empty-icon">
-                            <Globe size={48} />
-                        </div>
-                        <h3>No hay sitios web desplegados</h3>
-                        <p className="text-muted">
-                            Tienes {servers.length} servidor(es) listo(s). ¡Es hora de poner tu primera aplicación en línea!
-                        </p>
-                        <button className="btn-primary" onClick={() => setShowForm(true)}>
-                            <Plus size={16} /> Desplegar mi primer Proyecto
-                        </button>
-                    </div>
-                ) : (
-                    <div className="website-list">
-                        {websites.map(site => (
-                            <div key={site.id}>
-                                <div className={`website-card ${deployingSites[site.id] ? 'deploying' : (commits[site.id]?.isOutdated ? 'outdated' : '')}`}>
-                                    <div className="website-info">
-                                        <div className="website-header-row">
-                                            <h3 title={site.name}>{site.name}</h3>
-                                            <span className={`status-badge ${site.status || 'online'}`}>
-                                                {site.status === 'error' ? 'Error' : 'Activo'}
-                                            </span>
-                                        </div>
-                                        <div className="website-meta">
-                                            <div className="meta-item"><HardDrive size={14} /> {site.serverIp}</div>
-                                            <div className="meta-item"><ExternalLink size={14} /> Port {site.port}</div>
-                                            {site.domain ? (
-                                                <div className="meta-item"><Globe size={14} /> {site.domain}</div>
-                                            ) : (
-                                                <div className="meta-item no-domain" onClick={() => handleEdit(site)} title="Haga clic para agregar un dominio">
-                                                    <Globe size={14} /> <span>Sin dominio registrado</span>
-                                                </div>
-                                            )}
-                                            {site.use_letsencrypt && site.domain && (
-                                                <div className="meta-item ssl-active">
-                                                    <RefreshCw size={12} style={{ color: '#3fb950' }} /> Let's Encrypt Activo
-                                                </div>
-                                            )}
-                                        </div>
-                                        <div className="card-links">
-                                            <a href={site.domain ? `http://${site.domain}` : `http://${site.serverIp}`} target="_blank" rel="noopener noreferrer" className="site-link-premium">
-                                                <ExternalLink size={14} /> Abrir Sitio
-                                            </a>
-                                        </div>
-                                    </div>
-                                    <div className="website-commit-info">
-                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                                            <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                <GitCommit size={14} color="var(--primary)" /> Último Commit
-                                            </span>
-                                            <button
-                                                className="btn-ghost"
-                                                style={{ padding: '4px 8px', fontSize: '11px' }}
-                                                onClick={() => handleDeployLatest(site.server_id, site.id)}
-                                                disabled={deployingSites[site.id]}
-                                            >
-                                                {deployingSites[site.id] ? (
-                                                    <><RefreshCw size={12} className="spinning" /> Desplegando...</>
-                                                ) : (
-                                                    <><CloudUpload size={12} /> Desplegar Último</>
-                                                )}
-                                            </button>
-                                        </div>
-                                        {commits[site.id] ? (
-                                            <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                                                <div title={commits[site.id]!.message} style={{ fontWeight: 500, color: 'var(--text-main)', marginBottom: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                                    {commits[site.id]!.message}
-                                                </div>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                    <span className="mono" style={{ color: 'var(--gh-text-link)', display: 'flex', alignItems: 'center' }}>
-                                                        {commits[site.id]!.hash}
-                                                        {commits[site.id]!.isOutdated && (
-                                                            <span
-                                                                style={{ color: '#ff7b72', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', background: 'rgba(255,123,114,0.1)', padding: '2px 6px', borderRadius: '10px', marginLeft: '8px' }}
-                                                                title={`Commit remoto disponible: ${commits[site.id]!.latestHash}`}
-                                                            >
-                                                                <RefreshCw size={10} className="spinning" /> Desactualizado
-                                                            </span>
-                                                        )}
-                                                    </span>
-                                                    <span>{commits[site.id]!.time}</span>
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <div style={{ fontSize: '12px', color: 'var(--text-dim)', fontStyle: 'italic' }}>
-                                                Detectando commit... (Asegúrate de que sea un repositorio Git)
-                                            </div>
-                                        )}
-                                    </div>
-                                    <div className="website-actions">
-                                        <button className="btn-action" onClick={() => handleViewLogs(site.server_id, site.id, site.name)} title="Ver Logs"><Terminal size={18} /></button>
-                                        <button className="btn-action" onClick={() => handleOpenEnvModal(site)} title="Variables .env"><Globe size={18} /></button>
-                                        <button className="btn-action" onClick={() => handleEdit(site)} title="Configuración"><Settings size={18} /></button>
-                                        <button className="btn-action-danger" onClick={() => handleDelete(site.server_id, site.id)} title="Eliminar"><X size={18} /></button>
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                )
+            {loading ? (
+                <div className="empty-state"><p>Cargando...</p></div>
+            ) : servers.length === 0 ? (
+                <div className="empty-state-list">
+                    <div className="empty-icon">🖥️</div>
+                    <h3>No tienes servidores conectados</h3>
+                    <p className="text-muted">Para desplegar un sitio web, primero debes agregar un servidor en la sección de Instancias.</p>
+                    <button className="btn-primary" onClick={() => navigate('/dashboard/servers')}>
+                        Ir a Servidores
+                    </button>
+                </div>
+            ) : websites.length === 0 ? (
+                <div className="empty-state-list">
+                    <div className="empty-icon"><Globe size={40} /></div>
+                    <h3>No hay sitios web desplegados</h3>
+                    <p className="text-muted">
+                        Tienes {servers.length} servidor(es) listo(s). ¡Es hora de poner tu primera aplicación en línea!
+                    </p>
+                    <button className="btn-primary" onClick={() => setShowForm(true)}>
+                        <Plus size={16} /> Desplegar mi primer Proyecto
+                    </button>
+                </div>
             ) : (
-                <div className="form-container">
-                    <div className="form-card">
-                        <div className="form-header">
-                            <h2>{editingSite ? `Editando: ${editingSite.name}` : 'Nuevo Despliegue'}</h2>
-                            <button className="btn-close" onClick={() => { setShowForm(false); setEditingSite(null); }}><X size={20} /></button>
-                        </div>
-                        <form onSubmit={handleSubmit}>
-                            <div className="form-section">
-                                <div className="form-group">
-                                    <label>Servidor</label>
-                                    <select value={formData.serverId} onChange={(e) => setFormData({ ...formData, serverId: e.target.value })} required disabled={!!editingSite}>
-                                        <option value="" disabled>Seleccionar...</option>
-                                        {servers.map(s => <option key={s.id} value={s.id}>{s.name} ({s.ip})</option>)}
-                                    </select>
-                                </div>
-                                <div className="form-group">
-                                    <label>Nombre App</label>
-                                    <input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required />
-                                </div>
-                                <div className="form-group">
-                                    <label>Repositorio Git</label>
-                                    {hasGithub ? (
-                                        <select value={formData.repo} onChange={(e) => setFormData({ ...formData, repo: e.target.value })} required>
-                                            <option value="" disabled>Seleccionar repo...</option>
-                                            {githubRepos.map(r => <option key={r.id} value={r.clone_url}>{r.full_name}</option>)}
-                                            <option value="custom">URL manual</option>
-                                        </select>
-                                    ) : null}
-                                    {(!hasGithub || formData.repo === 'custom') && (
-                                        <input type="url" placeholder="https://..." value={formData.repo === 'custom' ? '' : formData.repo} onChange={(e) => setFormData({ ...formData, repo: e.target.value })} required />
-                                    )}
-                                </div>
-                            </div>
-                            <div className="form-section">
-                                <h3>Configuración</h3>
-                                <div className="form-row">
-                                    <div className="form-group">
-                                        <label>Comando Instalación</label>
-                                        <input type="text" placeholder="npm install" value={formData.installCommand} onChange={(e) => setFormData({ ...formData, installCommand: e.target.value })} />
-                                    </div>
-                                    <div className="form-group">
-                                        <label>Comando Build</label>
-                                        <input type="text" placeholder="npm run build (opcional)" value={formData.buildCommand} onChange={(e) => setFormData({ ...formData, buildCommand: e.target.value })} />
-                                    </div>
-                                    <div className="form-group">
-                                        <label>Archivo de Entrada</label>
-                                        <input type="text" placeholder="index.js / dist/main.js" value={formData.entryPoint} onChange={(e) => setFormData({ ...formData, entryPoint: e.target.value })} required />
-                                    </div>
-                                    <div className="form-group">
-                                        <label>Comando Inicio (PM2)</label>
-                                        <input type="text" placeholder="npm start" value={formData.startCommand} onChange={(e) => setFormData({ ...formData, startCommand: e.target.value })} />
-                                    </div>
-                                </div>
-                                <div className="form-row">
-                                    <div className="form-group">
-                                        <label>Puerto</label>
-                                        <input type="number" placeholder="3000" value={formData.port} onChange={(e) => setFormData({ ...formData, port: e.target.value })} required />
-                                    </div>
-                                    <div className="form-group">
-                                        <label>Dominio (Opcional)</label>
-                                        <input type="text" placeholder="ejemplo.com" value={formData.domain} onChange={(e) => setFormData({ ...formData, domain: e.target.value })} />
-                                    </div>
-                                </div>
-                                {formData.domain && formData.domain.trim() !== '' && formData.domain !== '_' && (
-                                    <div className="form-group-checkbox" onClick={() => setFormData({ ...formData, useLetsEncrypt: !formData.useLetsEncrypt })}>
-                                        <input
-                                            type="checkbox"
-                                            checked={formData.useLetsEncrypt}
-                                            onChange={() => { }} // Manejado por el div parent
-                                        />
-                                        <label>Habilitar Let's Encrypt (Certificado SSL Gratis)</label>
-                                    </div>
-                                )}
-                                {formData.domain && formData.domain.trim() !== '' && formData.domain !== '_' && (
-                                    <div className="form-group-checkbox" onClick={() => setFormData({ ...formData, setupWwwAlias: !formData.setupWwwAlias })}>
-                                        <input
-                                            type="checkbox"
-                                            checked={formData.setupWwwAlias}
-                                            onChange={() => { }}
-                                        />
-                                        <label>Setup www alias (redirigir www.{formData.domain} a {formData.domain})</label>
-                                    </div>
-                                )}
-                                <div className="form-group">
-                                    <label>Variables de Entorno (.env)</label>
-                                    <textarea
-                                        rows={5}
-                                        placeholder="KEY=VALUE&#10;DATABASE_URL=postgres://..."
-                                        className="mono"
-                                        value={formData.envVars}
-                                        onChange={(e) => setFormData({ ...formData, envVars: e.target.value })}
-                                    />
-                                    <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
-                                        Pega aquí el contenido de tu archivo .env para el despliegue inicial.
+                <div className="website-list">
+                    {websites.map(site => (
+                        <div key={site.id} className={`website-card ${deployingSites[site.id] ? 'deploying' : (commits[site.id]?.isOutdated ? 'outdated' : '')}`}>
+                            <div className="website-info">
+                                <div className="website-header-row">
+                                    <h3 title={site.name}>{site.name}</h3>
+                                    <span className={`status-badge ${site.status || 'online'}`}>
+                                        {site.status === 'error' ? 'Error' : 'Activo'}
                                     </span>
                                 </div>
+                                <div className="website-meta">
+                                    <div className="meta-item"><HardDrive size={13} /> {site.serverIp}</div>
+                                    <div className="meta-item"><ExternalLink size={13} /> Port {site.port}</div>
+                                    {site.domain ? (
+                                        <div className="meta-item"><Globe size={13} /> {site.domain}</div>
+                                    ) : (
+                                        <div className="meta-item no-domain" onClick={() => handleEdit(site)} title="Clic para agregar dominio">
+                                            <Globe size={13} /> <span>Sin dominio</span>
+                                        </div>
+                                    )}
+                                    {site.use_letsencrypt && site.domain && (
+                                        <div className="meta-item ssl-active">
+                                            <RefreshCw size={11} /> SSL activo
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="card-links">
+                                    <a href={site.domain ? `http://${site.domain}` : `http://${site.serverIp}`} target="_blank" rel="noopener noreferrer" className="site-link-premium">
+                                        <ExternalLink size={12} /> Abrir Sitio
+                                    </a>
+                                </div>
                             </div>
-                            <div className="form-actions">
-                                <button type="button" className="btn-secondary" onClick={() => { setShowForm(false); setEditingSite(null); setDeployLogs(''); }}>Cancelar</button>
+                            <div className="website-commit-info">
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                                    <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '5px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                        <GitCommit size={12} /> Último Commit
+                                    </span>
+                                    <button
+                                        className="btn-ghost"
+                                        onClick={() => handleDeployLatest(site.server_id, site.id)}
+                                        disabled={deployingSites[site.id]}
+                                    >
+                                        {deployingSites[site.id] ? (
+                                            <><RefreshCw size={11} className="spinning" /> Desplegando...</>
+                                        ) : (
+                                            <><CloudUpload size={11} /> Desplegar Último</>
+                                        )}
+                                    </button>
+                                </div>
+                                {commits[site.id] ? (
+                                    <div style={{ fontSize: '12px' }}>
+                                        <div title={commits[site.id]!.message} style={{ fontWeight: 500, color: 'var(--text-main)', marginBottom: '5px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                            {commits[site.id]!.message}
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+                                            <span className="mono" style={{ color: 'var(--gh-text-link)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                {commits[site.id]!.hash}
+                                                {commits[site.id]!.isOutdated && (
+                                                    <span style={{ color: '#f0883e', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', background: 'rgba(240,136,62,0.1)', border: '1px solid rgba(240,136,62,0.25)', padding: '1px 6px' }}
+                                                        title={`Commit remoto: ${commits[site.id]!.latestHash}`}>
+                                                        <RefreshCw size={9} className="spinning" /> desactualizado
+                                                    </span>
+                                                )}
+                                            </span>
+                                            <span style={{ color: 'var(--text-dim)', fontSize: '11px', whiteSpace: 'nowrap' }}>{commits[site.id]!.time}</span>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div style={{ fontSize: '12px', color: 'var(--text-dim)', fontStyle: 'italic' }}>
+                                        Detectando commit...
+                                    </div>
+                                )}
+                            </div>
+                            <div className="website-actions">
+                                <button className="btn-action" onClick={() => handleViewLogs(site.server_id, site.id, site.name)} title="Ver Logs"><Terminal size={16} /></button>
+                                <button className="btn-action" onClick={() => handleOpenEnvModal(site)} title="Variables .env"><Globe size={16} /></button>
+                                <button className="btn-action" onClick={() => handleEdit(site)} title="Configuración"><Settings size={16} /></button>
+                                <button className="btn-action-danger" onClick={() => handleDelete(site.server_id, site.id)} title="Eliminar"><X size={16} /></button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {/* ── Deploy / Edit Form Modal ── */}
+            {showForm && (
+                <div className="ws-form-overlay" onClick={() => { setShowForm(false); setEditingSite(null); }}>
+                    <div className="ws-form-modal" onClick={(e) => e.stopPropagation()}>
+                        <div className="ws-form-header">
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <div className="ws-form-icon">
+                                    <Globe size={15} />
+                                </div>
+                                <div>
+                                    <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 600, color: 'var(--text-main)' }}>
+                                        {editingSite ? `Editando: ${editingSite.name}` : 'Desplegar Proyecto'}
+                                    </h3>
+                                    <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-muted)' }}>
+                                        {editingSite ? 'Actualiza la configuración del sitio web.' : 'Configura y despliega en tu servidor VPS.'}
+                                    </p>
+                                </div>
+                            </div>
+                            <button type="button" className="btn-close" onClick={() => { setShowForm(false); setEditingSite(null); }}>
+                                <X size={15} />
+                            </button>
+                        </div>
+                        <form onSubmit={handleSubmit}>
+                            <div className="ws-form-body">
+                                <div className="form-section">
+                                    <div className="form-row">
+                                        <div className="form-group">
+                                            <label>Servidor</label>
+                                            <select value={formData.serverId} onChange={(e) => setFormData({ ...formData, serverId: e.target.value })} required disabled={!!editingSite}>
+                                                <option value="" disabled>Seleccionar...</option>
+                                                {servers.map(s => <option key={s.id} value={s.id}>{s.name} ({s.ip})</option>)}
+                                            </select>
+                                        </div>
+                                        <div className="form-group">
+                                            <label>Nombre de la App</label>
+                                            <input type="text" placeholder="mi-app" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required />
+                                        </div>
+                                    </div>
+                                    <div className="form-group">
+                                        <label>Repositorio Git</label>
+                                        {hasGithub ? (
+                                            <select value={formData.repo} onChange={(e) => setFormData({ ...formData, repo: e.target.value })} required>
+                                                <option value="" disabled>Seleccionar repositorio...</option>
+                                                {githubRepos.map(r => <option key={r.id} value={r.clone_url}>{r.full_name}</option>)}
+                                                <option value="custom">↳ URL manual</option>
+                                            </select>
+                                        ) : null}
+                                        {(!hasGithub || formData.repo === 'custom') && (
+                                            <input type="url" placeholder="https://github.com/usuario/repo.git" value={formData.repo === 'custom' ? '' : formData.repo} onChange={(e) => setFormData({ ...formData, repo: e.target.value })} required />
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="form-section">
+                                    <h3>Comandos</h3>
+                                    <div className="form-row">
+                                        <div className="form-group">
+                                            <label>Instalación</label>
+                                            <input type="text" placeholder="npm install" value={formData.installCommand} onChange={(e) => setFormData({ ...formData, installCommand: e.target.value })} />
+                                        </div>
+                                        <div className="form-group">
+                                            <label>Build (opcional)</label>
+                                            <input type="text" placeholder="npm run build" value={formData.buildCommand} onChange={(e) => setFormData({ ...formData, buildCommand: e.target.value })} />
+                                        </div>
+                                        <div className="form-group">
+                                            <label>Archivo de Entrada</label>
+                                            <input type="text" placeholder="index.js" value={formData.entryPoint} onChange={(e) => setFormData({ ...formData, entryPoint: e.target.value })} required />
+                                        </div>
+                                        <div className="form-group">
+                                            <label>Inicio (PM2)</label>
+                                            <input type="text" placeholder="npm start" value={formData.startCommand} onChange={(e) => setFormData({ ...formData, startCommand: e.target.value })} />
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="form-section">
+                                    <h3>Red y Dominio</h3>
+                                    <div className="form-row">
+                                        <div className="form-group">
+                                            <label>Puerto</label>
+                                            <input type="number" placeholder="3000" value={formData.port} onChange={(e) => setFormData({ ...formData, port: e.target.value })} required />
+                                        </div>
+                                        <div className="form-group">
+                                            <label>Dominio (opcional)</label>
+                                            <input type="text" placeholder="ejemplo.com" value={formData.domain} onChange={(e) => setFormData({ ...formData, domain: e.target.value })} />
+                                        </div>
+                                    </div>
+                                    {formData.domain && formData.domain.trim() !== '' && formData.domain !== '_' && (
+                                        <div className="form-group-checkbox" onClick={() => setFormData({ ...formData, useLetsEncrypt: !formData.useLetsEncrypt })}>
+                                            <input type="checkbox" checked={formData.useLetsEncrypt} onChange={() => { }} />
+                                            <label>Habilitar Let's Encrypt (SSL gratis)</label>
+                                        </div>
+                                    )}
+                                    {formData.domain && formData.domain.trim() !== '' && formData.domain !== '_' && (
+                                        <div className="form-group-checkbox" onClick={() => setFormData({ ...formData, setupWwwAlias: !formData.setupWwwAlias })}>
+                                            <input type="checkbox" checked={formData.setupWwwAlias} onChange={() => { }} />
+                                            <label>Redirigir www.{formData.domain} → {formData.domain}</label>
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="form-section" style={{ marginBottom: 0 }}>
+                                    <h3>Variables de Entorno</h3>
+                                    <div className="form-group">
+                                        <textarea
+                                            rows={4}
+                                            placeholder={"KEY=VALUE\nDATABASE_URL=postgres://..."}
+                                            className="mono"
+                                            value={formData.envVars}
+                                            onChange={(e) => setFormData({ ...formData, envVars: e.target.value })}
+                                        />
+                                        <span style={{ fontSize: '11px', color: 'var(--text-dim)', marginTop: '4px', display: 'block' }}>
+                                            Contenido de tu archivo .env — se aplica solo en el despliegue inicial.
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="ws-form-footer">
+                                <button type="button" className="btn-secondary" onClick={() => { setShowForm(false); setEditingSite(null); setDeployLogs(''); }}>
+                                    Cancelar
+                                </button>
                                 <button type="submit" className="btn-primary" disabled={deploying}>
-                                    {deploying ? 'Procesando...' : (editingSite ? 'Guardar' : 'Desplegar')}
+                                    {deploying ? 'Procesando...' : (editingSite ? 'Guardar Cambios' : 'Desplegar')}
                                 </button>
                             </div>
                         </form>
