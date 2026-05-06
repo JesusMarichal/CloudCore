@@ -1,67 +1,69 @@
 import { useNavigate } from 'react-router-dom';
 import { useRef, useEffect, useState } from 'react';
-import { Server, Globe, Database, Terminal, Shield, Activity, ArrowRight, Cloud, Cpu, HardDrive, Lock, GitCommit, BarChart2, ChevronRight } from 'lucide-react';
+import { Server, Globe, Database, Terminal, Shield, Activity, ArrowRight, Cloud, Cpu, HardDrive, GitCommit, BarChart2, ChevronRight, Layers } from 'lucide-react';
 import './Landing.css';
 
-const features = [
-    {
-        icon: <Server size={22} />,
-        title: 'Gestión de Servidores',
-        desc: 'Conecta cualquier VPS (AWS, Azure, DigitalOcean) y monitorea CPU, RAM, disco y temperatura en tiempo real.',
-        color: '#58a6ff',
-    },
-    {
-        icon: <Globe size={22} />,
-        title: 'Despliegue de Sitios Web',
-        desc: 'Despliega proyectos Node.js, React y estáticos directamente desde un repositorio Git con un clic.',
-        color: '#3fb950',
-    },
-    {
-        icon: <Database size={22} />,
-        title: 'Bases de Datos',
-        desc: 'Crea y gestiona instancias MySQL y PostgreSQL con panel de administración integrado.',
-        color: '#a371f7',
-    },
-    {
-        icon: <Terminal size={22} />,
-        title: 'Terminal SSH',
-        desc: 'Accede a tus servidores desde el navegador con una terminal SSH completa y segura.',
-        color: '#f0883e',
-    },
-    {
-        icon: <Lock size={22} />,
-        title: 'SSL Automático',
-        desc: 'Certificados Let\'s Encrypt configurados automáticamente. HTTPS sin complicaciones.',
-        color: '#3fb950',
-    },
-    {
-        icon: <Activity size={22} />,
-        title: 'Métricas en Vivo',
-        desc: 'Gráficas de uso de recursos actualizadas cada 5 segundos. Detecta picos antes de que afecten a tus usuarios.',
-        color: '#58a6ff',
-    },
-];
-
 const steps = [
-    { number: '01', title: 'Conecta tu servidor', desc: 'Agrega un VPS existente con tu clave SSH o contraseña. Compatible con cualquier proveedor.' },
+    { number: '01', title: 'Conecta tu servidor', desc: 'Agrega cualquier VPS con tu clave SSH o contraseña. Compatible con DigitalOcean, AWS, Hetzner, Vultr y más.' },
     { number: '02', title: 'Despliega tu proyecto', desc: 'Selecciona tu repositorio Git, configura los comandos y CloudCore hace el resto automáticamente.' },
-    { number: '03', title: 'Monitorea y gestiona', desc: 'Visualiza métricas en tiempo real, gestiona servicios, variables de entorno y certificados SSL desde un solo panel.' },
+    { number: '03', title: 'Monitorea y gestiona', desc: 'CPU, RAM, disco, servicios, certificados SSL y variables de entorno — todo desde un solo panel.' },
 ];
 
-const cpuData  = [18, 24, 21, 35, 28, 22, 19, 30, 25, 24, 20, 27, 24];
-const ramData  = [38, 40, 42, 41, 43, 42, 44, 41, 40, 42, 43, 42, 42];
+const deepFeatures = [
+    {
+        icon: <Server size={20} />, color: '#58a6ff',
+        title: 'Consola de administración del servidor',
+        desc: 'Compatible con DigitalOcean, AWS, Linode, Vultr, Hetzner y UpCloud. ¿Tienes tu propio servidor? También funciona con cualquier VPS con acceso SSH.',
+    },
+    {
+        icon: <Layers size={20} />, color: '#a371f7',
+        title: 'Despliega cualquier stack',
+        desc: 'Node.js, WordPress, NuxtJS, Laravel, Strapi, PHP y HTML estático. Instalación con un clic desde tu repositorio Git.',
+    },
+    {
+        icon: <Database size={20} />, color: '#58a6ff',
+        title: 'Bases de datos gestionadas',
+        desc: 'Crea instancias MySQL, PostgreSQL o MariaDB. Gestiona usuarios, permisos y conexiones directamente desde el panel.',
+    },
+    {
+        icon: <HardDrive size={20} />, color: '#f0883e',
+        title: 'Copias de seguridad automáticas',
+        desc: 'Backups programados de archivos y bases de datos. Compatible con AWS S3, Wasabi, BackBlaze, DO Spaces y SFTP.',
+    },
+    {
+        icon: <Shield size={20} />, color: '#3fb950',
+        title: 'Seguridad integrada',
+        desc: 'SSL gratuito con Let\'s Encrypt, UFW, Fail2Ban, SSH con clave privada y aislamiento por sitio.',
+    },
+    {
+        icon: <GitCommit size={20} />, color: '#3fb950',
+        title: 'Deploy sin tiempo de inactividad',
+        desc: 'Despliega con un clic o push-to-deploy automático desde GitHub, GitLab o Bitbucket.',
+    },
+    {
+        icon: <Terminal size={20} />, color: '#f0883e',
+        title: 'Terminal SSH integrado',
+        desc: 'Accede a tus servidores desde el navegador con una terminal SSH completa y segura, sin instalar nada.',
+    },
+    {
+        icon: <Globe size={20} />, color: '#a371f7',
+        title: '¡Y mucho más!',
+        desc: 'Gestiona dominios, instala Docker, Redis y PM2, configura cron jobs, variables de entorno y certificados desde un solo lugar.',
+    },
+];
 
 const Landing = () => {
     const navigate = useNavigate();
     const metricsRef = useRef<HTMLDivElement>(null);
     const [metricsVisible, setMetricsVisible] = useState(false);
+    const [navOpen, setNavOpen] = useState(false);
 
     useEffect(() => {
         const el = metricsRef.current;
         if (!el) return;
         const obs = new IntersectionObserver(
             ([entry]) => { if (entry.isIntersecting) { setMetricsVisible(true); obs.disconnect(); } },
-            { threshold: 0.25 }
+            { threshold: 0.2 }
         );
         obs.observe(el);
         return () => obs.disconnect();
@@ -69,12 +71,11 @@ const Landing = () => {
 
     return (
         <div className="landing-root">
-            {/* Animated background (same as Login) */}
             <div className="landing-bg-animation">
-                <div className="landing-shape shape-1"></div>
-                <div className="landing-shape shape-2"></div>
-                <div className="landing-shape shape-3"></div>
-                <div className="landing-shape shape-4"></div>
+                <div className="landing-shape shape-1" />
+                <div className="landing-shape shape-2" />
+                <div className="landing-shape shape-3" />
+                <div className="landing-shape shape-4" />
             </div>
 
             {/* ── Navbar ── */}
@@ -84,34 +85,31 @@ const Landing = () => {
                         <Cloud size={20} />
                         <span>CloudCore</span>
                     </div>
-                    <div className="landing-nav-links">
-                        <a href="#features">Características</a>
-                        <a href="#how">Cómo funciona</a>
+                    <div className={`landing-nav-links${navOpen ? ' open' : ''}`}>
+                        <a href="#features" onClick={() => setNavOpen(false)}>Características</a>
+                        <a href="#how" onClick={() => setNavOpen(false)}>Cómo funciona</a>
+                        <a href="#features" className="nav-link-mobile-cta" onClick={() => { setNavOpen(false); navigate('/login'); }}>Iniciar sesión</a>
                     </div>
                     <div className="landing-nav-actions">
-                        <button className="landing-btn-ghost" onClick={() => navigate('/login')}>
-                            Iniciar sesión
-                        </button>
+                        <button className="landing-btn-ghost" onClick={() => navigate('/login')}>Iniciar sesión</button>
                         <button className="landing-btn-primary" onClick={() => navigate('/register')}>
-                            Empezar gratis <ArrowRight size={15} />
+                            Empezar gratis <ArrowRight size={14} />
                         </button>
                     </div>
+                    <button className="nav-hamburger" onClick={() => setNavOpen(!navOpen)} aria-label="Menú">
+                        <span /><span /><span />
+                    </button>
                 </div>
             </nav>
 
             {/* ── Hero ── */}
             <section className="landing-hero">
-                <div className="hero-badge">
-                    <span className="hero-badge-dot"></span>
-                    Panel de infraestructura cloud · Todo en uno
-                </div>
                 <h1 className="hero-title">
                     Gestiona tu infraestructura<br />
                     <span className="hero-gradient">desde un solo lugar.</span>
                 </h1>
                 <p className="hero-sub">
-                    Despliega servidores, sitios web, bases de datos y terminales SSH<br className="hero-br" />
-                    con una interfaz profesional, en tiempo real y sin complicaciones.
+                    Despliega servidores, sitios web, WordPress, bases de datos y terminales SSH con una interfaz profesional, en tiempo real y sin complicaciones.
                 </p>
                 <div className="hero-actions">
                     <button className="landing-btn-primary hero-cta" onClick={() => navigate('/register')}>
@@ -122,31 +120,31 @@ const Landing = () => {
                     </button>
                 </div>
 
-                {/* Dashboard preview card */}
+                {/* Dashboard mockup */}
                 <div className="hero-preview">
                     <div className="preview-bar">
-                        <span className="preview-dot" style={{ background: '#ff5f56' }}></span>
-                        <span className="preview-dot" style={{ background: '#ffbd2e' }}></span>
-                        <span className="preview-dot" style={{ background: '#27c93f' }}></span>
+                        <span className="preview-dot" style={{ background: '#ff5f56' }} />
+                        <span className="preview-dot" style={{ background: '#ffbd2e' }} />
+                        <span className="preview-dot" style={{ background: '#27c93f' }} />
                         <span className="preview-url">cloudcore.lat · Panel de Control</span>
                     </div>
                     <div className="preview-body">
                         <div className="preview-sidebar">
-                            <div className="preview-logo-mini"><Cloud size={14} /> CloudCore</div>
+                            <div className="preview-logo-mini"><Cloud size={13} /> CloudCore</div>
                             {['Resumen', 'Instancias', 'Sitios Webs', 'Bases de Datos', 'Terminal SSH'].map(item => (
-                                <div key={item} className={`preview-nav-item ${item === 'Instancias' ? 'active' : ''}`}>{item}</div>
+                                <div key={item} className={`preview-nav-item${item === 'Instancias' ? ' active' : ''}`}>{item}</div>
                             ))}
                         </div>
                         <div className="preview-main">
                             <div className="preview-stat-row">
                                 {[
-                                    { label: 'Servidores', val: '3', icon: <Server size={12} />, color: '#58a6ff' },
-                                    { label: 'CPU Promedio', val: '24%', icon: <Cpu size={12} />, color: '#3fb950' },
-                                    { label: 'Sitios activos', val: '5', icon: <Globe size={12} />, color: '#a371f7' },
-                                    { label: 'Almacenamiento', val: '68%', icon: <HardDrive size={12} />, color: '#f0883e' },
+                                    { label: 'Servidores',    val: '3',   icon: <Server size={11} />,   color: '#58a6ff' },
+                                    { label: 'CPU Promedio',  val: '24%', icon: <Cpu size={11} />,      color: '#3fb950' },
+                                    { label: 'Sitios',        val: '5',   icon: <Globe size={11} />,    color: '#a371f7' },
+                                    { label: 'Disco',         val: '68%', icon: <HardDrive size={11} />,color: '#f0883e' },
                                 ].map(s => (
                                     <div key={s.label} className="preview-stat">
-                                        <div className="preview-stat-icon" style={{ color: s.color }}>{s.icon}</div>
+                                        <div style={{ color: s.color }}>{s.icon}</div>
                                         <div className="preview-stat-val" style={{ color: s.color }}>{s.val}</div>
                                         <div className="preview-stat-label">{s.label}</div>
                                     </div>
@@ -157,13 +155,13 @@ const Landing = () => {
                                     <span>Servidor</span><span>Status</span><span>CPU</span><span>RAM</span>
                                 </div>
                                 {[
-                                    { name: 'prod-server-01', status: 'online', cpu: '18%', ram: '42%' },
-                                    { name: 'staging-server', status: 'online', cpu: '31%', ram: '58%' },
-                                    { name: 'db-server-eu', status: 'online', cpu: '9%', ram: '71%' },
+                                    { name: 'prod-server-01', cpu: '18%', ram: '42%' },
+                                    { name: 'staging-server', cpu: '31%', ram: '58%' },
+                                    { name: 'db-server-eu',   cpu: '9%',  ram: '71%' },
                                 ].map(r => (
                                     <div key={r.name} className="preview-table-row">
                                         <span className="preview-mono">{r.name}</span>
-                                        <span className="preview-online">● {r.status}</span>
+                                        <span className="preview-online">● online</span>
                                         <span>{r.cpu}</span>
                                         <span>{r.ram}</span>
                                     </div>
@@ -175,116 +173,102 @@ const Landing = () => {
             </section>
 
             {/* ── Features ── */}
-            <section className="landing-section" id="features">
+            <section className="landing-section deep-features-section" id="features">
                 <div className="landing-section-inner">
                     <div className="section-label">Características</div>
-                    <h2 className="section-title">Todo lo que necesitas para gestionar tu infraestructura</h2>
-                    <p className="section-sub">Un panel unificado que reemplaza múltiples herramientas por una sola interfaz.</p>
-                    <div className="features-grid">
-                        {features.map(f => (
-                            <div key={f.title} className="feature-card">
-                                <div className="feature-icon" style={{ color: f.color, background: `${f.color}14`, border: `1px solid ${f.color}25` }}>
+                    <h2 className="section-title">Gestiona tus servidores y aplicaciones con confianza.</h2>
+                    <p className="section-sub">CloudCore reemplaza múltiples herramientas con un solo panel — lanza sitios web y aplicaciones en minutos, no en horas.</p>
+                    <div className="deep-grid">
+                        {deepFeatures.map(f => (
+                            <div key={f.title} className="deep-card">
+                                <div className="deep-card-icon" style={{ color: f.color, background: `${f.color}12`, border: `1px solid ${f.color}22` }}>
                                     {f.icon}
                                 </div>
-                                <h3>{f.title}</h3>
-                                <p>{f.desc}</p>
+                                <div>
+                                    <h3 className="deep-card-title">{f.title}</h3>
+                                    <p className="deep-card-desc">{f.desc}</p>
+                                </div>
                             </div>
                         ))}
                     </div>
                 </div>
             </section>
 
-            {/* ── Metrics highlight ── */}
+            {/* ── Metrics dashboard ── */}
             <section className="landing-metrics">
-                <div className="landing-section-inner metrics-inner">
-                    <div className="metrics-text">
-                        <div className="section-label">Monitoreo en tiempo real</div>
-                        <h2 className="section-title" style={{ maxWidth: '420px' }}>
-                            Cada métrica, visible al instante.
-                        </h2>
-                        <p className="section-sub" style={{ maxWidth: '400px' }}>
-                            Gráficas de CPU y RAM actualizadas automáticamente. Temperatura del servidor, uso de disco
-                            y estado de cada servicio del sistema, todo desde el navegador.
-                        </p>
-                        <ul className="metrics-list">
-                            {[
-                                { icon: <BarChart2 size={15} />, text: 'Historial de CPU y RAM en gráficas de área' },
-                                { icon: <Activity size={15} />, text: 'Actualización automática cada 5 segundos' },
-                                { icon: <Shield size={15} />, text: 'Control de servicios systemd (start/stop/restart)' },
-                                { icon: <GitCommit size={15} />, text: 'Detección de commits desactualizados en producción' },
-                            ].map(m => (
-                                <li key={m.text}>
-                                    <span className="metrics-icon">{m.icon}</span>
-                                    {m.text}
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
+                <div className="landing-section-inner">
+                    <div className="section-label">Monitoreo en tiempo real</div>
+                    <h2 className="section-title">Cada métrica, visible al instante.</h2>
+                    <p className="section-sub">Un panel de instrumentos que te muestra el estado exacto de cada servidor — actualizado cada 5 segundos.</p>
 
-                    <div ref={metricsRef} className={`metrics-visual${metricsVisible ? ' animate' : ''}`}>
-                        {/* CPU Card */}
-                        <div className="metrics-card">
-                            <div className="mc-header">
-                                <Cpu size={13} style={{ color: '#58a6ff' }} />
-                                <span>prod-server-01</span>
-                                <span className="mc-label">CPU</span>
-                                <span className="mc-badge">24.5%</span>
+                    <div ref={metricsRef} className={`dash-panel${metricsVisible ? ' animate' : ''}`}>
+                        <div className="dash-header">
+                            <div className="dash-server-info">
+                                <span className="dash-online-dot" />
+                                <span className="dash-server-name">prod-server-01</span>
+                                <span className="dash-sep">·</span>
+                                <span className="dash-tag">Ubuntu 22.04 LTS</span>
+                                <span className="dash-sep">·</span>
+                                <span className="dash-tag">Uptime: 47d 12h</span>
                             </div>
-                            <div className="mc-chart">
-                                {cpuData.map((v, i) => (
-                                    <div
-                                        key={i}
-                                        className={`mc-bar cpu${i === cpuData.length - 1 ? ' mc-bar-current' : ''}`}
-                                        style={{
-                                            '--bar-h': `${Math.round((v / 40) * 90)}px`,
-                                            '--delay': `${i * 0.04}s`,
-                                        } as React.CSSProperties}
-                                    />
-                                ))}
-                            </div>
+                            <span className="dash-live">● LIVE</span>
                         </div>
 
-                        {/* RAM Card */}
-                        <div className="metrics-card">
-                            <div className="mc-header">
-                                <Activity size={13} style={{ color: '#3fb950' }} />
-                                <span>prod-server-01</span>
-                                <span className="mc-label">RAM</span>
-                                <span className="mc-badge ram">42.1%</span>
-                            </div>
-                            <div className="mc-chart">
-                                {ramData.map((v, i) => (
-                                    <div
-                                        key={i}
-                                        className={`mc-bar ram${i === ramData.length - 1 ? ' mc-bar-current' : ''}`}
-                                        style={{
-                                            '--bar-h': `${Math.round((v / 50) * 90)}px`,
-                                            '--delay': `${i * 0.04}s`,
-                                        } as React.CSSProperties}
-                                    />
-                                ))}
-                            </div>
+                        <div className="dash-gauges">
+                            {([
+                                { label: 'CPU',   value: 24.5, max: 100, unit: '%',  color: '#58a6ff' },
+                                { label: 'RAM',   value: 42.1, max: 100, unit: '%',  color: '#3fb950' },
+                                { label: 'Disco', value: 68,   max: 100, unit: '%',  color: '#d29922' },
+                                { label: 'Temp',  value: 52,   max: 100, unit: '°C', color: '#3fb950' },
+                            ] as { label: string; value: number; max: number; unit: string; color: string }[]).map(g => {
+                                const r = 38, C = 2 * Math.PI * r, L = 0.75 * C;
+                                const filled = (g.value / g.max) * L;
+                                const offset = metricsVisible ? L - filled : L;
+                                const gc = g.value > 80 ? '#f85149' : g.value > 60 ? '#d29922' : g.color;
+                                return (
+                                    <div key={g.label} className="gauge-wrap">
+                                        <svg viewBox="0 0 100 100" className="gauge-svg">
+                                            <circle cx="50" cy="50" r={r} fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth="7" strokeDasharray={`${L} ${C}`} strokeLinecap="round" transform="rotate(135 50 50)" />
+                                            <circle cx="50" cy="50" r={r} fill="none" stroke={gc} strokeWidth="9" strokeOpacity="0.12" strokeDasharray={`${L} ${C}`} strokeLinecap="round" transform="rotate(135 50 50)" style={{ strokeDashoffset: offset, transition: 'stroke-dashoffset 1.4s cubic-bezier(0.4,0,0.2,1) 0.1s' }} />
+                                            <circle cx="50" cy="50" r={r} fill="none" stroke={gc} strokeWidth="7" strokeDasharray={`${L} ${C}`} strokeLinecap="round" transform="rotate(135 50 50)" style={{ strokeDashoffset: offset, transition: 'stroke-dashoffset 1.4s cubic-bezier(0.4,0,0.2,1) 0.2s', filter: `drop-shadow(0 0 5px ${gc})` }} />
+                                            <text x="50" y="48" textAnchor="middle" dominantBaseline="middle" fill="#f0f6fc" fontSize="15" fontWeight="700" fontFamily="JetBrains Mono, monospace">{g.value}{g.unit}</text>
+                                            <text x="50" y="64" textAnchor="middle" fill="rgba(139,148,158,0.8)" fontSize="8" fontFamily="Inter, sans-serif" letterSpacing="0.5">{g.label.toUpperCase()}</text>
+                                        </svg>
+                                    </div>
+                                );
+                            })}
                         </div>
 
-                        {/* Mini stats */}
-                        <div className="metrics-row-cards">
+                        <div className="dash-services">
+                            <span className="dash-services-label">Servicios</span>
                             {[
-                                { label: 'Disco', val: '68%', color: '#f0883e', sub: 'usado' },
-                                { label: 'Temp', val: '52°C', color: '#3fb950', sub: 'CPU' },
-                                { label: 'Servicios', val: '12', color: '#58a6ff', sub: 'activos' },
-                            ].map(c => (
-                                <div key={c.label} className="metrics-mini-card">
-                                    <span className="mmc-val" style={{ color: c.color }}>{c.val}</span>
-                                    <span className="mmc-label">{c.label}</span>
-                                    <span className="mmc-sub">{c.sub}</span>
+                                { name: 'nginx', active: true }, { name: 'mysql', active: true },
+                                { name: 'pm2', active: true },   { name: 'redis', active: false },
+                                { name: 'docker', active: true },{ name: 'postgresql', active: false },
+                            ].map(s => (
+                                <div key={s.name} className={`dash-service ${s.active ? 'on' : 'off'}`}>
+                                    <span className="dash-service-dot" />{s.name}
                                 </div>
                             ))}
                         </div>
                     </div>
+
+                    <div className="dash-features-row">
+                        {[
+                            { icon: <BarChart2 size={14} />, text: 'Gráficas históricas de CPU y RAM' },
+                            { icon: <Activity size={14} />,  text: 'Actualización automática cada 5 s' },
+                            { icon: <Shield size={14} />,    text: 'Control de servicios systemd' },
+                            { icon: <GitCommit size={14} />, text: 'Detección de commits desactualizados' },
+                        ].map(f => (
+                            <div key={f.text} className="dash-feature-pill">
+                                <span style={{ color: 'var(--primary)' }}>{f.icon}</span>{f.text}
+                            </div>
+                        ))}
+                    </div>
                 </div>
             </section>
 
-            {/* ── How it works ── */}
+            {/* ── Cómo funciona ── */}
             <section className="landing-section" id="how">
                 <div className="landing-section-inner">
                     <div className="section-label">Cómo funciona</div>
@@ -301,7 +285,7 @@ const Landing = () => {
                 </div>
             </section>
 
-            {/* ── CTA Banner ── */}
+            {/* ── CTA ── */}
             <section className="landing-cta-section">
                 <div className="landing-cta-inner">
                     <h2>Empieza a gestionar tu infraestructura hoy.</h2>
@@ -316,10 +300,9 @@ const Landing = () => {
             <footer className="landing-footer">
                 <div className="landing-footer-inner">
                     <div className="landing-logo" style={{ opacity: 0.6 }}>
-                        <Cloud size={16} />
-                        <span>CloudCore</span>
+                        <Cloud size={16} /><span>CloudCore</span>
                     </div>
-                    <p className="footer-copy">© 2025 CloudCore. Infraestructura SaaS.</p>
+                    <p className="footer-copy">© 2025 CloudCore. Infraestructura SaaS. · Desarrollado por <span className="footer-dev">AbstracDev</span></p>
                 </div>
             </footer>
         </div>

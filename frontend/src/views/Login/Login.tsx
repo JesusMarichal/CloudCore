@@ -41,12 +41,13 @@ const Login: React.FC = () => {
 
             <div className="login-card">
                 <div className="login-header">
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', marginBottom: '8px' }}>
-                        <Cloud size={26} style={{ color: 'var(--primary)' }} />
-                        <span style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-main)' }}>CloudCore</span>
+                    <div className="auth-brand">
+                        <Cloud size={32} className="auth-brand-icon" />
+                        <span className="auth-brand-name">CloudCore</span>
                     </div>
-                    <h1 style={{ fontSize: '1.6rem' }}>Bienvenido de nuevo</h1>
-                    <p>Infraestructura SaaS de alto rendimiento</p>
+                    <div className="auth-divider" />
+                    <p className="auth-subtitle">Bienvenido de nuevo</p>
+                    <p className="auth-desc">Infraestructura SaaS de alto rendimiento</p>
                 </div>
 
                 <form onSubmit={handleSubmit}>

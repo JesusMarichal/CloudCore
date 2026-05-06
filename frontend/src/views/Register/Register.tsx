@@ -52,12 +52,13 @@ const Register: React.FC = () => {
                 ) : (
                     <>
                         <div className="login-header">
-                            <div className="reg-logo">
-                                <Cloud size={28} />
-                                <span>CloudCore</span>
+                            <div className="auth-brand">
+                                <Cloud size={32} className="auth-brand-icon" />
+                                <span className="auth-brand-name">CloudCore</span>
                             </div>
-                            <h1 style={{ fontSize: '1.6rem', marginTop: '12px' }}>Crea tu cuenta</h1>
-                            <p>Gestiona tu infraestructura cloud desde un solo lugar.</p>
+                            <div className="auth-divider" />
+                            <p className="auth-subtitle">Crea tu cuenta</p>
+                            <p className="auth-desc">Gestiona tu infraestructura cloud desde un solo lugar.</p>
                         </div>
 
                         <form onSubmit={handleSubmit}>
