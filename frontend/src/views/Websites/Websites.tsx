@@ -425,7 +425,7 @@ echo "=== DIAGNÓSTICO COMPLETADO ==="`;
                             <div key={site.id}>
                                 <div className={`website-card ${deployingSites[site.id] ? 'deploying' : (commits[site.id]?.isOutdated ? 'outdated' : '')}`}>
                                     <div className="website-info">
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <div className="website-header-row">
                                             <h3 title={site.name}>{site.name}</h3>
                                             <span className={`status-badge ${site.status || 'online'}`}>
                                                 {site.status === 'error' ? 'Error' : 'Activo'}
@@ -437,12 +437,12 @@ echo "=== DIAGNÓSTICO COMPLETADO ==="`;
                                             {site.domain ? (
                                                 <div className="meta-item"><Globe size={14} /> {site.domain}</div>
                                             ) : (
-                                                <div className="meta-item" style={{ cursor: 'pointer', opacity: 0.7 }} onClick={() => handleEdit(site)} title="Haga clic para agregar un dominio">
-                                                    <Globe size={14} /> <span style={{ fontStyle: 'italic', textDecoration: 'underline' }}>Sin dominio registrado</span>
+                                                <div className="meta-item no-domain" onClick={() => handleEdit(site)} title="Haga clic para agregar un dominio">
+                                                    <Globe size={14} /> <span>Sin dominio registrado</span>
                                                 </div>
                                             )}
                                             {site.use_letsencrypt && site.domain && (
-                                                <div className="meta-item" style={{ background: 'rgba(56, 139, 253, 0.1)', color: 'var(--primary)', border: '1px solid rgba(56, 139, 253, 0.2)' }}>
+                                                <div className="meta-item ssl-active">
                                                     <RefreshCw size={12} style={{ color: '#3fb950' }} /> Let's Encrypt Activo
                                                 </div>
                                             )}
@@ -453,7 +453,7 @@ echo "=== DIAGNÓSTICO COMPLETADO ==="`;
                                             </a>
                                         </div>
                                     </div>
-                                    <div className="website-commit-info" style={{ flex: 1, minWidth: 0, backgroundColor: 'rgba(255,255,255,0.02)', padding: '12px 16px', border: '1px solid var(--gh-border)' }}>
+                                    <div className="website-commit-info">
                                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
                                             <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                                 <GitCommit size={14} color="var(--primary)" /> Último Commit
@@ -497,7 +497,7 @@ echo "=== DIAGNÓSTICO COMPLETADO ==="`;
                                             </div>
                                         )}
                                     </div>
-                                    <div className="website-actions" style={{ flexDirection: 'column', borderTop: 'none', paddingTop: 0, paddingLeft: '15px', borderLeft: '1px solid rgba(255, 255, 255, 0.05)', gap: '10px' }}>
+                                    <div className="website-actions">
                                         <button className="btn-action" onClick={() => handleViewLogs(site.server_id, site.id, site.name)} title="Ver Logs"><Terminal size={18} /></button>
                                         <button className="btn-action" onClick={() => handleOpenEnvModal(site)} title="Variables .env"><Globe size={18} /></button>
                                         <button className="btn-action" onClick={() => handleEdit(site)} title="Configuración"><Settings size={18} /></button>

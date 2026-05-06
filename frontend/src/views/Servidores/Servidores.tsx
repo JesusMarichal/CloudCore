@@ -267,13 +267,13 @@ const Servidores: React.FC = () => {
                         <tbody>
                             {servers.map(server => (
                                 <tr key={server.id} className="server-row">
-                                    <td onClick={() => handleManageServer(server)} style={{ cursor: 'pointer' }}>
+                                    <td data-label="Nombre / IP" onClick={() => handleManageServer(server)} style={{ cursor: 'pointer' }}>
                                         <div className="server-main-info">
                                             <span className="server-name">{server.name} <ChevronRight size={12} className="chevron" /></span>
                                             <code className="server-ip-mini">{server.ip}</code>
                                         </div>
                                     </td>
-                                    <td>
+                                    <td data-label="Estado">
                                         <div className="status-wrapper">
                                             <span
                                                 className="status-dot"
@@ -294,7 +294,7 @@ const Servidores: React.FC = () => {
                                             )}
                                         </div>
                                     </td>
-                                    <td className="metric-cell">
+                                    <td data-label="CPU" className="metric-cell">
                                         <div className="mini-metric">
                                             <div className="progress-bar-mini">
                                                 <div
@@ -308,7 +308,7 @@ const Servidores: React.FC = () => {
                                             <span>{server.cpuUsage ? Number(server.cpuUsage).toFixed(2) : '0.00'}%</span>
                                         </div>
                                     </td>
-                                    <td className="metric-cell">
+                                    <td data-label="RAM" className="metric-cell">
                                         <div className="mini-metric">
                                             <div className="progress-bar-mini">
                                                 <div
@@ -322,7 +322,7 @@ const Servidores: React.FC = () => {
                                             <span>{server.ramUsage ? Number(server.ramUsage).toFixed(2) : '0.00'}%</span>
                                         </div>
                                     </td>
-                                    <td className="metric-cell">
+                                    <td data-label="Disco" className="metric-cell">
                                         <div className="mini-metric">
                                             <div className="progress-bar-mini">
                                                 <div
@@ -336,12 +336,12 @@ const Servidores: React.FC = () => {
                                             <span>{server.diskUsage ? Math.round(Number(server.diskUsage)) : 0}%</span>
                                         </div>
                                     </td>
-                                    <td>
+                                    <td data-label="Temp">
                                         <span className="temp-badge">
                                             {(server.temp !== null && server.temp !== undefined) ? `${Number(server.temp).toFixed(1)}°C` : 'N/A'}
                                         </span>
                                     </td>
-                                    <td>
+                                    <td data-label="Acciones">
                                         <div className="server-actions-list">
                                             <button
                                                 className="btn-icon refresh-btn"

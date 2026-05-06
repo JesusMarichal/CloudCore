@@ -38,7 +38,7 @@
 .servers-list-container {
     background: var(--gh-canvas-subtle);
     border: 1px solid var(--gh-border);
-    border-radius: 0;
+    border-radius: 12px;
     box-shadow: var(--card-shadow);
     overflow: hidden;
 }
@@ -60,7 +60,7 @@
 }
 
 .servers-table td {
-    padding: 16px 20px;
+    padding: 20px 24px;
     border-bottom: 1px solid var(--gh-border);
     vertical-align: middle;
 }
@@ -104,7 +104,7 @@
     color: var(--text-muted);
     background: rgba(255, 255, 255, 0.05);
     padding: 2px 6px;
-    border-radius: 0;
+    border-radius: 12px;
 }
 
 .server-actions-list {
@@ -119,7 +119,7 @@
     align-items: center;
     justify-content: center;
     padding: 8px;
-    border-radius: 0;
+    border-radius: 12px;
     background: rgba(88, 166, 255, 0.05);
     border: 1px solid rgba(88, 166, 255, 0.1);
     color: var(--primary);
@@ -134,6 +134,89 @@
 
 .refresh-btn.spinning {
     background: rgba(88, 166, 255, 0.1);
+}
+
+/* Status wrapper en tabla */
+.status-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    flex-shrink: 0;
+}
+
+.provisioning-mini-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+
+.spinner-mini {
+    width: 10px;
+    height: 10px;
+    border: 1.5px solid rgba(88, 166, 255, 0.2);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    flex-shrink: 0;
+}
+
+/* Metric cells en tabla */
+.metric-cell {
+    min-width: 120px;
+}
+
+.mini-metric {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.progress-bar-mini {
+    flex: 1;
+    height: 5px;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 3px;
+    overflow: hidden;
+    min-width: 60px;
+}
+
+.progress-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.5s ease, background-color 0.5s ease;
+}
+
+.temp-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--text-muted);
+    background: rgba(255, 255, 255, 0.04);
+    padding: 3px 8px;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* Install section */
+.install-section {
+    display: flex;
+    flex-direction: column;
+}
+
+/* Service info */
+.service-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
 }
 
 /* Badges de Estado */
@@ -165,7 +248,7 @@
 .server-detail-card {
     background: #161b22;
     border: 1px solid var(--gh-border);
-    border-radius: 0;
+    border-radius: 12px;
     width: 100%;
     max-width: 680px;
     max-height: 90vh;
@@ -184,7 +267,7 @@
     box-shadow: 0 24px 80px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.05);
     animation: dbConnSlide 0.25s ease-out;
     overflow: hidden;
-    border-radius: 0;
+    border-radius: 12px;
     display: flex;
     flex-direction: column;
 }
@@ -320,7 +403,7 @@
     color: var(--text-muted);
     cursor: pointer;
     padding: 10px;
-    border-radius: 0;
+    border-radius: 12px;
     transition: all 0.2s;
     display: flex;
     align-items: center;
@@ -367,7 +450,7 @@
     right: 0;
     height: 3px;
     background: var(--primary);
-    border-radius: 0;
+    border-radius: 12px;
     box-shadow: 0 0 12px var(--primary-glow);
 }
 
@@ -381,7 +464,7 @@
 .services-table {
     width: 100%;
     border-collapse: separate;
-    border-spacing: 0 8px;
+    border-spacing: 0 12px;
 }
 
 .services-table th {
@@ -409,11 +492,11 @@
 }
 
 .services-table td:first-child {
-    border-radius: 0;
+    border-radius: 12px;
 }
 
 .services-table td:last-child {
-    border-radius: 0;
+    border-radius: 12px;
 }
 
 .service-name {
@@ -477,7 +560,7 @@
 .btn-action {
     width: 36px;
     height: 36px;
-    border-radius: 0;
+    border-radius: 12px;
     border: 1px solid var(--gh-border);
     background: rgba(255, 255, 255, 0.03);
     color: var(--text-muted);
@@ -525,7 +608,7 @@
     align-items: center;
     justify-content: center;
     padding: 60px 40px;
-    gap: 20px;
+    gap: 24px;
     color: var(--text-muted);
 }
 
@@ -554,7 +637,7 @@
 .stats-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 20px;
+    gap: 24px;
 }
 
 .stat-card {
@@ -607,7 +690,7 @@
 .stats-row {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 20px;
+    gap: 24px;
 }
 
 .stat-box {
@@ -736,7 +819,7 @@
 
 .form-row {
     display: flex;
-    gap: 20px;
+    gap: 24px;
 }
 
 .form-row .form-group {
@@ -751,7 +834,7 @@ textarea {
     color: var(--text-main);
     font-size: 14px;
     padding: 12px 14px;
-    border-radius: 0;
+    border-radius: 12px;
     transition: all 0.2s ease;
 }
 
@@ -780,7 +863,7 @@ textarea:focus {
     align-items: center;
     gap: 8px;
     padding: 10px 22px;
-    border-radius: 0;
+    border-radius: 12px;
     font-size: 14px;
     font-weight: 700;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -799,7 +882,7 @@ textarea:focus {
     color: var(--text-main);
     border: 1px solid var(--gh-border);
     padding: 8px 16px;
-    border-radius: 0;
+    border-radius: 12px;
     font-size: 13px;
     font-weight: 600;
     transition: all 0.2s;
@@ -818,12 +901,6 @@ textarea:focus {
 
 .spinning svg {
     animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-    to {
-        transform: rotate(360deg);
-    }
 }
 
 .empty-services {
@@ -860,7 +937,7 @@ textarea:focus {
     padding: 80px 40px;
     text-align: center;
     background: rgba(255, 255, 255, 0.01);
-    border-radius: 0;
+    border-radius: 12px;
 }
 
 .empty-icon {
@@ -902,3 +979,145 @@ textarea:focus {
     padding: 14px 32px;
     font-size: 15px;
 }
+/* ==============================
+   RESPONSIVE SERVIDORES
+================================ */
+@media (max-width: 768px) {
+    .servidores-container {
+        padding: 1rem;
+    }
+
+    .header-actions {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 16px;
+        margin-bottom: 1.5rem;
+    }
+
+    .header-actions h1 {
+        font-size: 1.5rem;
+    }
+
+    .header-actions .btn-primary {
+        width: 100%;
+        justify-content: center;
+    }
+
+    /* Tabla → tarjetas */
+    .servers-table thead {
+        display: none;
+    }
+
+    .servers-table,
+    .servers-table tbody,
+    .servers-table tr,
+    .servers-table td {
+        display: block;
+        width: 100%;
+    }
+
+    .server-row {
+        margin-bottom: 1.2rem;
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid var(--gh-border);
+        border-radius: 10px;
+        padding: 10px 0;
+    }
+
+    .server-row:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+    }
+
+    .servers-table td {
+        padding: 8px 16px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        text-align: right;
+    }
+
+    .servers-table td:last-child {
+        border-bottom: none;
+    }
+
+    .servers-table td::before {
+        content: attr(data-label);
+        font-weight: 700;
+        text-transform: uppercase;
+        font-size: 11px;
+        color: var(--text-dim);
+        text-align: left;
+        flex-shrink: 0;
+        margin-right: 8px;
+    }
+
+    .server-main-info {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 4px;
+    }
+
+    .server-actions-list {
+        justify-content: flex-end;
+        width: 100%;
+    }
+
+    .mini-metric {
+        justify-content: flex-end;
+    }
+
+    /* Modal de detalle */
+    .server-detail-card {
+        max-height: 95vh;
+    }
+
+    .detail-header {
+        padding: 16px 20px;
+    }
+
+    .detail-header h2 {
+        font-size: 1.1rem;
+    }
+
+    .detail-tabs {
+        padding: 0 16px;
+        gap: 16px;
+        overflow-x: auto;
+    }
+
+    .tab {
+        font-size: 13px;
+        white-space: nowrap;
+    }
+
+    .services-list {
+        padding: 16px;
+    }
+
+    /* Stats en modal */
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .stats-row {
+        grid-template-columns: 1fr;
+    }
+
+    .chart-container {
+        height: 150px;
+    }
+
+    /* Form modal */
+    .server-conn-grid {
+        grid-template-columns: 1fr;
+    }
+
+    /* Catálogo instalador: 1 columna en móvil */
+    .install-section > div[style*="grid-template-columns: 1fr 1fr"] {
+        grid-template-columns: 1fr !important;
+    }
+}
+

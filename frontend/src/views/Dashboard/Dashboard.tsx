@@ -14,7 +14,8 @@ import {
     ChevronDown,
     Globe,
     Database,
-    Trash2
+    Trash2,
+    Menu
 } from 'lucide-react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { serverService } from '../../services/server.service';
@@ -25,6 +26,7 @@ const Dashboard = () => {
     const location = useLocation();
     const navigate = useNavigate();
 
+    const [sidebarOpen, setSidebarOpen] = useState(false);
     const [servers, setServers] = useState<CreateServerData[]>([]);
     const [deletingServerId, setDeletingServerId] = useState<string | null>(null);
     const [stats, setStats] = useState({
@@ -98,34 +100,35 @@ const Dashboard = () => {
 
     return (
         <div className="dashboard-layout">
-            <aside className="sidebar">
+            <div className={`sidebar-overlay ${sidebarOpen ? 'active' : ''}`} onClick={() => setSidebarOpen(false)}></div>
+            <aside className={`sidebar ${sidebarOpen ? 'mobile-open' : ''}`}>
                 <div className="sidebar-logo">
                     <Cloud size={20} />
                     <span>CloudCore</span>
                 </div>
 
                 <nav className="nav-links">
-                    <NavLink to="/dashboard" end className={({ isActive }) => isActive ? "nav-link active" : "nav-link"}>
+                    <NavLink to="/dashboard" end className={({ isActive }) => isActive ? "nav-link active" : "nav-link"} onClick={() => setSidebarOpen(false)}>
                         <LayoutGrid size={16} />
                         <span>Resumen</span>
                     </NavLink>
-                    <NavLink to="/dashboard/servers" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"}>
+                    <NavLink to="/dashboard/servers" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"} onClick={() => setSidebarOpen(false)}>
                         <Server size={16} />
                         <span>Instancias</span>
                     </NavLink>
-                    <NavLink to="/dashboard/websites" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"}>
+                    <NavLink to="/dashboard/websites" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"} onClick={() => setSidebarOpen(false)}>
                         <Globe size={16} />
                         <span>Sitios Webs</span>
                     </NavLink>
-                    <NavLink to="/dashboard/databases" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"}>
+                    <NavLink to="/dashboard/databases" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"} onClick={() => setSidebarOpen(false)}>
                         <Database size={16} />
                         <span>Bases de Datos</span>
                     </NavLink>
-                    <NavLink to="/dashboard/terminal" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"}>
+                    <NavLink to="/dashboard/terminal" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"} onClick={() => setSidebarOpen(false)}>
                         <Terminal size={16} />
                         <span>Terminal SSH</span>
                     </NavLink>
-                    <NavLink to="/dashboard/settings" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"}>
+                    <NavLink to="/dashboard/settings" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"} onClick={() => setSidebarOpen(false)}>
                         <Settings size={16} />
                         <span>Ajustes</span>
                     </NavLink>
@@ -139,7 +142,12 @@ const Dashboard = () => {
 
             <main className="main-content">
                 <header className="header">
-                    <h2>Panel de Control / {location.pathname.split('/').pop() || 'Resumen'}</h2>
+                    <div className="header-left">
+                        <button className="mobile-menu-toggle" onClick={() => setSidebarOpen(!sidebarOpen)}>
+                            <Menu size={20} />
+                        </button>
+                        <h2>Panel de Control / {location.pathname.split('/').pop() || 'Resumen'}</h2>
+                    </div>
                     <div className="user-info">
                         <div className="avatar">JM</div>
                         <span style={{ fontSize: '12px', fontWeight: 500 }}>Jesus Marichal</span>
@@ -210,16 +218,16 @@ const Dashboard = () => {
                                         {servers.length > 0 ? (
                                             servers.map((server, i) => (
                                                 <tr key={i} style={{ opacity: deletingServerId === server.id ? 0.5 : 1, transition: 'opacity 0.3s' }}>
-                                                    <td>
+                                                    <td data-label="Nombre">
                                                         <a href="#" className="server-name">{server.name}</a>
                                                     </td>
-                                                    <td>
+                                                    <td data-label="Status">
                                                         <span className={`status-badge ${server.status}`}>
                                                             {server.status === 'online' ? 'Online' : 'Offline'}
                                                         </span>
                                                     </td>
-                                                    <td className="mono">{server.ip}</td>
-                                                    <td style={{ textAlign: 'right' }}>
+                                                    <td data-label="Dirección IP" className="mono">{server.ip}</td>
+                                                    <td data-label="Acciones" style={{ textAlign: 'right' }}>
                                                         {deletingServerId === server.id ? (
                                                             <Loader2 size={16} style={{ color: 'var(--primary)', animation: 'spin 1s linear infinite' }} />
                                                         ) : (
