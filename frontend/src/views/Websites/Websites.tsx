@@ -455,12 +455,14 @@ echo "=== DIAGNÓSTICO COMPLETADO ==="`;
                                         <GitCommit size={12} /> Último Commit
                                     </span>
                                     <button
-                                        className="btn-ghost"
+                                        className={`btn-ghost${commits[site.id]?.isOutdated && !deployingSites[site.id] ? ' btn-ghost-update' : ''}`}
                                         onClick={() => handleDeployLatest(site.server_id, site.id)}
                                         disabled={deployingSites[site.id]}
                                     >
                                         {deployingSites[site.id] ? (
                                             <><RefreshCw size={11} className="spinning" /> Desplegando...</>
+                                        ) : commits[site.id]?.isOutdated ? (
+                                            <><CloudUpload size={11} /> Actualizar Sitio</>
                                         ) : (
                                             <><CloudUpload size={11} /> Desplegar Último</>
                                         )}
@@ -475,10 +477,16 @@ echo "=== DIAGNÓSTICO COMPLETADO ==="`;
                                             <span className="mono" style={{ color: 'var(--gh-text-link)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                                 {commits[site.id]!.hash}
                                                 {commits[site.id]!.isOutdated && (
-                                                    <span style={{ color: '#f0883e', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', background: 'rgba(240,136,62,0.1)', border: '1px solid rgba(240,136,62,0.25)', padding: '1px 6px' }}
-                                                        title={`Commit remoto: ${commits[site.id]!.latestHash}`}>
-                                                        <RefreshCw size={9} className="spinning" /> desactualizado
-                                                    </span>
+                                                    deployingSites[site.id] ? (
+                                                        <span style={{ color: '#3fb950', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', background: 'rgba(63,185,80,0.1)', border: '1px solid rgba(63,185,80,0.25)', padding: '1px 6px' }}>
+                                                            <RefreshCw size={9} className="spinning" /> Actualizando
+                                                        </span>
+                                                    ) : (
+                                                        <span style={{ color: '#f0883e', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', background: 'rgba(240,136,62,0.1)', border: '1px solid rgba(240,136,62,0.25)', padding: '1px 6px' }}
+                                                            title={`Commit remoto: ${commits[site.id]!.latestHash}`}>
+                                                            <RefreshCw size={9} className="spinning" /> desactualizado
+                                                        </span>
+                                                    )
                                                 )}
                                             </span>
                                             <span style={{ color: 'var(--text-dim)', fontSize: '11px', whiteSpace: 'nowrap' }}>{commits[site.id]!.time}</span>

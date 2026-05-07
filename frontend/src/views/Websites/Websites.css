@@ -405,6 +405,17 @@
     cursor: not-allowed;
 }
 
+.btn-ghost-update {
+    color: #3fb950 !important;
+    border-color: rgba(63, 185, 80, 0.35) !important;
+    background: rgba(63, 185, 80, 0.06) !important;
+}
+
+.btn-ghost-update:hover {
+    background: rgba(63, 185, 80, 0.12) !important;
+    border-color: rgba(63, 185, 80, 0.6) !important;
+}
+
 .btn-close {
     background: transparent;
     border: 1px solid var(--gh-border);
