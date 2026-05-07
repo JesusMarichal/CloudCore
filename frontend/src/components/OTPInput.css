@@ -1,0 +1,40 @@
+.otp-boxes {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.otp-sep {
+    color: var(--gh-border);
+    font-size: 16px;
+    margin: 0 2px;
+    user-select: none;
+}
+
+.otp-box {
+    width: 46px;
+    height: 56px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--gh-border);
+    color: var(--text-main);
+    font-size: 1.5rem;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+    text-align: center;
+    caret-color: transparent;
+    transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+    outline: none;
+    border-radius: 0;
+}
+
+.otp-box:focus {
+    border-color: var(--primary);
+    background: rgba(88, 166, 255, 0.06);
+    box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.15);
+}
+
+.otp-box.otp-filled {
+    border-color: rgba(88, 166, 255, 0.4);
+    background: rgba(88, 166, 255, 0.04);
+    color: var(--primary);
+}

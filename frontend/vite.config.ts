@@ -10,7 +10,7 @@ export default defineConfig({
       'X-XSS-Protection':          '1; mode=block',
       'Referrer-Policy':           'strict-origin-when-cross-origin',
       'Permissions-Policy':        'camera=(), microphone=(), geolocation=()',
-      'Strict-Transport-Security': 'max-age=63072000; includeSubDomains; preload',
+      // HSTS no aplica en dev (HTTP localhost). Activarlo en producción detrás de HTTPS.
     },
   },
 })

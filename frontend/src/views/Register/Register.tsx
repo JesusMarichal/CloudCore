@@ -26,8 +26,11 @@ const Register: React.FC = () => {
             } else {
                 setError(result.message || 'Error al registrarse');
             }
-        } catch {
-            setError('Error de conexión con el servidor');
+        } catch (err: any) {
+            const msg = err?.response?.data?.message
+                ?? (err?.code === 'ERR_NETWORK' ? 'No se pudo conectar al servidor.' : null)
+                ?? 'Error al procesar el registro';
+            setError(msg);
         } finally {
             setLoading(false);
         }

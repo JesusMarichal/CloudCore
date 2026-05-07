@@ -82,9 +82,16 @@ let DatabaseService = DatabaseService_1 = class DatabaseService {
                         ALTER TABLE servers ADD COLUMN temp NUMERIC(5,2);
                     END IF;
                     IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='users') THEN
-                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns
                                      WHERE table_name='users' AND column_name='github_token') THEN
                             ALTER TABLE users ADD COLUMN github_token VARCHAR(255);
+                        END IF;
+                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                                     WHERE table_name='users' AND column_name='totp_secret') THEN
+                            ALTER TABLE users ADD COLUMN totp_secret VARCHAR(64);
+                            ALTER TABLE users ADD COLUMN totp_enabled BOOLEAN DEFAULT false;
+                            ALTER TABLE users ADD COLUMN failed_attempts INT DEFAULT 0;
+                            ALTER TABLE users ADD COLUMN locked_until TIMESTAMP;
                         END IF;
                     END IF;
                 END $$;

@@ -1,132 +1,400 @@
 import { useState, useEffect } from 'react';
-import { Github, KeyRound, Save, CheckCircle2, AlertCircle } from 'lucide-react';
+import {
+    Github, KeyRound, Save, CheckCircle2, AlertCircle,
+    ShieldCheck, Lock, Eye, EyeOff, QrCode, Shield,
+    AlertTriangle, X, Check
+} from 'lucide-react';
 import { API_URL } from '../../config';
+import { AuthService } from '../../services/auth.service';
+import OTPInput from '../../components/OTPInput';
 import './Settings.css';
 
-const Settings = () => {
-    const [githubToken, setGithubToken] = useState('');
+const getUserId = () => {
+    const s = localStorage.getItem('user');
+    return s ? JSON.parse(s).id : null;
+};
+
+// ── Sección: GitHub ───────────────────────────────────────────────────────────
+const GithubSection = () => {
+    const [token, setToken] = useState('');
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
-    const [status, setStatus] = useState<{ type: 'success' | 'error' | null, message: string }>({ type: null, message: '' });
-
-    const getUserId = () => {
-        const userStr = localStorage.getItem('user');
-        if (userStr) {
-            return JSON.parse(userStr).id;
-        }
-        return null;
-    };
+    const [status, setStatus] = useState<{ type: 'success' | 'error' | null; msg: string }>({ type: null, msg: '' });
 
     useEffect(() => {
-        const loadSettings = async () => {
-            const userId = getUserId();
-            if (!userId) return;
-
-            setLoading(true);
-            try {
-                // Llamamos a la API para traer el token
-                const response = await fetch(`${API_URL}/github/settings/${userId}`);
-                const data = await response.json();
-                if (data.success && data.token) {
-                    setGithubToken(data.token);
-                }
-            } catch (error) {
-                console.error('Error cargando ajustes:', error);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        loadSettings();
+        const userId = getUserId();
+        if (!userId) return;
+        setLoading(true);
+        fetch(`${API_URL}/github/settings/${userId}`)
+            .then(r => r.json())
+            .then(d => { if (d.success && d.token) setToken(d.token); })
+            .catch(() => { })
+            .finally(() => setLoading(false));
     }, []);
 
     const handleSave = async () => {
         const userId = getUserId();
         if (!userId) return;
-
         setSaving(true);
-        setStatus({ type: null, message: '' });
-
+        setStatus({ type: null, msg: '' });
         try {
-            const response = await fetch(`${API_URL}/github/settings/${userId}`, {
+            const r = await fetch(`${API_URL}/github/settings/${userId}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ token: githubToken })
+                body: JSON.stringify({ token }),
             });
-            const data = await response.json();
-
-            if (data.success) {
-                setStatus({ type: 'success', message: 'Token guardado correctamente. Ahora CloudCore puede ver tus proyectos.' });
-            } else {
-                setStatus({ type: 'error', message: data.message || 'Error guardando token' });
-            }
-        } catch (error) {
-            console.error('Error guardando ajustes:', error);
-            setStatus({ type: 'error', message: 'Error de conexión con el servidor' });
+            const d = await r.json();
+            setStatus({ type: d.success ? 'success' : 'error', msg: d.success ? 'Token guardado correctamente.' : d.message });
+        } catch {
+            setStatus({ type: 'error', msg: 'Error de conexión' });
         } finally {
             setSaving(false);
         }
     };
 
     return (
-        <div className="settings-container">
-            <div className="settings-header">
-                <h2>Ajustes de Integración</h2>
-                <p className="subtitle">Conecta tus cuentas externas para automatizar despliegues</p>
+        <div className="setting-card">
+            <div className="setting-card-header">
+                <div className="setting-icon github"><Github size={24} /></div>
+                <div className="setting-title">
+                    <h3>GitHub Integration</h3>
+                    <p>Conecta CloudCore con GitHub usando un Personal Access Token para desplegar repositorios automáticamente.</p>
+                </div>
             </div>
-
-            <div className="settings-content">
-                <div className="setting-card">
-                    <div className="setting-card-header">
-                        <div className="setting-icon github">
-                            <Github size={24} />
-                        </div>
-                        <div className="setting-title">
-                            <h3>GitHub Integration</h3>
-                            <p>Conecta CloudCore con Github usando un Personal Access Token (PAT) clásico o fine-grained para desplegar tus repositorios automáticamente.</p>
-                        </div>
+            <div className="setting-form">
+                <div className="form-group">
+                    <label>Personal Access Token</label>
+                    <div className="input-with-icon">
+                        <KeyRound size={16} className="input-icon" />
+                        <input type="password" placeholder="ghp_************************************"
+                            value={token} onChange={e => setToken(e.target.value)} disabled={loading} />
                     </div>
-
-                    <div className="setting-form">
-                        <div className="form-group">
-                            <label>Personal Access Token</label>
-                            <div className="input-with-icon">
-                                <KeyRound size={16} className="input-icon" />
-                                <input
-                                    type="password"
-                                    placeholder="ghp_************************************"
-                                    value={githubToken}
-                                    onChange={(e) => setGithubToken(e.target.value)}
-                                    disabled={loading}
-                                />
-                            </div>
-                            <span className="help-text">
-                                Necesitas permisos de 'repo' completos. Puedes crearlo en
-                                <a href="https://github.com/settings/tokens/new" target="_blank" rel="noreferrer"> GitHub Settings</a>.
-                            </span>
-                        </div>
-
-                        {status.type && (
-                            <div className={`status-alert ${status.type}`}>
-                                {status.type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
-                                <span>{status.message}</span>
-                            </div>
-                        )}
-
-                        <div className="setting-actions">
-                            <button className="btn-save" onClick={handleSave} disabled={saving || loading}>
-                                {saving ? 'Guardando...' : (
-                                    <>
-                                        <Save size={16} /> Save Changes
-                                    </>
-                                )}
-                            </button>
-                        </div>
+                    <span className="help-text">
+                        Necesitas permisos de <code>repo</code>. Créalo en{' '}
+                        <a href="https://github.com/settings/tokens/new" target="_blank" rel="noreferrer">GitHub Settings</a>.
+                    </span>
+                </div>
+                {status.type && (
+                    <div className={`status-alert ${status.type}`}>
+                        {status.type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+                        <span>{status.msg}</span>
                     </div>
+                )}
+                <div className="setting-actions">
+                    <button className="btn-save" onClick={handleSave} disabled={saving || loading}>
+                        {saving ? 'Guardando...' : <><Save size={16} /> Guardar</>}
+                    </button>
                 </div>
             </div>
         </div>
     );
 };
+
+// ── Sección: Cambiar contraseña ───────────────────────────────────────────────
+const ChangePasswordSection = () => {
+    const [form, setForm] = useState({ current: '', newPass: '', confirm: '' });
+    const [show, setShow] = useState({ current: false, newPass: false, confirm: false });
+    const [loading, setLoading] = useState(false);
+    const [status, setStatus] = useState<{ type: 'success' | 'error' | null; msg: string }>({ type: null, msg: '' });
+
+    const strength = (p: string) => {
+        let s = 0;
+        if (p.length >= 8) s++;
+        if (/[A-Z]/.test(p)) s++;
+        if (/[0-9]/.test(p)) s++;
+        if (/[^A-Za-z0-9]/.test(p)) s++;
+        return s;
+    };
+    const str = strength(form.newPass);
+    const strLabel = ['', 'Débil', 'Regular', 'Buena', 'Fuerte'][str];
+    const strColor = ['', '#f85149', '#d29922', '#3fb950', '#58a6ff'][str];
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setStatus({ type: null, msg: '' });
+        if (form.newPass !== form.confirm) {
+            setStatus({ type: 'error', msg: 'Las contraseñas no coinciden' });
+            return;
+        }
+        const userId = getUserId();
+        if (!userId) return;
+        setLoading(true);
+        try {
+            const result = await AuthService.changePassword(userId, form.current, form.newPass);
+            setStatus({ type: result.success ? 'success' : 'error', msg: result.message });
+            if (result.success) setForm({ current: '', newPass: '', confirm: '' });
+        } catch {
+            setStatus({ type: 'error', msg: 'Error de conexión' });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <div className="setting-card">
+            <div className="setting-card-header">
+                <div className="setting-icon sec-blue"><Lock size={22} /></div>
+                <div className="setting-title">
+                    <h3>Cambiar Contraseña</h3>
+                    <p>Actualiza tu contraseña periódicamente para mantener tu cuenta segura.</p>
+                </div>
+            </div>
+            <form className="setting-form" onSubmit={handleSubmit}>
+                {(['current', 'newPass', 'confirm'] as const).map(field => (
+                    <div className="form-group" key={field}>
+                        <label>
+                            {field === 'current' ? 'Contraseña actual' :
+                             field === 'newPass'  ? 'Nueva contraseña' : 'Confirmar nueva contraseña'}
+                        </label>
+                        <div className="input-with-icon">
+                            <Lock size={16} className="input-icon" />
+                            <input
+                                type={show[field] ? 'text' : 'password'}
+                                value={form[field]}
+                                onChange={e => setForm({ ...form, [field]: e.target.value })}
+                                placeholder="••••••••"
+                                required
+                                minLength={field === 'current' ? 1 : 8}
+                            />
+                            <button type="button" className="btn-eye" onClick={() => setShow({ ...show, [field]: !show[field] })}>
+                                {show[field] ? <EyeOff size={15} /> : <Eye size={15} />}
+                            </button>
+                        </div>
+                        {field === 'newPass' && form.newPass && (
+                            <div className="password-strength">
+                                <div className="strength-bars">
+                                    {[1,2,3,4].map(i => (
+                                        <div key={i} className="strength-bar" style={{ background: i <= str ? strColor : 'rgba(255,255,255,0.08)' }} />
+                                    ))}
+                                </div>
+                                <span style={{ color: strColor, fontSize: '11px' }}>{strLabel}</span>
+                            </div>
+                        )}
+                    </div>
+                ))}
+                {status.type && (
+                    <div className={`status-alert ${status.type}`}>
+                        {status.type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+                        <span>{status.msg}</span>
+                    </div>
+                )}
+                <div className="setting-actions">
+                    <button className="btn-save" type="submit" disabled={loading}>
+                        {loading ? 'Actualizando...' : <><Save size={16} /> Actualizar Contraseña</>}
+                    </button>
+                </div>
+            </form>
+        </div>
+    );
+};
+
+// ── Sección: 2FA ──────────────────────────────────────────────────────────────
+const TwoFASection = () => {
+    const [enabled, setEnabled] = useState(false);
+    const [loading, setLoading] = useState(true);
+    const [step, setStep]       = useState<'idle' | 'setup' | 'disable'>('idle');
+    const [qrUrl, setQrUrl]     = useState('');
+    const [secret, setSecret]   = useState('');
+    const [code, setCode]       = useState('');
+    const [password, setPassword] = useState('');
+    const [status, setStatus]   = useState<{ type: 'success' | 'error' | null; msg: string }>({ type: null, msg: '' });
+    const [saving, setSaving]   = useState(false);
+
+    const userId = getUserId();
+
+    useEffect(() => {
+        if (!userId) return;
+        AuthService.get2FAStatus(userId)
+            .then(d => setEnabled(!!d.enabled))
+            .finally(() => setLoading(false));
+    }, []);
+
+    const handleGenerate = async () => {
+        if (!userId) return;
+        setSaving(true);
+        setStatus({ type: null, msg: '' });
+        try {
+            const d = await AuthService.generate2FA(userId);
+            if (d.success) {
+                setSecret(d.secret);
+                const qr = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(d.otpauthUrl)}`;
+                setQrUrl(qr);
+                setStep('setup');
+            } else {
+                setStatus({ type: 'error', msg: d.message });
+            }
+        } catch {
+            setStatus({ type: 'error', msg: 'Error al generar QR' });
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleEnable = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!userId) return;
+        setSaving(true);
+        setStatus({ type: null, msg: '' });
+        try {
+            const d = await AuthService.enable2FA(userId, code);
+            if (d.success) {
+                setEnabled(true);
+                setStep('idle');
+                setCode('');
+                setStatus({ type: 'success', msg: '✓ 2FA activado. Tu cuenta ahora requiere código al iniciar sesión.' });
+            } else {
+                setStatus({ type: 'error', msg: d.message });
+            }
+        } catch {
+            setStatus({ type: 'error', msg: 'Error al activar 2FA' });
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleDisable = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!userId) return;
+        setSaving(true);
+        setStatus({ type: null, msg: '' });
+        try {
+            const d = await AuthService.disable2FA(userId, password);
+            if (d.success) {
+                setEnabled(false);
+                setStep('idle');
+                setPassword('');
+                setStatus({ type: 'success', msg: '2FA desactivado.' });
+            } else {
+                setStatus({ type: 'error', msg: d.message });
+            }
+        } catch {
+            setStatus({ type: 'error', msg: 'Error al desactivar 2FA' });
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return (
+        <div className="setting-card">
+            <div className="setting-card-header">
+                <div className={`setting-icon ${enabled ? 'sec-green' : 'sec-gray'}`}>
+                    <ShieldCheck size={22} />
+                </div>
+                <div className="setting-title" style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <h3>Autenticación de Dos Factores (2FA)</h3>
+                        <span className={`twofa-badge ${enabled ? 'on' : 'off'}`}>
+                            {enabled ? <><Check size={12} /> Activo</> : 'Inactivo'}
+                        </span>
+                    </div>
+                    <p>Protege tu cuenta con Google Authenticator, Authy u otra app TOTP.</p>
+                </div>
+            </div>
+
+            <div className="setting-form">
+                {status.type && (
+                    <div className={`status-alert ${status.type}`}>
+                        {status.type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+                        <span>{status.msg}</span>
+                    </div>
+                )}
+
+                {!loading && step === 'idle' && (
+                    <div className="setting-actions">
+                        {!enabled ? (
+                            <button className="btn-save" onClick={handleGenerate} disabled={saving}>
+                                {saving ? 'Generando...' : <><QrCode size={16} /> Activar 2FA</>}
+                            </button>
+                        ) : (
+                            <button className="btn-danger" onClick={() => { setStep('disable'); setStatus({ type: null, msg: '' }); }}>
+                                <X size={16} /> Desactivar 2FA
+                            </button>
+                        )}
+                    </div>
+                )}
+
+                {step === 'setup' && (
+                    <div className="twofa-setup">
+                        <p className="twofa-step-label">Paso 1 — Escanea el código QR con tu app autenticadora</p>
+                        <div className="twofa-qr-wrap">
+                            {qrUrl && <img src={qrUrl} alt="QR 2FA" className="twofa-qr" />}
+                        </div>
+                        <p className="twofa-step-label">¿No puedes escanear? Ingresa este código manualmente:</p>
+                        <div className="twofa-secret">
+                            <code>{secret}</code>
+                        </div>
+                        <p className="twofa-step-label">Paso 2 — Ingresa el código de 6 dígitos para confirmar</p>
+                        <form onSubmit={handleEnable} className="twofa-verify-form">
+                            <OTPInput value={code} onChange={setCode} />
+                            <div className="twofa-actions">
+                                <button type="button" className="btn-ghost-sm"
+                                    onClick={() => { setStep('idle'); setCode(''); setStatus({ type: null, msg: '' }); }}>
+                                    Cancelar
+                                </button>
+                                <button type="submit" className="btn-save" disabled={saving || code.length !== 6}>
+                                    {saving ? 'Verificando...' : <><Check size={16} /> Confirmar y Activar</>}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                )}
+
+                {step === 'disable' && (
+                    <form onSubmit={handleDisable} className="twofa-setup">
+                        <p className="twofa-step-label">Ingresa tu contraseña para desactivar 2FA</p>
+                        <div className="input-with-icon" style={{ maxWidth: '340px' }}>
+                            <Lock size={16} className="input-icon" />
+                            <input type="password" value={password}
+                                onChange={e => setPassword(e.target.value)}
+                                placeholder="Tu contraseña actual" required autoFocus />
+                        </div>
+                        <div className="twofa-actions">
+                            <button type="button" className="btn-ghost-sm"
+                                onClick={() => { setStep('idle'); setPassword(''); }}>
+                                Cancelar
+                            </button>
+                            <button type="submit" className="btn-danger" disabled={saving || !password}>
+                                {saving ? 'Desactivando...' : <><X size={16} /> Desactivar</>}
+                            </button>
+                        </div>
+                    </form>
+                )}
+            </div>
+        </div>
+    );
+};
+
+// ── Sección: Aviso de seguridad ───────────────────────────────────────────────
+const SecurityTipsSection = () => (
+    <div className="security-tips-card">
+        <div className="security-tips-header">
+            <AlertTriangle size={18} style={{ color: '#d29922' }} />
+            <span>Buenas prácticas de seguridad</span>
+        </div>
+        <ul className="security-tips-list">
+            <li><Shield size={13} /> Nunca compartas tus credenciales ni claves SSH con nadie.</li>
+            <li><Shield size={13} /> Usa contraseñas únicas de al menos 12 caracteres con mayúsculas, números y símbolos.</li>
+            <li><Shield size={13} /> Activa 2FA para proteger tu cuenta incluso si tu contraseña es comprometida.</li>
+            <li><Shield size={13} /> CloudCore nunca te pedirá tu contraseña por correo o chat.</li>
+            <li><Shield size={13} /> Revisa regularmente los servidores conectados y elimina accesos que ya no uses.</li>
+        </ul>
+    </div>
+);
+
+// ── Page ──────────────────────────────────────────────────────────────────────
+const Settings = () => (
+    <div className="settings-container">
+        <div className="settings-header">
+            <h2>Ajustes</h2>
+            <p className="subtitle">Gestiona integraciones y la seguridad de tu cuenta</p>
+        </div>
+        <div className="settings-content">
+            <GithubSection />
+            <ChangePasswordSection />
+            <TwoFASection />
+            <SecurityTipsSection />
+        </div>
+    </div>
+);
 
 export default Settings;
