@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { serverService } from '../../services/server.service';
 import type { CreateServerData } from '../../services/server.service';
-import { Globe, Plus, X, ExternalLink, HardDrive, Settings, GitCommit, RefreshCw, CloudUpload, Terminal, RotateCcw } from 'lucide-react';
+import { Globe, Plus, X, ExternalLink, HardDrive, Settings, GitCommit, RefreshCw, CloudUpload, Terminal, RotateCcw, CheckCircle2 } from 'lucide-react';
 import { API_URL } from '../../config';
 import './Websites.css';
 
@@ -723,7 +723,7 @@ echo "=== DIAGNÓSTICO COMPLETADO ==="`;
             {toast && (
                 <div className={`modern-toast toast-${toast.type}`}>
                     <div className="toast-icon">
-                        {toast.type === 'success' && <div className="icon-success"><RefreshCw size={16} />✓</div>}
+                        {toast.type === 'success' && <div className="icon-success"><CheckCircle2 size={16} /></div>}
                         {toast.type === 'error' && <div className="icon-error"><X size={16} /></div>}
                         {toast.type === 'info' && <div className="icon-info">i</div>}
                     </div>
