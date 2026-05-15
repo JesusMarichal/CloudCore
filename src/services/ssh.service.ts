@@ -10,17 +10,40 @@ export class SshService {
     /**
      * Ejecuta un comando remoto vía SSH
      */
-    async executeCommand(server: Server, command: string, onData?: (chunk: string) => void): Promise<string> {
+    async executeCommand(
+        server: Server,
+        command: string,
+        onData?: (chunk: string) => void,
+        timeoutMs = 300_000, // 5 minutos por defecto
+    ): Promise<string> {
         return new Promise((resolve, reject) => {
             const conn = new Client();
             let output = '';
+            let settled = false;
+
+            const done = (err?: Error) => {
+                if (settled) return;
+                settled = true;
+                clearTimeout(timer);
+                try { conn.end(); } catch (_) {}
+                if (err) reject(err);
+                else resolve(output);
+            };
+
+            // Timeout global — si el comando no termina en timeoutMs, forzamos el cierre
+            const timer = setTimeout(() => {
+                this.logger.error(`SSH timeout (${timeoutMs / 1000}s) en ${server.ip}`);
+                if (onData) onData('\n❌ Tiempo de espera agotado. El comando tardó demasiado.\n');
+                done(new Error(`Timeout SSH después de ${timeoutMs / 1000} segundos`));
+            }, timeoutMs);
 
             const connectionConfig: any = {
                 host: server.ip,
                 port: server.sshPort || 22,
                 username: server.sshUser || 'root',
-                readyTimeout: 60000, // 60 segundos de handshake
-                keepaliveInterval: 10000, // Evitar que la conexión se cierre por inactividad
+                readyTimeout: 30000,
+                keepaliveInterval: 15000,
+                keepaliveCountMax: 8,
             };
 
             if (server.authType === 'key' && server.privateKey) {
@@ -30,32 +53,29 @@ export class SshService {
             }
 
             conn.on('ready', () => {
-                // Registro más silencioso para comandos de monitoreo
                 if (!command.includes('STATS_START')) {
                     this.logger.log(`SSH Exec: ${command.substring(0, 50)}${command.length > 50 ? '...' : ''} en ${server.ip}`);
                 }
                 conn.exec(command, (err, stream) => {
                     if (err) {
-                        this.logger.error(`Error de ejecución SSH: ${err.message}`);
-                        conn.end();
-                        return reject(err);
+                        this.logger.error(`Error exec SSH: ${err.message}`);
+                        return done(err);
                     }
-                    stream.on('close', (code: number, signal: string) => {
-                        conn.end();
-                        resolve(output);
-                    }).on('data', (data: Buffer) => {
-                        const chunk = data.toString();
-                        output += chunk;
-                        if (onData) onData(chunk);
-                    }).stderr.on('data', (data: Buffer) => {
+                    stream.on('close', () => done())
+                          .on('data', (data: Buffer) => {
+                              const chunk = data.toString();
+                              output += chunk;
+                              if (onData) onData(chunk);
+                          });
+                    stream.stderr.on('data', (data: Buffer) => {
                         const chunk = data.toString();
                         output += chunk;
                         if (onData) onData(chunk);
                     });
                 });
-            }).on('error', (err) => {
-                reject(err);
-            }).connect(connectionConfig);
+            })
+            .on('error', (err) => done(err))
+            .connect(connectionConfig);
         });
     }
 

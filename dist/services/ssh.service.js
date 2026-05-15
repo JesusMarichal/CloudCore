@@ -15,16 +15,38 @@ let SshService = SshService_1 = class SshService {
     constructor() {
         this.logger = new common_1.Logger(SshService_1.name);
     }
-    async executeCommand(server, command, onData) {
+    async executeCommand(server, command, onData, timeoutMs = 300_000) {
         return new Promise((resolve, reject) => {
             const conn = new ssh2_1.Client();
             let output = '';
+            let settled = false;
+            const done = (err) => {
+                if (settled)
+                    return;
+                settled = true;
+                clearTimeout(timer);
+                try {
+                    conn.end();
+                }
+                catch (_) { }
+                if (err)
+                    reject(err);
+                else
+                    resolve(output);
+            };
+            const timer = setTimeout(() => {
+                this.logger.error(`SSH timeout (${timeoutMs / 1000}s) en ${server.ip}`);
+                if (onData)
+                    onData('\n❌ Tiempo de espera agotado. El comando tardó demasiado.\n');
+                done(new Error(`Timeout SSH después de ${timeoutMs / 1000} segundos`));
+            }, timeoutMs);
             const connectionConfig = {
                 host: server.ip,
                 port: server.sshPort || 22,
                 username: server.sshUser || 'root',
-                readyTimeout: 60000,
-                keepaliveInterval: 10000,
+                readyTimeout: 30000,
+                keepaliveInterval: 15000,
+                keepaliveCountMax: 8,
             };
             if (server.authType === 'key' && server.privateKey) {
                 connectionConfig.privateKey = (0, encryption_util_1.decrypt)(server.privateKey);
@@ -38,28 +60,26 @@ let SshService = SshService_1 = class SshService {
                 }
                 conn.exec(command, (err, stream) => {
                     if (err) {
-                        this.logger.error(`Error de ejecución SSH: ${err.message}`);
-                        conn.end();
-                        return reject(err);
+                        this.logger.error(`Error exec SSH: ${err.message}`);
+                        return done(err);
                     }
-                    stream.on('close', (code, signal) => {
-                        conn.end();
-                        resolve(output);
-                    }).on('data', (data) => {
+                    stream.on('close', () => done())
+                        .on('data', (data) => {
                         const chunk = data.toString();
                         output += chunk;
                         if (onData)
                             onData(chunk);
-                    }).stderr.on('data', (data) => {
+                    });
+                    stream.stderr.on('data', (data) => {
                         const chunk = data.toString();
                         output += chunk;
                         if (onData)
                             onData(chunk);
                     });
                 });
-            }).on('error', (err) => {
-                reject(err);
-            }).connect(connectionConfig);
+            })
+                .on('error', (err) => done(err))
+                .connect(connectionConfig);
         });
     }
     async provision(server, onProgress) {

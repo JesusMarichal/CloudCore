@@ -51,7 +51,7 @@ const Websites = () => {
     }, [deployLogs]);
 
     // New states for commits and deploying updates
-    const [commits, setCommits] = useState<{ [key: string]: { hash: string, message: string, author: string, time: string, isOutdated?: boolean, latestHash?: string } | null }>({});
+    const [commits, setCommits] = useState<{ [key: string]: { hash: string, message: string, author: string, time: string, isOutdated?: boolean, latestHash?: string | null, latestMessage?: string | null, latestTime?: string | null } | null }>({});
     const [deployingSites, setDeployingSites] = useState<{ [key: string]: boolean }>({});
 
     // Toast and Confirm System
@@ -470,12 +470,12 @@ echo "=== DIAGNÓSTICO COMPLETADO ==="`;
                                 </div>
                                 {commits[site.id] ? (
                                     <div style={{ fontSize: '12px' }}>
-                                        <div title={commits[site.id]!.message} style={{ fontWeight: 500, color: 'var(--text-main)', marginBottom: '5px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                            {commits[site.id]!.message}
+                                        <div title={commits[site.id]!.isOutdated && commits[site.id]!.latestMessage ? commits[site.id]!.latestMessage! : commits[site.id]!.message} style={{ fontWeight: 500, color: 'var(--text-main)', marginBottom: '5px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                            {commits[site.id]!.isOutdated && commits[site.id]!.latestMessage ? commits[site.id]!.latestMessage : commits[site.id]!.message}
                                         </div>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
                                             <span className="mono" style={{ color: 'var(--gh-text-link)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                {commits[site.id]!.hash}
+                                                {commits[site.id]!.isOutdated && commits[site.id]!.latestHash ? commits[site.id]!.latestHash : commits[site.id]!.hash}
                                                 {commits[site.id]!.isOutdated && (
                                                     deployingSites[site.id] ? (
                                                         <span style={{ color: '#3fb950', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', background: 'rgba(63,185,80,0.1)', border: '1px solid rgba(63,185,80,0.25)', padding: '1px 6px' }}>
@@ -483,13 +483,15 @@ echo "=== DIAGNÓSTICO COMPLETADO ==="`;
                                                         </span>
                                                     ) : (
                                                         <span style={{ color: '#f0883e', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', background: 'rgba(240,136,62,0.1)', border: '1px solid rgba(240,136,62,0.25)', padding: '1px 6px' }}
-                                                            title={`Commit remoto: ${commits[site.id]!.latestHash}`}>
+                                                            title={`Desplegado: ${commits[site.id]!.hash}`}>
                                                             <RefreshCw size={9} className="spinning" /> desactualizado
                                                         </span>
                                                     )
                                                 )}
                                             </span>
-                                            <span style={{ color: 'var(--text-dim)', fontSize: '11px', whiteSpace: 'nowrap' }}>{commits[site.id]!.time}</span>
+                                            <span style={{ color: 'var(--text-dim)', fontSize: '11px', whiteSpace: 'nowrap' }}>
+                                                {commits[site.id]!.isOutdated && commits[site.id]!.latestTime ? commits[site.id]!.latestTime : commits[site.id]!.time}
+                                            </span>
                                         </div>
                                     </div>
                                 ) : (

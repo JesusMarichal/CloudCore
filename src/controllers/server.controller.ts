@@ -833,15 +833,16 @@ export class ServerController {
             const checkCmd = `
                 cd ${projectPath}
                 git fetch origin -q || true
+                BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null || echo "main")
                 LOCAL=$(git rev-parse HEAD 2>/dev/null || echo "")
-                REMOTE=$(git ls-remote origin HEAD 2>/dev/null | awk '{print $1}')
-                LOG=$(git log -1 --format="%h|%s|%cr|%an" 2>/dev/null || echo "")
-                
+                REMOTE=$(git rev-parse origin/$BRANCH 2>/dev/null || echo "")
+                LOCAL_LOG=$(git log -1 --format="%h|%s|%cr|%an" 2>/dev/null || echo "")
+
                 if [ -n "$REMOTE" ] && [ -n "$LOCAL" ] && [ "$LOCAL" != "$REMOTE" ]; then
-                    SHORT_REMOTE=$(echo $REMOTE | cut -c1-7)
-                    echo "$LOG|OUTDATED|$SHORT_REMOTE"
+                    REMOTE_LOG=$(git log -1 origin/$BRANCH --format="%h|%s|%cr|%an" 2>/dev/null || echo "")
+                    echo "$LOCAL_LOG|OUTDATED|$REMOTE_LOG"
                 else
-                    echo "$LOG|UPTODATE|"
+                    echo "$LOCAL_LOG|UPTODATE|"
                 fi
             `;
             const output = await this.sshService.executeCommand(server, checkCmd);
@@ -850,6 +851,7 @@ export class ServerController {
             const parts = lastLine.split('|');
 
             if (parts.length >= 4 && parts[0] !== '') {
+                const isOutdated = parts[4] === 'OUTDATED';
                 return {
                     success: true,
                     commit: {
@@ -857,8 +859,10 @@ export class ServerController {
                         message: parts[1],
                         time: parts[2],
                         author: parts[3],
-                        isOutdated: parts[4] === 'OUTDATED',
-                        latestHash: parts[5] || null
+                        isOutdated,
+                        latestHash: isOutdated ? (parts[5] || null) : null,
+                        latestMessage: isOutdated ? (parts[6] || null) : null,
+                        latestTime: isOutdated ? (parts[7] || null) : null,
                     }
                 };
             }
@@ -893,63 +897,58 @@ export class ServerController {
         };
 
         const safeName = site.name.replace(/[^a-zA-Z0-9_-]/g, '').toLowerCase();
-        const projectPath = `/var/www/${safeName}`;
+        const envB64 = Buffer.from(`PORT=${site.port}\n${site.env_vars ? site.env_vars.replace(/\r/g, '') : ''}`).toString('base64');
 
         const deployCmd = `
-cd /var/www/${safeName}
-echo "📥 Obteniendo último commit..."
-git reset --hard
-git pull
+export GIT_TERMINAL_PROMPT=0
+export GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=no -o BatchMode=yes"
+export CI=true
+export NPM_CONFIG_YES=true
+export DEBIAN_FRONTEND=noninteractive
+
+cd /var/www/${safeName} || { echo "❌ Directorio no existe: /var/www/${safeName}"; exit 1; }
+
+echo "📥 Obteniendo último commit del remoto..."
+git fetch --all --prune -q 2>&1 || { echo "⚠️ git fetch falló, continuando..."; }
+BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null || echo "main")
+git reset --hard origin/$BRANCH 2>&1
+echo "✅ Commit: $(git rev-parse --short HEAD) — $(git log -1 --pretty=%s)"
 
 echo "⚙️ Re-inyectando variables de entorno..."
-node -e "const fs = require('fs'); fs.writeFileSync('.env', Buffer.from('${Buffer.from(`PORT=${site.port}\n${site.env_vars ? site.env_vars.replace(/\r/g, '') : ''}`).toString('base64')}', 'base64'));"
+node -e "const fs=require('fs');fs.writeFileSync('.env',Buffer.from('${envB64}','base64'));" 2>&1
 
 echo "📦 Instalando dependencias..."
-${site.install_command || 'npm install'}
-
-# Asegurar permisos de ejecución en binarios
+${site.install_command || 'npm install'} --no-audit --no-fund --prefer-offline --yes 2>&1 | tail -10
 chmod -R +x node_modules/.bin 2>/dev/null || true
 
-${site.build_command ? `echo "🏗️ Ejecutando build: ${site.build_command}"\n${site.build_command}` : ''}
+${site.build_command ? `echo "🏗️ Build..."\n${site.build_command} 2>&1 | tail -10` : ''}
 
-echo "🧹 Limpiando logs anteriores..."
-pm2 flush ${safeName} >/dev/null 2>&1 || true
-rm -f /home/$USER/.pm2/logs/${safeName}*.log 2>/dev/null || true
-rm -f /home/$USER/.pm2/logs/${safeName.replace(/_/g, '-')}*.log 2>/dev/null || true
-sudo truncate -s 0 /var/log/nginx/error.log 2>/dev/null || true
-sudo truncate -s 0 /var/log/nginx/access.log 2>/dev/null || true
-
-echo "🚀 Reiniciando aplicación..."
+echo "🚀 Reiniciando con PM2..."
 pm2 delete ${safeName} >/dev/null 2>&1 || true
 
-# Auto-detectar el punto de entrada correcto
 ENTRY_POINT=""
-if [ -f "dist/main.js" ]; then
-    ENTRY_POINT="dist/main.js"
-elif [ -f "${site.entry_point || 'index.js'}" ]; then
-    ENTRY_POINT="${site.entry_point || 'index.js'}"
-elif [ -f "index.js" ]; then
-    ENTRY_POINT="index.js"
-elif [ -f "server.js" ]; then
-    ENTRY_POINT="server.js"
+if   [ -f "dist/main.js" ];                      then ENTRY_POINT="dist/main.js"
+elif [ -f "${site.entry_point || 'index.js'}" ];  then ENTRY_POINT="${site.entry_point || 'index.js'}"
+elif [ -f "index.js" ];                           then ENTRY_POINT="index.js"
+elif [ -f "server.js" ];                          then ENTRY_POINT="server.js"
+elif [ -f "app.js" ];                             then ENTRY_POINT="app.js"
 fi
 
 if [ -n "$ENTRY_POINT" ]; then
-    pm2 start "$ENTRY_POINT" --name "${safeName}" --cwd "/var/www/${safeName}"
+    pm2 start "$ENTRY_POINT" --name "${safeName}" --cwd "/var/www/${safeName}" 2>&1
 else
-    pm2 start npm --name "${safeName}" --cwd "/var/www/${safeName}" -- run start
+    pm2 start npm --name "${safeName}" --cwd "/var/www/${safeName}" -- run start 2>&1
 fi
 
-pm2 save
-sleep 5
+pm2 save --force >/dev/null 2>&1 || true
+sleep 3
 
-if pm2 show ${safeName} | grep -q "online"; then
-    echo "✅ App reiniciada correctamente."
-else
-    echo "⚠️ La app puede haber fallado. Logs:"
-    pm2 logs ${safeName} --lines 10 --nostream 2>/dev/null || true
-fi
-        `;
+pm2 show ${safeName} 2>/dev/null | grep -q "online" \
+    && echo "✅ App corriendo correctamente." \
+    || { echo "⚠️ Logs de la app:"; pm2 logs ${safeName} --lines 10 --nostream 2>/dev/null || true; }
+
+echo "---DEPLOY_DONE---"
+`;
 
         try {
             await this.sshService.executeCommand(server, deployCmd);
@@ -1188,7 +1187,7 @@ echo "📊 PostgreSQL disponible en el puerto ${body.port}"
         }
 
         try {
-            const success = await this.sshService.executeCommand(server, deployCmd, (chunk) => {
+            await this.sshService.executeCommand(server, deployCmd, (chunk) => {
                 res.write(chunk);
             });
 
