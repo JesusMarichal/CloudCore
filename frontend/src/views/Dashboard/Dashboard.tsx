@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Loader2 } from 'lucide-react';
 import {
     Cloud,
@@ -15,12 +15,41 @@ import {
     Globe,
     Database,
     Trash2,
-    Menu
+    Menu,
+    Bell,
+    CheckCheck,
+    Info,
+    AlertTriangle,
+    CircleCheck,
+    XCircle,
+    X
 } from 'lucide-react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { serverService } from '../../services/server.service';
 import type { CreateServerData } from '../../services/server.service';
 import './Dashboard.css';
+
+interface AppNotification {
+    id: string;
+    title: string;
+    message: string;
+    time: string;
+    read: boolean;
+    type: 'info' | 'success' | 'warning' | 'error';
+}
+
+const NOTIF_ICONS = {
+    info:    <Info size={14} style={{ color: '#58a6ff' }} />,
+    success: <CircleCheck size={14} style={{ color: '#3fb950' }} />,
+    warning: <AlertTriangle size={14} style={{ color: '#d29922' }} />,
+    error:   <XCircle size={14} style={{ color: '#f85149' }} />,
+};
+
+const SAMPLE_NOTIFICATIONS: AppNotification[] = [
+    { id: '1', type: 'success', title: 'Servidor desplegado', message: 'El servidor VPS-01 está online y operativo.', time: 'Hace 2 min', read: false },
+    { id: '2', type: 'warning', title: 'CPU elevada', message: 'VPS-02 supera el 85% de uso de CPU.', time: 'Hace 15 min', read: false },
+    { id: '3', type: 'info', title: 'Nuevo commit disponible', message: 'cloudcore-app tiene actualizaciones pendientes.', time: 'Hace 1 h', read: true },
+];
 
 const Dashboard = () => {
     const location = useLocation();
@@ -30,11 +59,41 @@ const Dashboard = () => {
     const [servers, setServers] = useState<CreateServerData[]>([]);
     const [deletingServerId, setDeletingServerId] = useState<string | null>(null);
     const [stats, setStats] = useState({
-
         activeInstances: 0,
         cpuUsage: 0,
         networkStatus: 'Normal'
     });
+
+    const [notifications, setNotifications] = useState<AppNotification[]>(SAMPLE_NOTIFICATIONS);
+    const [notifOpen, setNotifOpen] = useState(false);
+    const [notifPermission, setNotifPermission] = useState<NotificationPermission>(
+        'Notification' in window ? Notification.permission : 'denied'
+    );
+    const notifRef = useRef<HTMLDivElement>(null);
+
+    const unreadCount = notifications.filter(n => !n.read).length;
+
+    const requestBrowserPermission = async () => {
+        if (!('Notification' in window)) return;
+        const result = await Notification.requestPermission();
+        setNotifPermission(result);
+    };
+
+    const markAllRead = () =>
+        setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+
+    const dismiss = (id: string) =>
+        setNotifications(prev => prev.filter(n => n.id !== id));
+
+    // Close panel when clicking outside
+    useEffect(() => {
+        const handler = (e: MouseEvent) => {
+            if (notifRef.current && !notifRef.current.contains(e.target as Node))
+                setNotifOpen(false);
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, []);
 
     const getUserId = () => {
         const userStr = localStorage.getItem('user');
@@ -151,6 +210,65 @@ const Dashboard = () => {
                     <div className="user-info">
                         <div className="avatar">JM</div>
                         <span style={{ fontSize: '12px', fontWeight: 500 }}>Jesus Marichal</span>
+
+                        <div className="notif-wrapper" ref={notifRef}>
+                            <button
+                                className="notif-bell"
+                                onClick={() => setNotifOpen(o => !o)}
+                                title="Notificaciones"
+                            >
+                                <Bell size={16} />
+                                {unreadCount > 0 && (
+                                    <span className="notif-badge">{unreadCount}</span>
+                                )}
+                            </button>
+
+                            {notifOpen && (
+                                <div className="notif-panel">
+                                    <div className="notif-header">
+                                        <span className="notif-title">Notificaciones</span>
+                                        {unreadCount > 0 && (
+                                            <button className="notif-mark-read" onClick={markAllRead} title="Marcar todo como leído">
+                                                <CheckCheck size={13} /> Todo leído
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    {notifPermission !== 'granted' && (
+                                        <div className="notif-permission-banner">
+                                            <Bell size={13} />
+                                            <span>Activa las notificaciones del navegador</span>
+                                            <button onClick={requestBrowserPermission}>
+                                                {notifPermission === 'denied' ? 'Bloqueado' : 'Permitir'}
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    <div className="notif-list">
+                                        {notifications.length === 0 ? (
+                                            <div className="notif-empty">
+                                                <Bell size={28} />
+                                                <p>Sin notificaciones</p>
+                                            </div>
+                                        ) : (
+                                            notifications.map(n => (
+                                                <div key={n.id} className={`notif-item${n.read ? '' : ' unread'}`}>
+                                                    <div className="notif-icon">{NOTIF_ICONS[n.type]}</div>
+                                                    <div className="notif-body">
+                                                        <p className="notif-item-title">{n.title}</p>
+                                                        <p className="notif-item-msg">{n.message}</p>
+                                                        <span className="notif-item-time">{n.time}</span>
+                                                    </div>
+                                                    <button className="notif-dismiss" onClick={() => dismiss(n.id)} title="Descartar">
+                                                        <X size={12} />
+                                                    </button>
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </header>
 

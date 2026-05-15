@@ -17,6 +17,7 @@ const database_service_1 = require("./database/database.service");
 const terminal_service_1 = require("./terminal/terminal.service");
 const terminal_controller_1 = require("./terminal/terminal.controller");
 const github_controller_1 = require("./controllers/github.controller");
+const ssh_terminal_gateway_1 = require("./terminal/ssh-terminal.gateway");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -28,7 +29,7 @@ exports.AppModule = AppModule = __decorate([
             }),
         ],
         controllers: [server_controller_1.ServerController, auth_controller_1.AuthController, terminal_controller_1.TerminalController, github_controller_1.GithubController],
-        providers: [ssh_service_1.SshService, database_service_1.DatabaseService, terminal_service_1.TerminalService],
+        providers: [ssh_service_1.SshService, database_service_1.DatabaseService, terminal_service_1.TerminalService, ssh_terminal_gateway_1.SshTerminalGateway],
     })
 ], AppModule);
 //# sourceMappingURL=app.module.js.map

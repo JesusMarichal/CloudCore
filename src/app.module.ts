@@ -8,6 +8,7 @@ import { DatabaseService } from './database/database.service';
 import { TerminalService } from './terminal/terminal.service';
 import { TerminalController } from './terminal/terminal.controller';
 import { GithubController } from './controllers/github.controller';
+import { SshTerminalGateway } from './terminal/ssh-terminal.gateway';
 
 @Module({
     imports: [
@@ -16,6 +17,6 @@ import { GithubController } from './controllers/github.controller';
         }),
     ],
     controllers: [ServerController, AuthController, TerminalController, GithubController],
-    providers: [SshService, DatabaseService, TerminalService],
+    providers: [SshService, DatabaseService, TerminalService, SshTerminalGateway],
 })
 export class AppModule { }

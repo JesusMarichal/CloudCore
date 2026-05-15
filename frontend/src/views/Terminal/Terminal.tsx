@@ -1,84 +1,175 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Terminal as TerminalIcon, Server, Send, Trash2, Activity } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { Terminal as TerminalIcon, Server, Trash2, X, Plug } from 'lucide-react';
+import { Terminal as XTerminal } from '@xterm/xterm';
+import { FitAddon } from '@xterm/addon-fit';
 import { serverService } from '../../services/server.service';
 import type { CreateServerData } from '../../services/server.service';
+import '@xterm/xterm/css/xterm.css';
 import './Terminal.css';
 
-interface TerminalLine {
-    type: 'command' | 'output' | 'error';
-    text: string;
-    serverName?: string;
-}
+type Status = 'idle' | 'connecting' | 'connected' | 'disconnected';
+
+const WS_URL = window.location.hostname === 'localhost'
+    ? 'ws://localhost:3000/ws/terminal'
+    : `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws/terminal`;
 
 const Terminal = () => {
     const [servers, setServers] = useState<CreateServerData[]>([]);
-    const [selectedServerId, setSelectedServerId] = useState<string>('');
-    const [command, setCommand] = useState('');
-    const [history, setHistory] = useState<TerminalLine[]>([]);
-    const [executing, setExecuting] = useState(false);
-    const [initializing, setInitializing] = useState(true);
-    const scrollRef = useRef<HTMLDivElement>(null);
+    const [selectedServerId, setSelectedServerId] = useState('');
+    const [status, setStatus] = useState<Status>('idle');
+
+    const termContainerRef = useRef<HTMLDivElement>(null);
+    const xtermRef = useRef<XTerminal | null>(null);
+    const fitAddonRef = useRef<FitAddon | null>(null);
+    const wsRef = useRef<WebSocket | null>(null);
+    const onDataDisposable = useRef<{ dispose: () => void } | null>(null);
 
     useEffect(() => {
         const loadServers = async () => {
             const userStr = localStorage.getItem('user');
-            if (userStr) {
-                const user = JSON.parse(userStr);
-                const data = await serverService.list(user.id);
-                setServers(data);
-                if (data.length > 0) {
-                    setSelectedServerId(data[0].id || '');
-                }
-                setTimeout(() => setInitializing(false), 1500); // Pequeño delay artificial para feedback visual
-            } else {
-                setInitializing(false);
-            }
+            if (!userStr) return;
+            const user = JSON.parse(userStr);
+            const data = await serverService.list(user.id);
+            setServers(data);
+            if (data.length > 0) setSelectedServerId(data[0].id || '');
         };
         loadServers();
     }, []);
 
+    // Initialize xterm once on mount
     useEffect(() => {
-        if (scrollRef.current) {
-            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-        }
-    }, [history]);
+        if (!termContainerRef.current) return;
 
-    const handleExecute = async (e?: React.FormEvent) => {
-        if (e) e.preventDefault();
-        if (!command.trim() || !selectedServerId || executing) return;
+        const term = new XTerminal({
+            theme: {
+                background: '#0d1117',
+                foreground: '#e6edf3',
+                cursor: '#58a6ff',
+                cursorAccent: '#0d1117',
+                selectionBackground: 'rgba(88, 166, 255, 0.25)',
+                black: '#484f58',
+                red: '#ff7b72',
+                green: '#3fb950',
+                yellow: '#d29922',
+                blue: '#58a6ff',
+                magenta: '#bc8cff',
+                cyan: '#39c5cf',
+                white: '#b1bac4',
+                brightBlack: '#6e7681',
+                brightRed: '#ffa198',
+                brightGreen: '#56d364',
+                brightYellow: '#e3b341',
+                brightBlue: '#79c0ff',
+                brightMagenta: '#d2a8ff',
+                brightCyan: '#56d4dd',
+                brightWhite: '#f0f6fc',
+            },
+            fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace",
+            fontSize: 14,
+            lineHeight: 1.5,
+            cursorBlink: true,
+            cursorStyle: 'block',
+            scrollback: 5000,
+        });
 
-        const server = servers.find(s => s.id === selectedServerId);
-        const currentCommand = command.trim();
+        const fitAddon = new FitAddon();
+        term.loadAddon(fitAddon);
+        term.open(termContainerRef.current);
+        fitAddon.fit();
 
-        // Add command to history
-        setHistory(prev => [...prev, {
-            type: 'command',
-            text: currentCommand,
-            serverName: server?.name
-        }]);
+        xtermRef.current = term;
+        fitAddonRef.current = fitAddon;
 
-        setCommand('');
-        setExecuting(true);
+        term.writeln('\x1b[90m  CloudCore SSH Terminal\x1b[0m');
+        term.writeln('\x1b[90m  Selecciona un servidor y haz clic en Conectar\x1b[0m');
+        term.writeln('');
 
-        try {
-            const res = await serverService.executeCommand(selectedServerId, currentCommand);
-            if (res.success) {
-                setHistory(prev => [...prev, { type: 'output', text: res.output || '(Sin salida)' }]);
-            } else {
-                setHistory(prev => [...prev, { type: 'error', text: `Error: ${res.message}` }]);
+        // Resize observer — keeps PTY in sync with container size
+        const observer = new ResizeObserver(() => {
+            fitAddon.fit();
+            if (wsRef.current?.readyState === WebSocket.OPEN && xtermRef.current) {
+                const { rows, cols } = xtermRef.current;
+                wsRef.current.send('\x01' + JSON.stringify({ type: 'resize', rows, cols }));
             }
-        } catch (error) {
-            setHistory(prev => [...prev, { type: 'error', text: `Error de red: ${(error as Error).message}` }]);
-        } finally {
-            setExecuting(false);
+        });
+        observer.observe(termContainerRef.current);
+
+        return () => {
+            observer.disconnect();
+            onDataDisposable.current?.dispose();
+            wsRef.current?.close();
+            term.dispose();
+        };
+    }, []);
+
+    const disconnect = useCallback(() => {
+        wsRef.current?.close();
+        wsRef.current = null;
+        onDataDisposable.current?.dispose();
+        onDataDisposable.current = null;
+        setStatus('disconnected');
+    }, []);
+
+    const connect = useCallback(() => {
+        if (!selectedServerId || !xtermRef.current) return;
+
+        setStatus('connecting');
+        wsRef.current?.close();
+
+        const ws = new WebSocket(WS_URL);
+        wsRef.current = ws;
+
+        ws.onopen = () => {
+            ws.send('\x01' + JSON.stringify({ type: 'init', serverId: selectedServerId }));
+
+            // Send current terminal dimensions
+            if (xtermRef.current) {
+                fitAddonRef.current?.fit();
+                const { rows, cols } = xtermRef.current;
+                ws.send('\x01' + JSON.stringify({ type: 'resize', rows, cols }));
+            }
+
+            // Wire up xterm keystrokes → WebSocket
+            onDataDisposable.current?.dispose();
+            onDataDisposable.current = xtermRef.current!.onData((data) => {
+                if (ws.readyState === WebSocket.OPEN) ws.send(data);
+            });
+
+            setStatus('connected');
+        };
+
+        ws.onmessage = (e) => {
+            xtermRef.current?.write(e.data);
+        };
+
+        ws.onclose = () => {
+            onDataDisposable.current?.dispose();
+            onDataDisposable.current = null;
+            setStatus('disconnected');
+        };
+
+        ws.onerror = () => {
+            xtermRef.current?.writeln('\r\n\x1b[31m[Error de conexión WebSocket]\x1b[0m');
+            setStatus('disconnected');
+        };
+    }, [selectedServerId]);
+
+    const handleServerChange = (id: string) => {
+        setSelectedServerId(id);
+        if (status === 'connected' || status === 'disconnected') {
+            disconnect();
+            xtermRef.current?.writeln('\r\n\x1b[90m[Servidor cambiado — reconecta para continuar]\x1b[0m\r\n');
         }
     };
 
-    const clearHistory = () => {
-        setHistory([]);
-    };
+    const clear = () => xtermRef.current?.clear();
 
-    const selectedServer = servers.find(s => s.id === selectedServerId);
+    const statusLabel: Record<Status, { text: string; cls: string }> = {
+        idle: { text: '', cls: '' },
+        connecting: { text: '● Conectando al Servidor...', cls: 'connecting' },
+        connected: { text: '● Conectado', cls: 'connected' },
+        disconnected: { text: '● Desconectado', cls: 'disconnected' },
+    };
 
     return (
         <div className="terminal-view">
@@ -86,6 +177,11 @@ const Terminal = () => {
                 <div className="terminal-title">
                     <TerminalIcon size={20} className="icon-blue" />
                     <h1>Consola SSH</h1>
+                    {status !== 'idle' && (
+                        <span className={`status-badge ${statusLabel[status].cls}`}>
+                            {statusLabel[status].text}
+                        </span>
+                    )}
                 </div>
 
                 <div className="terminal-controls">
@@ -93,8 +189,8 @@ const Terminal = () => {
                         <Server size={14} className="icon-dim" />
                         <select
                             value={selectedServerId}
-                            onChange={(e) => setSelectedServerId(e.target.value)}
-                            disabled={executing}
+                            onChange={(e) => handleServerChange(e.target.value)}
+                            disabled={status === 'connecting'}
                         >
                             {servers.map(s => (
                                 <option key={s.id} value={s.id}>{s.name} ({s.ip})</option>
@@ -102,60 +198,29 @@ const Terminal = () => {
                             {servers.length === 0 && <option value="">No hay servidores</option>}
                         </select>
                     </div>
-                    <button className="btn-clear" onClick={clearHistory} title="Limpiar terminal">
+
+                    {status === 'connected' ? (
+                        <button className="btn-disconnect" onClick={disconnect}>
+                            <X size={14} /> Desconectar
+                        </button>
+                    ) : (
+                        <button
+                            className="btn-connect"
+                            onClick={connect}
+                            disabled={!selectedServerId || status === 'connecting'}
+                        >
+                            <Plug size={14} /> {status === 'connecting' ? 'Conectando al Servidor...' : status === 'disconnected' ? 'Reconectar' : 'Conectar'}
+                        </button>
+                    )}
+
+                    <button className="btn-clear" onClick={clear} title="Limpiar terminal">
                         <Trash2 size={16} />
                     </button>
                 </div>
             </div>
 
             <div className="terminal-window">
-                <div className="terminal-scroll" ref={scrollRef}>
-                    {history.length === 0 && !executing && (
-                        <div className="terminal-welcome">
-                            <Activity size={40} className="welcome-icon" />
-                            <p>Conectado a: <strong>{selectedServer?.name || '...'}</strong> ({selectedServer?.ip || 'N/A'})</p>
-                            <p className="dim">Escribe un comando para empezar (ej: ls, top, pm2 list)</p>
-                        </div>
-                    )}
-
-                    {history.map((line, i) => (
-                        <div key={i} className={`terminal-line ${line.type}`}>
-                            {line.type === 'command' && (
-                                <div className="command-prompt">
-                                    <span className="prompt-user">ubuntu@{line.serverName || 'server'}:~$</span>
-                                    <span className="prompt-text">{line.text}</span>
-                                </div>
-                            )}
-                            {line.type === 'output' && (
-                                <pre className="output-text">{line.text}</pre>
-                            )}
-                            {line.type === 'error' && (
-                                <div className="error-text">{line.text}</div>
-                            )}
-                        </div>
-                    ))}
-
-                    {executing && (
-                        <div className="terminal-line output">
-                            <span className="cursor-loading">_</span>
-                        </div>
-                    )}
-                </div>
-
-                <form className="terminal-input-row" onSubmit={handleExecute}>
-                    <span className="prompt-user">ubuntu@{selectedServer?.name || 'server'}:~$</span>
-                    <input
-                        type="text"
-                        value={command}
-                        onChange={(e) => setCommand(e.target.value)}
-                        placeholder={initializing ? "Conectando a terminal..." : executing ? "Ejecutando..." : "Escribe un comando..."}
-                        disabled={initializing || executing || !selectedServerId}
-                        autoFocus
-                    />
-                    <button type="submit" disabled={initializing || executing || !command.trim() || !selectedServerId}>
-                        <Send size={16} />
-                    </button>
-                </form>
+                <div ref={termContainerRef} className="xterm-container" />
             </div>
         </div>
     );
