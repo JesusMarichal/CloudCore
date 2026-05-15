@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useOutletContext } from 'react-router-dom';
 import { serverService } from '../../services/server.service';
 import type { CreateServerData } from '../../services/server.service';
 import { Globe, Plus, X, ExternalLink, HardDrive, Settings, GitCommit, RefreshCw, CloudUpload, Terminal, RotateCcw, CheckCircle2 } from 'lucide-react';
@@ -50,9 +50,80 @@ const Websites = () => {
         }
     }, [deployLogs]);
 
+    type CommitInfo = { hash: string; message: string; author: string; time: string; isOutdated?: boolean; latestHash?: string | null; latestMessage?: string | null; latestTime?: string | null };
+
     // New states for commits and deploying updates
-    const [commits, setCommits] = useState<{ [key: string]: { hash: string, message: string, author: string, time: string, isOutdated?: boolean, latestHash?: string | null, latestMessage?: string | null, latestTime?: string | null } | null }>({});
+    const [commits, setCommits] = useState<{ [key: string]: CommitInfo | null }>({});
     const [deployingSites, setDeployingSites] = useState<{ [key: string]: boolean }>({});
+    const [checkingCommits, setCheckingCommits] = useState<{ [key: string]: boolean }>({});
+
+    // Refs so the interval always reads fresh values without stale closures
+    const commitsRef = useRef<{ [key: string]: CommitInfo | null }>({});
+    const deployingSitesRef = useRef<{ [key: string]: boolean }>({});
+    const websitesRef = useRef<any[]>([]);
+    const autoDeployedRef = useRef<Set<string>>(new Set());
+    const pollingRef = useRef(false);
+
+    useEffect(() => { commitsRef.current = commits; }, [commits]);
+    useEffect(() => { deployingSitesRef.current = deployingSites; }, [deployingSites]);
+    useEffect(() => { websitesRef.current = websites; }, [websites]);
+
+    const { pushNotification } = useOutletContext<{ pushNotification: (n: { type: 'info' | 'success' | 'warning' | 'error'; title: string; message: string }) => void }>();
+
+    const autoDeploy = async (serverId: string, websiteId: string, siteName: string, commitMsg: string | null) => {
+        setDeployingSites(prev => ({ ...prev, [websiteId]: true }));
+        try {
+            const res = await serverService.deployLatestCommit(serverId, websiteId);
+            if (res.success) {
+                pushNotification({
+                    type: 'success',
+                    title: `${siteName} actualizado`,
+                    message: commitMsg ? `Nuevo deploy: ${commitMsg}` : 'Commit nuevo desplegado automáticamente.',
+                });
+                const commitRes = await serverService.getWebsiteCommit(serverId, websiteId);
+                if (commitRes.success && commitRes.commit) {
+                    setCommits(prev => ({ ...prev, [websiteId]: commitRes.commit }));
+                }
+            }
+        } catch { /* silent */ } finally {
+            setDeployingSites(prev => ({ ...prev, [websiteId]: false }));
+        }
+    };
+
+    // Poll every 5 s — auto-deploy on new commit detected
+    useEffect(() => {
+        const interval = setInterval(async () => {
+            if (pollingRef.current) return;
+            const sites = websitesRef.current;
+            if (sites.length === 0) return;
+
+            pollingRef.current = true;
+            for (const site of sites) {
+                if (deployingSitesRef.current[site.id]) continue;
+                setCheckingCommits(prev => ({ ...prev, [site.id]: true }));
+                try {
+                    const res = await serverService.getWebsiteCommit(site.server_id, site.id);
+                    if (res.success && res.commit) {
+                        const prev = commitsRef.current[site.id];
+                        const next = res.commit;
+                        setCommits(p => ({ ...p, [site.id]: next }));
+
+                        const deployKey = `${site.id}:${next.latestHash}`;
+                        if (next.isOutdated && !autoDeployedRef.current.has(deployKey)) {
+                            autoDeployedRef.current.add(deployKey);
+                            if (!prev?.isOutdated || prev.latestHash !== next.latestHash) {
+                                autoDeploy(site.server_id, site.id, site.name, next.latestMessage ?? null);
+                            }
+                        }
+                    }
+                } catch { /* ignore */ }
+                setCheckingCommits(prev => ({ ...prev, [site.id]: false }));
+            }
+            pollingRef.current = false;
+        }, 5000);
+        return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     // Toast and Confirm System
     const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' | 'info' } | null>(null);
@@ -453,6 +524,11 @@ echo "=== DIAGNÓSTICO COMPLETADO ==="`;
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
                                     <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '5px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                                         <GitCommit size={12} /> Último Commit
+                                        {checkingCommits[site.id] && (
+                                            <span className="commit-checking-dots">
+                                                <span /><span /><span />
+                                            </span>
+                                        )}
                                     </span>
                                     <button
                                         className={`btn-ghost${commits[site.id]?.isOutdated && !deployingSites[site.id] ? ' btn-ghost-update' : ''}`}
@@ -495,8 +571,11 @@ echo "=== DIAGNÓSTICO COMPLETADO ==="`;
                                         </div>
                                     </div>
                                 ) : (
-                                    <div style={{ fontSize: '12px', color: 'var(--text-dim)', fontStyle: 'italic' }}>
-                                        Detectando commit...
+                                    <div style={{ fontSize: '12px', color: 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        Verificando
+                                        <span className="commit-checking-dots">
+                                            <span /><span /><span />
+                                        </span>
                                     </div>
                                 )}
                             </div>

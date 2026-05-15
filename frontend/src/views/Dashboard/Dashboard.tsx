@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Loader2 } from 'lucide-react';
 import {
     Cloud,
@@ -135,6 +135,14 @@ const Dashboard = () => {
         loadData();
         const interval = setInterval(loadData, 10000); // Cada 10s
         return () => clearInterval(interval);
+    }, []);
+
+    const pushNotification = useCallback((n: { type: 'info' | 'success' | 'warning' | 'error'; title: string; message: string }) => {
+        const newNotif: AppNotification = { id: Date.now().toString(), time: 'Ahora', read: false, ...n };
+        setNotifications(prev => [newNotif, ...prev]);
+        if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification(newNotif.title, { body: newNotif.message });
+        }
     }, []);
 
     const handleLogout = () => {
@@ -379,7 +387,7 @@ const Dashboard = () => {
                         </>
                     )}
 
-                    <Outlet />
+                    <Outlet context={{ pushNotification }} />
                 </div>
             </main>
         </div>
