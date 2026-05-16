@@ -116,7 +116,8 @@ let GithubController = GithubController_1 = class GithubController {
             )
         `);
         try {
-            const sitesResult = await this.db.query('SELECT * FROM websites WHERE repo_url = $1', [repoUrl]);
+            const repoUrlClean = repoUrl.replace(/\.git$/, '');
+            const sitesResult = await this.db.query(`SELECT * FROM websites WHERE repo_url = $1 OR repo_url = $2 OR repo_url = $3`, [repoUrl, repoUrlClean, repoUrlClean + '.git']);
             const sites = sitesResult.rows;
             if (sites.length === 0) {
                 this.logger.log(`No hay sitios registrados vinculados al repo ${repoUrl}`);

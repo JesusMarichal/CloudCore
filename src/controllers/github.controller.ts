@@ -126,8 +126,12 @@ export class GithubController {
         `);
 
         try {
-            // Buscamos sitios que usen este repositorio
-            const sitesResult = await this.db.query('SELECT * FROM websites WHERE repo_url = $1', [repoUrl]);
+            // Buscamos sitios que usen este repositorio (con o sin .git)
+            const repoUrlClean = repoUrl.replace(/\.git$/, '');
+            const sitesResult = await this.db.query(
+                `SELECT * FROM websites WHERE repo_url = $1 OR repo_url = $2 OR repo_url = $3`,
+                [repoUrl, repoUrlClean, repoUrlClean + '.git']
+            );
             const sites = sitesResult.rows;
 
             if (sites.length === 0) {

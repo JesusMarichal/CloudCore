@@ -1177,7 +1177,7 @@ echo "📊 PostgreSQL disponible en el puerto ${body.port}"
         const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         if (!uuidRegex.test(id))
             return { success: true };
-        await this.dbService.query(`UPDATE user_notifications SET read = true WHERE id = $1`, [id]);
+        await this.dbService.query(`DELETE FROM user_notifications WHERE id = $1`, [id]);
         return { success: true };
     }
 };
