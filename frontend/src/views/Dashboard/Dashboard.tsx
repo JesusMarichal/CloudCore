@@ -100,29 +100,6 @@ const Dashboard = () => {
         setNotifPermission(result);
     };
 
-    // Load DB notifications on mount and merge with local ones
-    useEffect(() => {
-        const userId = getUserId();
-        if (!userId) return;
-        serverService.getNotifications(userId).then(res => {
-            if (!res.success || !Array.isArray(res.notifications)) return;
-            const dbNotifs: AppNotification[] = res.notifications.map((n: any) => ({
-                id: String(n.id),
-                type: n.type as AppNotification['type'],
-                title: n.title,
-                message: n.message || '',
-                timestamp: Number(n.timestamp),
-                read: Boolean(n.read),
-            }));
-            setNotifications(prev => {
-                const dbIds = new Set(dbNotifs.map(n => n.id));
-                const clientOnly = prev.filter(n => !dbIds.has(n.id));
-                return [...dbNotifs, ...clientOnly]
-                    .sort((a, b) => b.timestamp - a.timestamp)
-                    .slice(0, MAX_NOTIFICATIONS);
-            });
-        }).catch(() => { /* offline — local cache is enough */ });
-    }, []);
 
     const markAllRead = () => {
         setNotifications(prev => prev.map(n => ({ ...n, read: true })));
@@ -154,6 +131,36 @@ const Dashboard = () => {
         return null;
     };
 
+    const fetchNotifications = async (userId: string) => {
+        try {
+            const res = await serverService.getNotifications(userId);
+            if (!res.success || !Array.isArray(res.notifications)) return;
+            const dbNotifs: AppNotification[] = res.notifications.map((n: any) => ({
+                id: String(n.id),
+                type: n.type as AppNotification['type'],
+                title: n.title,
+                message: n.message || '',
+                timestamp: Number(n.timestamp),
+                read: Boolean(n.read),
+            }));
+            setNotifications(prev => {
+                const dbIds = new Set(dbNotifs.map(n => n.id));
+                const clientOnly = prev.filter(n => !dbIds.has(n.id));
+                const merged = [...dbNotifs, ...clientOnly]
+                    .sort((a, b) => b.timestamp - a.timestamp)
+                    .slice(0, MAX_NOTIFICATIONS);
+                // Trigger browser notification for new unread items not seen before
+                const prevIds = new Set(prev.map(n => n.id));
+                merged.filter(n => !n.read && !prevIds.has(n.id)).forEach(n => {
+                    if ('Notification' in window && Notification.permission === 'granted') {
+                        new Notification(n.title, { body: n.message });
+                    }
+                });
+                return merged;
+            });
+        } catch { /* offline */ }
+    };
+
     const loadData = async () => {
         const userId = getUserId();
         if (!userId) {
@@ -165,7 +172,6 @@ const Dashboard = () => {
             const data = await serverService.list(userId);
             setServers(data);
 
-            // Calcular estadísticas
             const active = data.filter((s: any) => s.status === 'online').length;
             const avgCpu = data.length > 0
                 ? Number((data.reduce((acc: number, s: any) => acc + (Number(s.cpuUsage) || 0), 0) / data.length).toFixed(2))
@@ -179,6 +185,8 @@ const Dashboard = () => {
         } catch (error) {
             console.error('Error cargando datos en dashboard:', error);
         }
+
+        fetchNotifications(userId);
     };
 
     useEffect(() => {
