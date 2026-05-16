@@ -1348,4 +1348,51 @@ echo "📊 PostgreSQL disponible en el puerto ${body.port}"
             return { success: false, message: error.message };
         }
     }
+
+    // ===== Notification Endpoints =====
+
+    @Get('notifications/:userId')
+    async getNotifications(@Param('userId') userId: string) {
+        await this.dbService.query(`
+            CREATE TABLE IF NOT EXISTS user_notifications (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                user_id VARCHAR(255) NOT NULL,
+                type VARCHAR(50) NOT NULL DEFAULT 'success',
+                title VARCHAR(255) NOT NULL,
+                message TEXT,
+                read BOOLEAN DEFAULT false,
+                created_at TIMESTAMP DEFAULT NOW()
+            )
+        `);
+        const result = await this.dbService.query(
+            `SELECT id, user_id, type, title, message, read,
+                    EXTRACT(EPOCH FROM created_at)::BIGINT * 1000 AS timestamp
+             FROM user_notifications
+             WHERE user_id = $1
+             ORDER BY created_at DESC
+             LIMIT 50`,
+            [userId]
+        );
+        return { success: true, notifications: result.rows };
+    }
+
+    @Post('notifications/mark-read/:userId')
+    async markNotificationsRead(@Param('userId') userId: string) {
+        await this.dbService.query(
+            `UPDATE user_notifications SET read = true WHERE user_id = $1`,
+            [userId]
+        );
+        return { success: true };
+    }
+
+    @Post('notifications/:id/dismiss')
+    async dismissNotification(@Param('id') id: string) {
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (!uuidRegex.test(id)) return { success: true };
+        await this.dbService.query(
+            `UPDATE user_notifications SET read = true WHERE id = $1`,
+            [id]
+        );
+        return { success: true };
+    }
 }

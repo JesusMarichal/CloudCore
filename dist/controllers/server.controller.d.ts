@@ -30,4 +30,14 @@ export declare class ServerController {
     listDatabases(userId: string): Promise<any[]>;
     deleteDatabaseInstance(id: string, dbId: string): Promise<any>;
     manageDatabaseContainer(id: string, dbId: string, action: string): Promise<any>;
+    getNotifications(userId: string): Promise<{
+        success: boolean;
+        notifications: any[];
+    }>;
+    markNotificationsRead(userId: string): Promise<{
+        success: boolean;
+    }>;
+    dismissNotification(id: string): Promise<{
+        success: boolean;
+    }>;
 }

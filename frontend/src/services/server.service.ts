@@ -298,5 +298,19 @@ export const serverService = {
         });
         invalidateCache('databases_');
         return response.json();
-    }
+    },
+
+    async getNotifications(userId: string) {
+        const response = await fetch(`${API_URL}/notifications/${userId}`);
+        if (!response.ok) return { success: false, notifications: [] };
+        return response.json();
+    },
+
+    async markNotificationsRead(userId: string) {
+        await fetch(`${API_URL}/notifications/mark-read/${userId}`, { method: 'POST' });
+    },
+
+    async dismissNotification(id: string) {
+        await fetch(`${API_URL}/notifications/${id}/dismiss`, { method: 'POST' });
+    },
 };

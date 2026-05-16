@@ -1149,6 +1149,37 @@ echo "📊 PostgreSQL disponible en el puerto ${body.port}"
             return { success: false, message: error.message };
         }
     }
+    async getNotifications(userId) {
+        await this.dbService.query(`
+            CREATE TABLE IF NOT EXISTS user_notifications (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                user_id VARCHAR(255) NOT NULL,
+                type VARCHAR(50) NOT NULL DEFAULT 'success',
+                title VARCHAR(255) NOT NULL,
+                message TEXT,
+                read BOOLEAN DEFAULT false,
+                created_at TIMESTAMP DEFAULT NOW()
+            )
+        `);
+        const result = await this.dbService.query(`SELECT id, user_id, type, title, message, read,
+                    EXTRACT(EPOCH FROM created_at)::BIGINT * 1000 AS timestamp
+             FROM user_notifications
+             WHERE user_id = $1
+             ORDER BY created_at DESC
+             LIMIT 50`, [userId]);
+        return { success: true, notifications: result.rows };
+    }
+    async markNotificationsRead(userId) {
+        await this.dbService.query(`UPDATE user_notifications SET read = true WHERE user_id = $1`, [userId]);
+        return { success: true };
+    }
+    async dismissNotification(id) {
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (!uuidRegex.test(id))
+            return { success: true };
+        await this.dbService.query(`UPDATE user_notifications SET read = true WHERE id = $1`, [id]);
+        return { success: true };
+    }
 };
 exports.ServerController = ServerController;
 __decorate([
@@ -1328,6 +1359,27 @@ __decorate([
     __metadata("design:paramtypes", [String, String, String]),
     __metadata("design:returntype", Promise)
 ], ServerController.prototype, "manageDatabaseContainer", null);
+__decorate([
+    (0, common_1.Get)('notifications/:userId'),
+    __param(0, (0, common_1.Param)('userId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], ServerController.prototype, "getNotifications", null);
+__decorate([
+    (0, common_1.Post)('notifications/mark-read/:userId'),
+    __param(0, (0, common_1.Param)('userId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], ServerController.prototype, "markNotificationsRead", null);
+__decorate([
+    (0, common_1.Post)('notifications/:id/dismiss'),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], ServerController.prototype, "dismissNotification", null);
 exports.ServerController = ServerController = __decorate([
     (0, common_1.Controller)('servers'),
     __metadata("design:paramtypes", [ssh_service_1.SshService,

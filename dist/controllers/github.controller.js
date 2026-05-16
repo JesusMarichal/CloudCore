@@ -104,6 +104,17 @@ let GithubController = GithubController_1 = class GithubController {
                 entry_point VARCHAR(255)
             )
         `);
+        await this.db.query(`
+            CREATE TABLE IF NOT EXISTS user_notifications (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                user_id VARCHAR(255) NOT NULL,
+                type VARCHAR(50) NOT NULL DEFAULT 'success',
+                title VARCHAR(255) NOT NULL,
+                message TEXT,
+                read BOOLEAN DEFAULT false,
+                created_at TIMESTAMP DEFAULT NOW()
+            )
+        `);
         try {
             const sitesResult = await this.db.query('SELECT * FROM websites WHERE repo_url = $1', [repoUrl]);
             const sites = sitesResult.rows;
@@ -139,6 +150,14 @@ let GithubController = GithubController_1 = class GithubController {
                 this.logger.log(`Actualizando sitio ${safeName} en el servidor ${server.ip}...`);
                 await this.sshService.executeCommand(server, cmd);
                 this.logger.log(`¡Sitio ${safeName} actualizado correctamente vía webhook!`);
+                const commitMsg = payload.head_commit?.message || 'Commit nuevo';
+                const shortHash = (payload.head_commit?.id || '').slice(0, 7);
+                await this.db.query(`INSERT INTO user_notifications (user_id, type, title, message) VALUES ($1, $2, $3, $4)`, [
+                    site.user_id,
+                    'success',
+                    `${site.name} actualizado`,
+                    shortHash ? `[${shortHash}] ${commitMsg}` : commitMsg,
+                ]);
             }
             return { success: true, message: 'Despliegues actualizados' };
         }

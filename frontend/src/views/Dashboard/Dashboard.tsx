@@ -33,7 +33,7 @@ interface AppNotification {
     id: string;
     title: string;
     message: string;
-    time: string;
+    timestamp: number;
     read: boolean;
     type: 'info' | 'success' | 'warning' | 'error';
 }
@@ -45,11 +45,32 @@ const NOTIF_ICONS = {
     error:   <XCircle size={14} style={{ color: '#f85149' }} />,
 };
 
-const SAMPLE_NOTIFICATIONS: AppNotification[] = [
-    { id: '1', type: 'success', title: 'Servidor desplegado', message: 'El servidor VPS-01 está online y operativo.', time: 'Hace 2 min', read: false },
-    { id: '2', type: 'warning', title: 'CPU elevada', message: 'VPS-02 supera el 85% de uso de CPU.', time: 'Hace 15 min', read: false },
-    { id: '3', type: 'info', title: 'Nuevo commit disponible', message: 'cloudcore-app tiene actualizaciones pendientes.', time: 'Hace 1 h', read: true },
-];
+const NOTIF_STORAGE_KEY = 'cc_notifications_v1';
+const MAX_NOTIFICATIONS = 50;
+
+const loadStoredNotifications = (): AppNotification[] => {
+    try {
+        const raw = localStorage.getItem(NOTIF_STORAGE_KEY);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) return [];
+        return parsed.filter(n => n && typeof n.id === 'string' && typeof n.timestamp === 'number');
+    } catch {
+        return [];
+    }
+};
+
+const formatRelativeTime = (ts: number): string => {
+    const diff = Math.max(0, Date.now() - ts);
+    const sec = Math.floor(diff / 1000);
+    if (sec < 60) return 'Ahora';
+    const min = Math.floor(sec / 60);
+    if (min < 60) return `Hace ${min} min`;
+    const hr = Math.floor(min / 60);
+    if (hr < 24) return `Hace ${hr} h`;
+    const days = Math.floor(hr / 24);
+    return `Hace ${days} d`;
+};
 
 const Dashboard = () => {
     const location = useLocation();
@@ -64,7 +85,7 @@ const Dashboard = () => {
         networkStatus: 'Normal'
     });
 
-    const [notifications, setNotifications] = useState<AppNotification[]>(SAMPLE_NOTIFICATIONS);
+    const [notifications, setNotifications] = useState<AppNotification[]>(() => loadStoredNotifications());
     const [notifOpen, setNotifOpen] = useState(false);
     const [notifPermission, setNotifPermission] = useState<NotificationPermission>(
         'Notification' in window ? Notification.permission : 'denied'
@@ -79,11 +100,40 @@ const Dashboard = () => {
         setNotifPermission(result);
     };
 
-    const markAllRead = () =>
-        setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    // Load DB notifications on mount and merge with local ones
+    useEffect(() => {
+        const userId = getUserId();
+        if (!userId) return;
+        serverService.getNotifications(userId).then(res => {
+            if (!res.success || !Array.isArray(res.notifications)) return;
+            const dbNotifs: AppNotification[] = res.notifications.map((n: any) => ({
+                id: String(n.id),
+                type: n.type as AppNotification['type'],
+                title: n.title,
+                message: n.message || '',
+                timestamp: Number(n.timestamp),
+                read: Boolean(n.read),
+            }));
+            setNotifications(prev => {
+                const dbIds = new Set(dbNotifs.map(n => n.id));
+                const clientOnly = prev.filter(n => !dbIds.has(n.id));
+                return [...dbNotifs, ...clientOnly]
+                    .sort((a, b) => b.timestamp - a.timestamp)
+                    .slice(0, MAX_NOTIFICATIONS);
+            });
+        }).catch(() => { /* offline — local cache is enough */ });
+    }, []);
 
-    const dismiss = (id: string) =>
+    const markAllRead = () => {
+        setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+        const userId = getUserId();
+        if (userId) serverService.markNotificationsRead(userId).catch(() => {});
+    };
+
+    const dismiss = (id: string) => {
         setNotifications(prev => prev.filter(n => n.id !== id));
+        serverService.dismissNotification(id).catch(() => {});
+    };
 
     // Close panel when clicking outside
     useEffect(() => {
@@ -138,11 +188,24 @@ const Dashboard = () => {
     }, []);
 
     const pushNotification = useCallback((n: { type: 'info' | 'success' | 'warning' | 'error'; title: string; message: string }) => {
-        const newNotif: AppNotification = { id: Date.now().toString(), time: 'Ahora', read: false, ...n };
-        setNotifications(prev => [newNotif, ...prev]);
+        const newNotif: AppNotification = { id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, timestamp: Date.now(), read: false, ...n };
+        setNotifications(prev => [newNotif, ...prev].slice(0, MAX_NOTIFICATIONS));
         if ('Notification' in window && Notification.permission === 'granted') {
             new Notification(newNotif.title, { body: newNotif.message });
         }
+    }, []);
+
+    useEffect(() => {
+        try {
+            localStorage.setItem(NOTIF_STORAGE_KEY, JSON.stringify(notifications));
+        } catch { /* quota exceeded — silent */ }
+    }, [notifications]);
+
+    // Re-render every minute so relative time strings stay fresh
+    const [, setTick] = useState(0);
+    useEffect(() => {
+        const id = setInterval(() => setTick(t => t + 1), 60_000);
+        return () => clearInterval(id);
     }, []);
 
     const handleLogout = () => {
@@ -265,7 +328,7 @@ const Dashboard = () => {
                                                     <div className="notif-body">
                                                         <p className="notif-item-title">{n.title}</p>
                                                         <p className="notif-item-msg">{n.message}</p>
-                                                        <span className="notif-item-time">{n.time}</span>
+                                                        <span className="notif-item-time">{formatRelativeTime(n.timestamp)}</span>
                                                     </div>
                                                     <button className="notif-dismiss" onClick={() => dismiss(n.id)} title="Descartar">
                                                         <X size={12} />

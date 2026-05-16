@@ -6,6 +6,19 @@ import { Globe, Plus, X, ExternalLink, HardDrive, Settings, GitCommit, RefreshCw
 import { API_URL } from '../../config';
 import './Websites.css';
 
+const AUTO_DEPLOYED_STORAGE_KEY = 'cc_auto_deployed_v1';
+
+const loadAutoDeployedKeys = (): Set<string> => {
+    try {
+        const raw = localStorage.getItem(AUTO_DEPLOYED_STORAGE_KEY);
+        if (!raw) return new Set();
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? new Set(parsed.filter((k): k is string => typeof k === 'string')) : new Set();
+    } catch {
+        return new Set();
+    }
+};
+
 interface WebsiteFormData {
     serverId: string;
     name: string;
@@ -61,8 +74,15 @@ const Websites = () => {
     const commitsRef = useRef<{ [key: string]: CommitInfo | null }>({});
     const deployingSitesRef = useRef<{ [key: string]: boolean }>({});
     const websitesRef = useRef<any[]>([]);
-    const autoDeployedRef = useRef<Set<string>>(new Set());
+    const autoDeployedRef = useRef<Set<string>>(loadAutoDeployedKeys());
     const pollingRef = useRef(false);
+
+    const persistAutoDeployedKey = (key: string) => {
+        autoDeployedRef.current.add(key);
+        try {
+            localStorage.setItem(AUTO_DEPLOYED_STORAGE_KEY, JSON.stringify(Array.from(autoDeployedRef.current).slice(-200)));
+        } catch { /* silent */ }
+    };
 
     useEffect(() => { commitsRef.current = commits; }, [commits]);
     useEffect(() => { deployingSitesRef.current = deployingSites; }, [deployingSites]);
@@ -109,11 +129,9 @@ const Websites = () => {
                         setCommits(p => ({ ...p, [site.id]: next }));
 
                         const deployKey = `${site.id}:${next.latestHash}`;
-                        if (next.isOutdated && !autoDeployedRef.current.has(deployKey)) {
-                            autoDeployedRef.current.add(deployKey);
-                            if (!prev?.isOutdated || prev.latestHash !== next.latestHash) {
-                                autoDeploy(site.server_id, site.id, site.name, next.latestMessage ?? null);
-                            }
+                        if (next.isOutdated && next.latestHash && !autoDeployedRef.current.has(deployKey)) {
+                            persistAutoDeployedKey(deployKey);
+                            autoDeploy(site.server_id, site.id, site.name, next.latestMessage ?? null);
                         }
                     }
                 } catch { /* ignore */ }
@@ -437,6 +455,8 @@ echo "=== DIAGNÓSTICO COMPLETADO ==="`;
                         const commitRes = await serverService.getWebsiteCommit(serverId, websiteId);
                         if (commitRes.success && commitRes.commit) {
                             setCommits(prev => ({ ...prev, [websiteId]: commitRes.commit }));
+                            const hash = commitRes.commit.latestHash || commitRes.commit.hash;
+                            if (hash) persistAutoDeployedKey(`${websiteId}:${hash}`);
                         }
                     } else {
                         showToast('Error al desplegar commit: ' + (res.message || 'Error desconocido'), 'error');
