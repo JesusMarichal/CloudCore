@@ -90,11 +90,12 @@ const Websites = () => {
 
     const { pushNotification } = useOutletContext<{ pushNotification: (n: { type: 'info' | 'success' | 'warning' | 'error'; title: string; message: string }) => void }>();
 
-    const autoDeploy = async (serverId: string, websiteId: string, siteName: string, commitMsg: string | null) => {
+    const autoDeploy = async (serverId: string, websiteId: string, siteName: string, commitMsg: string | null, deployKey: string) => {
         setDeployingSites(prev => ({ ...prev, [websiteId]: true }));
         try {
             const res = await serverService.deployLatestCommit(serverId, websiteId);
             if (res.success) {
+                persistAutoDeployedKey(deployKey);
                 pushNotification({
                     type: 'success',
                     title: `${siteName} actualizado`,
@@ -104,8 +105,13 @@ const Websites = () => {
                 if (commitRes.success && commitRes.commit) {
                     setCommits(prev => ({ ...prev, [websiteId]: commitRes.commit }));
                 }
+            } else {
+                // Deploy failed — remove from ref so next poll can retry
+                autoDeployedRef.current.delete(deployKey);
             }
-        } catch { /* silent */ } finally {
+        } catch {
+            autoDeployedRef.current.delete(deployKey);
+        } finally {
             setDeployingSites(prev => ({ ...prev, [websiteId]: false }));
         }
     };
@@ -119,19 +125,18 @@ const Websites = () => {
 
             pollingRef.current = true;
             for (const site of sites) {
-                if (deployingSitesRef.current[site.id]) continue;
                 setCheckingCommits(prev => ({ ...prev, [site.id]: true }));
                 try {
                     const res = await serverService.getWebsiteCommit(site.server_id, site.id);
                     if (res.success && res.commit) {
-                        const prev = commitsRef.current[site.id];
                         const next = res.commit;
                         setCommits(p => ({ ...p, [site.id]: next }));
 
+                        // Solo dispara auto-deploy si no hay uno ya corriendo para este sitio
                         const deployKey = `${site.id}:${next.latestHash}`;
-                        if (next.isOutdated && next.latestHash && !autoDeployedRef.current.has(deployKey)) {
-                            persistAutoDeployedKey(deployKey);
-                            autoDeploy(site.server_id, site.id, site.name, next.latestMessage ?? null);
+                        if (!deployingSitesRef.current[site.id] && next.isOutdated && next.latestHash && !autoDeployedRef.current.has(deployKey)) {
+                            autoDeployedRef.current.add(deployKey);
+                            autoDeploy(site.server_id, site.id, site.name, next.latestMessage ?? null, deployKey);
                         }
                     }
                 } catch { /* ignore */ }

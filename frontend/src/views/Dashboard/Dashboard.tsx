@@ -131,7 +131,12 @@ const Dashboard = () => {
         return null;
     };
 
-    const fetchNotifications = async (userId: string) => {
+    // IDs ya vistos — solo dispara notificación nativa para los genuinamente nuevos
+    const seenNotifIds = useRef<Set<string>>(new Set(loadStoredNotifications().map(n => n.id)));
+
+    const fetchNotifications = useCallback(async () => {
+        const userId = getUserId();
+        if (!userId) return;
         try {
             const res = await serverService.getNotifications(userId);
             if (!res.success || !Array.isArray(res.notifications)) return;
@@ -143,23 +148,29 @@ const Dashboard = () => {
                 timestamp: Number(n.timestamp),
                 read: Boolean(n.read),
             }));
-            setNotifications(prev => {
-                const dbIds = new Set(dbNotifs.map(n => n.id));
-                const clientOnly = prev.filter(n => !dbIds.has(n.id));
-                const merged = [...dbNotifs, ...clientOnly]
-                    .sort((a, b) => b.timestamp - a.timestamp)
-                    .slice(0, MAX_NOTIFICATIONS);
-                // Trigger browser notification for new unread items not seen before
-                const prevIds = new Set(prev.map(n => n.id));
-                merged.filter(n => !n.read && !prevIds.has(n.id)).forEach(n => {
+
+            // Notificación nativa solo para las que no habíamos visto antes
+            dbNotifs
+                .filter(n => !n.read && !seenNotifIds.current.has(n.id))
+                .forEach(n => {
                     if ('Notification' in window && Notification.permission === 'granted') {
                         new Notification(n.title, { body: n.message });
                     }
                 });
-                return merged;
+            dbNotifs.forEach(n => seenNotifIds.current.add(n.id));
+
+            setNotifications(prev => {
+                const dbIds = new Set(dbNotifs.map(n => n.id));
+                const clientOnly = prev.filter(n => !dbIds.has(n.id));
+                const next = [...dbNotifs, ...clientOnly]
+                    .sort((a, b) => b.timestamp - a.timestamp)
+                    .slice(0, MAX_NOTIFICATIONS);
+                // Evita re-render si el contenido es idéntico
+                const same = next.length === prev.length && next.every((n, i) => n.id === prev[i]?.id && n.read === prev[i]?.read);
+                return same ? prev : next;
             });
         } catch { /* offline */ }
-    };
+    }, []);
 
     const loadData = async () => {
         const userId = getUserId();
@@ -185,15 +196,19 @@ const Dashboard = () => {
         } catch (error) {
             console.error('Error cargando datos en dashboard:', error);
         }
-
-        fetchNotifications(userId);
     };
 
     useEffect(() => {
         loadData();
-        const interval = setInterval(loadData, 10000); // Cada 10s
+        const interval = setInterval(loadData, 10000);
         return () => clearInterval(interval);
     }, []);
+
+    useEffect(() => {
+        fetchNotifications();
+        const interval = setInterval(fetchNotifications, 15000);
+        return () => clearInterval(interval);
+    }, [fetchNotifications]);
 
     const pushNotification = useCallback((n: { type: 'info' | 'success' | 'warning' | 'error'; title: string; message: string }) => {
         const newNotif: AppNotification = { id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, timestamp: Date.now(), read: false, ...n };
