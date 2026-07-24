@@ -945,3 +945,87 @@
 .db-conn-hint strong {
     color: var(--primary);
 }
+/* Header actions (buscar BD existentes + nueva BD) */
+.db-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.btn-secondary {
+    background: #21262d;
+    color: var(--text-main);
+    border: 1px solid rgba(240, 246, 252, 0.1);
+    padding: 6px 16px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.btn-secondary:hover {
+    background: #30363d;
+    border-color: #8b949e;
+}
+
+.btn-secondary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Toast (mismo estilo que Websites) */
+.modern-toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border: 1px solid var(--gh-border);
+    background: #161b22;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    max-width: 340px;
+    border-radius: 0;
+    animation: toastSlide 0.2s ease-out;
+}
+
+@keyframes toastSlide {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.toast-success { border-left: 3px solid #3fb950; }
+.toast-error   { border-left: 3px solid #f85149; }
+.toast-info    { border-left: 3px solid var(--primary); }
+
+.toast-icon { flex-shrink: 0; display: flex; align-items: center; }
+.icon-success { color: #3fb950; }
+.icon-error   { color: #f85149; }
+.icon-info    { color: var(--primary); font-weight: 700; }
+
+.toast-message {
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--text-main);
+    flex: 1;
+    line-height: 1.4;
+}
+
+.toast-close {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 2px;
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    transition: color 0.15s;
+}
+.toast-close:hover { color: var(--text-main); }

@@ -111,6 +111,172 @@ export class SshService {
     }
 
     /**
+     * Detecta sitios web ya montados en el servidor (carpetas en /var/www + config de Nginx + .env)
+     * Devuelve un array de sitios con los mismos campos que usa la tabla "websites".
+     */
+    async discoverWebsites(server: Server): Promise<any[]> {
+        const cmd = `
+for dir in /var/www/*/; do
+    [ -d "$dir" ] || continue
+    name=$(basename "$dir")
+    [ "$name" = "html" ] && continue
+
+    repo=$(git -C "$dir" remote get-url origin 2>/dev/null | sed -E 's#https://[^@]*@#https://#')
+
+    conf="/etc/nginx/sites-available/$name"
+    domain=""; port=""; ssl="false"; www="false"
+    if [ -f "$conf" ]; then
+        domain=$(grep -m1 -E 'server_name' "$conf" | sed -E 's/.*server_name[[:space:]]+//; s/;.*//' | awk '{print $1}')
+        port=$(grep -m1 -oE 'proxy_pass http://(127\\.0\\.0\\.1|localhost):[0-9]+' "$conf" | grep -oE '[0-9]+$')
+        grep -q 'listen 443' "$conf" && ssl="true"
+        grep -E 'server_name' "$conf" | grep -q 'www\\.' && www="true"
+    fi
+    [ "$domain" = "_" ] && domain=""
+
+    envb64=""
+    if [ -f "$dir/.env" ]; then
+        [ -z "$port" ] && port=$(grep -m1 -E '^PORT=' "$dir/.env" | cut -d= -f2 | tr -d '[:space:]')
+        envb64=$(grep -v '^PORT=' "$dir/.env" | base64 -w0 2>/dev/null || true)
+    fi
+
+    entry=""
+    for f in dist/main.js index.js server.js app.js; do
+        if [ -f "$dir$f" ]; then entry="$f"; break; fi
+    done
+
+    echo "@@SITE@@|$name|$repo|$domain|$port|$ssl|$www|$entry|$envb64"
+done
+echo "@@SCAN_DONE@@"
+`;
+
+        const output = await this.executeCommand(server, cmd, undefined, 60_000);
+        const sites: any[] = [];
+        for (const line of output.split('\n')) {
+            const trimmed = line.trim();
+            if (!trimmed.startsWith('@@SITE@@|')) continue;
+            const parts = trimmed.split('|');
+            const [, name, repo, domain, port, ssl, www, entry, envb64] = parts;
+            if (!name) continue;
+
+            let envVars = '';
+            if (envb64) {
+                try { envVars = Buffer.from(envb64, 'base64').toString('utf8').trim(); } catch (_) { }
+            }
+
+            sites.push({
+                name,
+                repoUrl: repo || '',
+                domain: domain || '',
+                port: port || '',
+                useLetsEncrypt: ssl === 'true',
+                setupWwwAlias: www === 'true',
+                entryPoint: entry || '',
+                envVars,
+            });
+        }
+        this.logger.log(`Detectados ${sites.length} sitios existentes en ${server.ip}`);
+        return sites;
+    }
+
+    /**
+     * Detecta bases de datos ya montadas en el servidor (contenedores Docker MySQL/MariaDB/PostgreSQL)
+     * Devuelve un array con los mismos campos que usa la tabla "database_instances".
+     */
+    async discoverDatabases(server: Server): Promise<any[]> {
+        const cmd = `
+if ! command -v docker >/dev/null 2>&1; then
+    echo "@@NO_DOCKER@@"
+    echo "@@DB_SCAN_DONE@@"
+    exit 0
+fi
+sudo docker ps -a --format '{{.Names}}|{{.Image}}|{{.Status}}' | while IFS='|' read -r cname image status; do
+    engine=""
+    case "$image" in
+        *phpmyadmin*) continue ;;
+        *mysql*|*mariadb*) engine="mysql" ;;
+        *postgres*) engine="postgres" ;;
+        *) continue ;;
+    esac
+    state="stopped"
+    case "$status" in Up*) state="running" ;; esac
+    envs=$(sudo docker inspect "$cname" --format '{{range .Config.Env}}{{println .}}{{end}}' 2>/dev/null | base64 -w0)
+    ports=$(sudo docker port "$cname" 2>/dev/null | base64 -w0)
+    echo "@@DB@@|$cname|$engine|$state|$ports|$envs"
+done
+sudo docker ps -a --format '{{.Names}}|{{.Image}}' | while IFS='|' read -r cname image; do
+    case "$image" in
+        *phpmyadmin*)
+            p=$(sudo docker port "$cname" 2>/dev/null | grep -m1 '80/tcp' | sed 's/.*://')
+            echo "@@PMA@@|$cname|$p"
+            ;;
+    esac
+done
+echo "@@DB_SCAN_DONE@@"
+`;
+
+        const output = await this.executeCommand(server, cmd, undefined, 60_000);
+
+        const pmaContainers: { name: string; port: string }[] = [];
+        const databases: any[] = [];
+
+        for (const line of output.split('\n')) {
+            const trimmed = line.trim();
+
+            if (trimmed.startsWith('@@PMA@@|')) {
+                const [, name, port] = trimmed.split('|');
+                if (name) pmaContainers.push({ name, port: (port || '').trim() });
+                continue;
+            }
+
+            if (!trimmed.startsWith('@@DB@@|')) continue;
+            const [, containerName, engine, status, portsB64, envsB64] = trimmed.split('|');
+            if (!containerName) continue;
+
+            let envText = '';
+            let portsText = '';
+            try { envText = Buffer.from(envsB64 || '', 'base64').toString('utf8'); } catch (_) { }
+            try { portsText = Buffer.from(portsB64 || '', 'base64').toString('utf8'); } catch (_) { }
+
+            const envMap: Record<string, string> = {};
+            for (const envLine of envText.split('\n')) {
+                const eq = envLine.indexOf('=');
+                if (eq > 0) envMap[envLine.slice(0, eq)] = envLine.slice(eq + 1).trim();
+            }
+
+            // "3306/tcp -> 0.0.0.0:3307" → puerto expuesto en el host
+            const portMatch = portsText.match(/(?:3306|5432)\/tcp -> [^:]*:(\d+)/) || portsText.match(/-> [^:]*:(\d+)/);
+            const hostPort = portMatch ? portMatch[1] : (engine === 'mysql' ? '3306' : '5432');
+
+            databases.push({
+                containerName,
+                name: containerName.replace(/^cloudcore_db_/, ''),
+                engine,
+                status,
+                port: hostPort,
+                dbName: envMap['MYSQL_DATABASE'] || envMap['POSTGRES_DB'] || '',
+                dbUser: envMap['MYSQL_USER'] || envMap['POSTGRES_USER'] || (engine === 'postgres' ? 'postgres' : 'root'),
+                dbPassword: envMap['MYSQL_PASSWORD'] || envMap['POSTGRES_PASSWORD'] || envMap['MYSQL_ROOT_PASSWORD'] || '',
+                adminPort: '',
+                adminContainerName: '',
+            });
+        }
+
+        // Asociar phpMyAdmin a su contenedor MySQL (por convención de nombres de CloudCore)
+        for (const db of databases) {
+            if (db.engine !== 'mysql') continue;
+            const pma = pmaContainers.find(p => p.name === `cloudcore_pma_${db.name}`)
+                || (pmaContainers.length === 1 ? pmaContainers[0] : undefined);
+            if (pma) {
+                db.adminPort = pma.port;
+                db.adminContainerName = pma.name;
+            }
+        }
+
+        this.logger.log(`Detectadas ${databases.length} bases de datos existentes en ${server.ip}`);
+        return databases;
+    }
+
+    /**
      * Obtiene métricas de salud del servidor
      */
     async getHealth(server: Server): Promise<Partial<Server>> {

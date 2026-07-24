@@ -85,6 +85,16 @@ let ServerController = class ServerController {
             await this.dbService.query('UPDATE servers SET provisioning_step = $1 WHERE id = $2', [step, serverId]);
         })
             .then(async () => {
+            try {
+                await this.dbService.query('UPDATE servers SET provisioning_step = $1 WHERE id = $2', ['Detectando sitios existentes', serverId]);
+                const imported = await this.importExistingWebsites(newServer, serverId, serverDto.userId);
+                if (imported.length > 0) {
+                    console.log(`Importados ${imported.length} sitios existentes desde ${newServer.ip}: ${imported.map(s => s.name).join(', ')}`);
+                }
+            }
+            catch (err) {
+                console.error(`No se pudieron importar los sitios existentes de ${newServer.ip}:`, err.message);
+            }
             await this.dbService.query('UPDATE servers SET status = $1, provisioning_step = $2 WHERE id = $3', ['online', 'Completado', serverId]);
         })
             .catch(async (err) => {
@@ -574,6 +584,78 @@ let ServerController = class ServerController {
         catch (error) {
             console.error('Error listando sitios web:', error);
             return [];
+        }
+    }
+    async importExistingWebsites(server, serverId, userId) {
+        const discovered = await this.sshService.discoverWebsites(server);
+        if (discovered.length === 0)
+            return [];
+        await this.dbService.query(`
+            DO $$
+            BEGIN
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='websites' AND column_name='build_command') THEN
+                    ALTER TABLE websites ADD COLUMN build_command VARCHAR(255);
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='websites' AND column_name='user_id') THEN
+                    ALTER TABLE websites ADD COLUMN user_id VARCHAR(255);
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='websites' AND column_name='env_vars') THEN
+                    ALTER TABLE websites ADD COLUMN env_vars TEXT;
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='websites' AND column_name='use_letsencrypt') THEN
+                    ALTER TABLE websites ADD COLUMN use_letsencrypt BOOLEAN DEFAULT FALSE;
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='websites' AND column_name='setup_www_alias') THEN
+                    ALTER TABLE websites ADD COLUMN setup_www_alias BOOLEAN DEFAULT FALSE;
+                END IF;
+            END $$;
+        `);
+        const imported = [];
+        for (const site of discovered) {
+            const exists = await this.dbService.query('SELECT 1 FROM websites WHERE server_id = $1 AND name = $2', [serverId, site.name]);
+            if (exists.rows.length > 0)
+                continue;
+            await this.dbService.query(`
+                INSERT INTO websites (server_id, user_id, repo_url, name, install_command, build_command, start_command, port, domain, entry_point, env_vars, use_letsencrypt, setup_www_alias)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+            `, [
+                serverId,
+                userId || '',
+                site.repoUrl,
+                site.name,
+                'npm install',
+                '',
+                '',
+                site.port,
+                site.domain,
+                site.entryPoint,
+                site.envVars,
+                site.useLetsEncrypt,
+                site.setupWwwAlias
+            ]);
+            imported.push(site);
+        }
+        return imported;
+    }
+    async importWebsites(id) {
+        const result = await this.dbService.query('SELECT * FROM servers WHERE id = $1', [id]);
+        const serverData = result.rows[0];
+        if (!serverData)
+            return { success: false, message: 'Servidor no encontrado' };
+        const server = this.getServerFromData(serverData);
+        try {
+            const imported = await this.importExistingWebsites(server, id, serverData.user_id);
+            return {
+                success: true,
+                imported: imported.length,
+                sites: imported.map(s => ({ name: s.name, domain: s.domain, port: s.port })),
+                message: imported.length > 0
+                    ? `Se registraron ${imported.length} sitios detectados en el servidor`
+                    : 'No se encontraron sitios nuevos para registrar'
+            };
+        }
+        catch (error) {
+            return { success: false, message: error.message };
         }
     }
     async getWebsiteEnv(id, websiteId) {
@@ -1082,6 +1164,69 @@ echo "📊 PostgreSQL disponible en el puerto ${body.port}"
             return [];
         }
     }
+    async importDatabases(userId) {
+        const serversRes = await this.dbService.query('SELECT * FROM servers WHERE user_id = $1', [userId]);
+        if (serversRes.rows.length === 0) {
+            return { success: true, imported: 0, databases: [], message: 'No tienes servidores registrados' };
+        }
+        await this.dbService.query(`
+            CREATE TABLE IF NOT EXISTS database_instances(
+        id VARCHAR(255) PRIMARY KEY,
+        server_id VARCHAR(255) NOT NULL,
+        user_id VARCHAR(255) NOT NULL,
+        name VARCHAR(255) NOT NULL,
+        engine VARCHAR(50) NOT NULL,
+        port VARCHAR(10) NOT NULL,
+        db_name VARCHAR(255) NOT NULL,
+        db_user VARCHAR(255) NOT NULL,
+        db_password VARCHAR(255) NOT NULL,
+        admin_port VARCHAR(10),
+        container_name VARCHAR(255),
+        admin_container_name VARCHAR(255),
+        status VARCHAR(50) DEFAULT 'deploying',
+        created_at TIMESTAMP DEFAULT NOW()
+    );
+`);
+        const imported = [];
+        const errors = [];
+        for (const serverData of serversRes.rows) {
+            const server = this.getServerFromData(serverData);
+            try {
+                const discovered = await this.sshService.discoverDatabases(server);
+                for (const db of discovered) {
+                    const exists = await this.dbService.query('SELECT 1 FROM database_instances WHERE server_id = $1::text AND container_name = $2', [serverData.id, db.containerName]);
+                    if (exists.rows.length > 0)
+                        continue;
+                    const dbId = crypto.randomUUID();
+                    await this.dbService.query(`
+                        INSERT INTO database_instances(id, server_id, user_id, name, engine, port, db_name, db_user, db_password, admin_port, container_name, admin_container_name, status)
+                        VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+                    `, [dbId, serverData.id, userId, db.name, db.engine, db.port, db.dbName, db.dbUser, db.dbPassword, db.adminPort || '', db.containerName, db.adminContainerName || '', db.status]);
+                    imported.push({
+                        id: dbId,
+                        name: db.name,
+                        engine: db.engine,
+                        port: db.port,
+                        serverName: serverData.name,
+                        serverIp: serverData.ip,
+                    });
+                }
+            }
+            catch (error) {
+                console.error(`Error escaneando bases de datos en ${serverData.ip}:`, error.message);
+                errors.push(`${serverData.name} (${serverData.ip}): ${error.message}`);
+            }
+        }
+        return {
+            success: true,
+            imported: imported.length,
+            databases: imported,
+            errors,
+            message: imported.length > 0
+                ? `Se registraron ${imported.length} base(s) de datos detectada(s)`
+                : 'No se encontraron bases de datos montadas en tus servidores'
+        };
+    }
     async deleteDatabaseInstance(id, dbId) {
         const serverResult = await this.dbService.query('SELECT * FROM servers WHERE id = $1', [id]);
         const serverData = serverResult.rows[0];
@@ -1279,6 +1424,13 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], ServerController.prototype, "getWebsites", null);
 __decorate([
+    (0, common_1.Post)(':id/import-websites'),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], ServerController.prototype, "importWebsites", null);
+__decorate([
     (0, common_1.Get)(':id/websites/:websiteId/env'),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Param)('websiteId')),
@@ -1342,6 +1494,13 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], ServerController.prototype, "listDatabases", null);
+__decorate([
+    (0, common_1.Post)('import-databases/:userId'),
+    __param(0, (0, common_1.Param)('userId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], ServerController.prototype, "importDatabases", null);
 __decorate([
     (0, common_1.Post)(':id/databases/:dbId/delete'),
     __param(0, (0, common_1.Param)('id')),

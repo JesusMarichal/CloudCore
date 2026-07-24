@@ -26,13 +26,13 @@ export interface CreateServerData {
 const cache: Record<string, { value: any; expiry: number }> = {};
 const CACHE_TTL = 3 * 60 * 1000; // 3 minutos
 
-async function withCache<T>(key: string, fetcher: () => Promise<T>): Promise<T> {
+async function withCache<T>(key: string, fetcher: () => Promise<T>, ttl: number = CACHE_TTL): Promise<T> {
     const now = Date.now();
     if (cache[key] && cache[key].expiry > now) {
         return cache[key].value;
     }
     const res = await fetcher();
-    cache[key] = { value: res, expiry: now + CACHE_TTL };
+    cache[key] = { value: res, expiry: now + ttl };
     return res;
 }
 
@@ -61,11 +61,13 @@ export const serverService = {
     },
 
     async list(userId: string) {
+        // TTL corto: esta lista trae métricas (CPU/RAM/disco) y el progreso de
+        // aprovisionamiento, que deben verse casi en tiempo real en las vistas.
         return withCache(`servers_${userId}`, async () => {
             const response = await fetch(`${API_URL}?userId=${userId}`);
             if (!response.ok) return [];
             return response.json();
-        });
+        }, 5000);
     },
 
     async deleteServer(id: string) {
@@ -80,6 +82,8 @@ export const serverService = {
         const response = await fetch(`${API_URL}/${id}/refresh`, {
             method: 'POST'
         });
+        // Invalidar la caché para que la próxima carga traiga las métricas recién guardadas
+        invalidateCache('servers_');
         return response.json();
     },
 
@@ -273,6 +277,14 @@ export const serverService = {
             invalidateCache('databases_');
             return { success: true };
         }
+        invalidateCache('databases_');
+        return response.json();
+    },
+
+    async importDatabases(userId: string) {
+        const response = await fetch(`${API_URL}/import-databases/${userId}`, {
+            method: 'POST'
+        });
         invalidateCache('databases_');
         return response.json();
     },

@@ -19,6 +19,8 @@ export declare class ServerController {
     deployWebsite(id: string, body: any, res: Response): Promise<void>;
     updateWebsite(id: string, websiteId: string, body: any, res: Response): Promise<void>;
     getWebsites(userId: string): Promise<any[]>;
+    private importExistingWebsites;
+    importWebsites(id: string): Promise<any>;
     getWebsiteEnv(id: string, websiteId: string): Promise<any>;
     deleteWebsite(id: string, websiteId: string): Promise<any>;
     getWebsiteLogs(id: string, websiteId: string): Promise<any>;
@@ -28,6 +30,7 @@ export declare class ServerController {
     private getServerFromData;
     deployDatabase(id: string, body: any, res: Response): Promise<void>;
     listDatabases(userId: string): Promise<any[]>;
+    importDatabases(userId: string): Promise<any>;
     deleteDatabaseInstance(id: string, dbId: string): Promise<any>;
     manageDatabaseContainer(id: string, dbId: string, action: string): Promise<any>;
     getNotifications(userId: string): Promise<{

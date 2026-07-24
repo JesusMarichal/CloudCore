@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { serverService } from '../../services/server.service';
 import type { CreateServerData } from '../../services/server.service';
-import { Database as DatabaseIcon, Plus, Play, Square, RotateCcw, Trash2, ExternalLink, Eye, EyeOff, X, HardDrive, Copy, Check, Link } from 'lucide-react';
+import { Database as DatabaseIcon, Plus, Play, Square, RotateCcw, Trash2, ExternalLink, Eye, EyeOff, X, HardDrive, Copy, Check, Link, Search, CheckCircle2 } from 'lucide-react';
 import './Database.css';
 
 interface DatabaseInstance {
@@ -45,6 +45,13 @@ const DatabaseView = () => {
     const [connectionModal, setConnectionModal] = useState<DatabaseInstance | null>(null);
     const [copied, setCopied] = useState(false);
     const [closingConnModal, setClosingConnModal] = useState(false);
+    const [scanning, setScanning] = useState(false);
+    const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' | 'info' } | null>(null);
+
+    const showToast = (message: string, type: 'success' | 'error' | 'info') => {
+        setToast({ message, type });
+        setTimeout(() => setToast(null), 5000);
+    };
 
     const closeConnectionModal = () => {
         setClosingConnModal(true);
@@ -191,6 +198,29 @@ const DatabaseView = () => {
         }
     };
 
+    const handleScanExisting = async () => {
+        const userId = getUserId();
+        if (!userId) return;
+        setScanning(true);
+        try {
+            const result = await serverService.importDatabases(userId);
+            if (result.success && result.imported > 0) {
+                const dbData = await serverService.listDatabases(userId);
+                setDatabases(dbData);
+                showToast(`Se encontraron y registraron ${result.imported} base(s) de datos montada(s) en tus servidores.`, 'success');
+            } else if (result.success) {
+                showToast('No se encontró ninguna base de datos montada en tus servidores.', 'info');
+            } else {
+                showToast(result.message || 'Error buscando bases de datos.', 'error');
+            }
+        } catch (error) {
+            console.error('Error buscando bases de datos existentes:', error);
+            showToast('Error buscando bases de datos existentes.', 'error');
+        } finally {
+            setScanning(false);
+        }
+    };
+
     const getAdminUrl = (db: DatabaseInstance) => {
         if (db.engine === 'mysql' && db.adminPort) {
             return `http://${db.serverIp}:${db.adminPort}`;
@@ -206,9 +236,14 @@ const DatabaseView = () => {
                     <p className="text-muted">Despliega y administra bases de datos MySQL y PostgreSQL en tus servidores.</p>
                 </div>
                 {servers.length > 0 && (
-                    <button className="btn-primary" onClick={() => setShowForm(true)}>
-                        <Plus size={16} /> Nueva Base de Datos
-                    </button>
+                    <div className="db-header-actions">
+                        <button className="btn-secondary" onClick={handleScanExisting} disabled={scanning}>
+                            <Search size={16} /> {scanning ? 'Buscando...' : 'Buscar BD existentes'}
+                        </button>
+                        <button className="btn-primary" onClick={() => setShowForm(true)}>
+                            <Plus size={16} /> Nueva Base de Datos
+                        </button>
+                    </div>
                 )}
             </header>
 
@@ -606,6 +641,18 @@ const DatabaseView = () => {
                             </div>
                         </div>
                     </div>
+                </div>
+            )}
+
+            {toast && (
+                <div className={`modern-toast toast-${toast.type}`}>
+                    <div className="toast-icon">
+                        {toast.type === 'success' && <div className="icon-success"><CheckCircle2 size={16} /></div>}
+                        {toast.type === 'error' && <div className="icon-error"><X size={16} /></div>}
+                        {toast.type === 'info' && <div className="icon-info">i</div>}
+                    </div>
+                    <div className="toast-message">{toast.message}</div>
+                    <button className="toast-close" onClick={() => setToast(null)}><X size={14} /></button>
                 </div>
             )}
         </div>
