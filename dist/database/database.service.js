@@ -93,8 +93,19 @@ let DatabaseService = DatabaseService_1 = class DatabaseService {
                             ALTER TABLE users ADD COLUMN failed_attempts INT DEFAULT 0;
                             ALTER TABLE users ADD COLUMN locked_until TIMESTAMP;
                         END IF;
+                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                                     WHERE table_name='users' AND column_name='role') THEN
+                            ALTER TABLE users ADD COLUMN role VARCHAR(20) DEFAULT 'CLIENT';
+                        END IF;
                     END IF;
                 END $$;
+            `);
+            await this.pool.query(`ALTER TABLE users ALTER COLUMN role SET DEFAULT 'CLIENT';`);
+            await this.pool.query(`
+                UPDATE users SET role = 'CLIENT' WHERE role IS NULL OR role NOT IN ('ADMIN', 'CLIENT');
+            `);
+            await this.pool.query(`
+                UPDATE users SET role = 'ADMIN' WHERE LOWER(email) = 'jesusmarichal0@gmail.com';
             `);
             await this.pool.query(`
                 CREATE TABLE IF NOT EXISTS websites (
@@ -138,6 +149,7 @@ let DatabaseService = DatabaseService_1 = class DatabaseService {
                 email VARCHAR(255) UNIQUE NOT NULL,
                 password TEXT NOT NULL,
                 github_token VARCHAR(255),
+                role VARCHAR(20) DEFAULT 'CLIENT',
                 created_at TIMESTAMP DEFAULT NOW()
             );
         `;

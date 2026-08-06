@@ -1,4 +1,5 @@
 import { API_URL as BASE_URL } from '../config';
+import { authFetch } from './apiFetch';
 
 const API_URL = `${BASE_URL}/servers`;
 
@@ -46,7 +47,7 @@ function invalidateCache(prefix: string) {
 
 export const serverService = {
     async create(data: CreateServerData) {
-        const response = await fetch(API_URL, {
+        const response = await authFetch(API_URL, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -60,18 +61,18 @@ export const serverService = {
         return response.json();
     },
 
-    async list(userId: string) {
+    async list() {
         // TTL corto: esta lista trae métricas (CPU/RAM/disco) y el progreso de
         // aprovisionamiento, que deben verse casi en tiempo real en las vistas.
-        return withCache(`servers_${userId}`, async () => {
-            const response = await fetch(`${API_URL}?userId=${userId}`);
+        return withCache('servers_current', async () => {
+            const response = await authFetch(API_URL);
             if (!response.ok) return [];
             return response.json();
         }, 5000);
     },
 
     async deleteServer(id: string) {
-        const response = await fetch(`${API_URL}/${id}`, {
+        const response = await authFetch(`${API_URL}/${id}`, {
             method: 'DELETE'
         });
         invalidateCache('servers_');
@@ -79,7 +80,7 @@ export const serverService = {
     },
 
     async refresh(id: string) {
-        const response = await fetch(`${API_URL}/${id}/refresh`, {
+        const response = await authFetch(`${API_URL}/${id}/refresh`, {
             method: 'POST'
         });
         // Invalidar la caché para que la próxima carga traiga las métricas recién guardadas
@@ -89,14 +90,14 @@ export const serverService = {
 
     async getServices(id: string) {
         return withCache(`services_${id}`, async () => {
-            const response = await fetch(`${API_URL}/${id}/services`);
+            const response = await authFetch(`${API_URL}/${id}/services`);
             if (!response.ok) return [];
             return response.json();
         });
     },
 
     async manageService(id: string, serviceName: string, action: string) {
-        const response = await fetch(`${API_URL}/${id}/services/${serviceName}/${action}`, {
+        const response = await authFetch(`${API_URL}/${id}/services/${serviceName}/${action}`, {
             method: 'POST'
         });
         invalidateCache(`services_${id}`);
@@ -105,7 +106,7 @@ export const serverService = {
     },
 
     async installService(id: string, serviceName: string, onData?: (chunk: string) => void) {
-        const response = await fetch(`${API_URL}/${id}/services/install/${serviceName}`, {
+        const response = await authFetch(`${API_URL}/${id}/services/install/${serviceName}`, {
             method: 'POST'
         });
         if (onData && response.body) {
@@ -126,7 +127,7 @@ export const serverService = {
     },
 
     async uninstallService(id: string, serviceName: string, onData?: (chunk: string) => void) {
-        const response = await fetch(`${API_URL}/${id}/services/uninstall/${serviceName}`, {
+        const response = await authFetch(`${API_URL}/${id}/services/uninstall/${serviceName}`, {
             method: 'POST'
         });
         if (onData && response.body) {
@@ -147,7 +148,7 @@ export const serverService = {
     },
 
     async updateSystem(id: string, onData?: (chunk: string) => void) {
-        const response = await fetch(`${API_URL}/${id}/update-system`, {
+        const response = await authFetch(`${API_URL}/${id}/update-system`, {
             method: 'POST'
         });
         if (onData && response.body) {
@@ -164,7 +165,7 @@ export const serverService = {
     },
 
     async deployWebsite(serverId: string, data: any, onData?: (chunk: string) => void) {
-        const response = await fetch(`${API_URL}/${serverId}/deploy-website`, {
+        const response = await authFetch(`${API_URL}/${serverId}/deploy-website`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
@@ -187,16 +188,16 @@ export const serverService = {
         return response.json();
     },
 
-    async listWebsites(userId: string) {
-        return withCache(`websites_${userId}`, async () => {
-            const response = await fetch(`${API_URL}/websites/${userId}`);
+    async listWebsites() {
+        return withCache('websites_current', async () => {
+            const response = await authFetch(`${API_URL}/websites`);
             if (!response.ok) return [];
             return response.json();
         });
     },
 
     async deleteWebsite(serverId: string, websiteId: string) {
-        const response = await fetch(`${API_URL}/${serverId}/websites/${websiteId}/delete`, {
+        const response = await authFetch(`${API_URL}/${serverId}/websites/${websiteId}/delete`, {
             method: 'POST'
         });
         invalidateCache('websites_');
@@ -204,7 +205,7 @@ export const serverService = {
     },
 
     async updateWebsite(serverId: string, websiteId: string, data: any, onData?: (chunk: string) => void) {
-        const response = await fetch(`${API_URL}/${serverId}/websites/${websiteId}/update`, {
+        const response = await authFetch(`${API_URL}/${serverId}/websites/${websiteId}/update`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
@@ -227,17 +228,17 @@ export const serverService = {
     },
 
     async getWebsiteEnv(serverId: string, websiteId: string) {
-        const response = await fetch(`${API_URL}/${serverId}/websites/${websiteId}/env`);
+        const response = await authFetch(`${API_URL}/${serverId}/websites/${websiteId}/env`);
         return response.json();
     },
 
     async getWebsiteLogs(serverId: string, websiteId: string) {
-        const response = await fetch(`${API_URL}/${serverId}/websites/${websiteId}/logs`);
+        const response = await authFetch(`${API_URL}/${serverId}/websites/${websiteId}/logs`);
         return response.json();
     },
 
     async executeCommand(serverId: string, command: string) {
-        const response = await fetch(`${API_URL}/${serverId}/execute`, {
+        const response = await authFetch(`${API_URL}/${serverId}/execute`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ command })
@@ -246,12 +247,12 @@ export const serverService = {
     },
 
     async getWebsiteCommit(serverId: string, websiteId: string) {
-        const response = await fetch(`${API_URL}/${serverId}/websites/${websiteId}/commit`);
+        const response = await authFetch(`${API_URL}/${serverId}/websites/${websiteId}/commit`);
         return response.json();
     },
 
     async deployLatestCommit(serverId: string, websiteId: string) {
-        const response = await fetch(`${API_URL}/${serverId}/websites/${websiteId}/deploy-latest`, {
+        const response = await authFetch(`${API_URL}/${serverId}/websites/${websiteId}/deploy-latest`, {
             method: 'POST'
         });
         invalidateCache('websites_');
@@ -261,7 +262,7 @@ export const serverService = {
     // ===== Database Management =====
 
     async deployDatabase(serverId: string, data: any, onData?: (chunk: string) => void) {
-        const response = await fetch(`${API_URL}/${serverId}/deploy-database`, {
+        const response = await authFetch(`${API_URL}/${serverId}/deploy-database`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
@@ -281,48 +282,48 @@ export const serverService = {
         return response.json();
     },
 
-    async importDatabases(userId: string) {
-        const response = await fetch(`${API_URL}/import-databases/${userId}`, {
+    async importDatabases() {
+        const response = await authFetch(`${API_URL}/import-databases`, {
             method: 'POST'
         });
         invalidateCache('databases_');
         return response.json();
     },
 
-    async listDatabases(userId: string) {
-        return withCache(`databases_${userId}`, async () => {
-            const response = await fetch(`${API_URL}/databases/${userId}`);
+    async listDatabases() {
+        return withCache('databases_current', async () => {
+            const response = await authFetch(`${API_URL}/databases`);
             if (!response.ok) return [];
             return response.json();
         });
     },
 
     async manageDatabaseContainer(serverId: string, dbId: string, action: string) {
-        const response = await fetch(`${API_URL}/${serverId}/databases/${dbId}/${action}`, {
+        const response = await authFetch(`${API_URL}/${serverId}/databases/${dbId}/${action}`, {
             method: 'POST'
         });
         return response.json();
     },
 
     async deleteDatabase(serverId: string, dbId: string) {
-        const response = await fetch(`${API_URL}/${serverId}/databases/${dbId}/delete`, {
+        const response = await authFetch(`${API_URL}/${serverId}/databases/${dbId}/delete`, {
             method: 'POST'
         });
         invalidateCache('databases_');
         return response.json();
     },
 
-    async getNotifications(userId: string) {
-        const response = await fetch(`${API_URL}/notifications/${userId}`);
+    async getNotifications() {
+        const response = await authFetch(`${API_URL}/notifications`);
         if (!response.ok) return { success: false, notifications: [] };
         return response.json();
     },
 
-    async markNotificationsRead(userId: string) {
-        await fetch(`${API_URL}/notifications/mark-read/${userId}`, { method: 'POST' });
+    async markNotificationsRead() {
+        await authFetch(`${API_URL}/notifications/mark-read`, { method: 'POST' });
     },
 
     async dismissNotification(id: string) {
-        await fetch(`${API_URL}/notifications/${id}/dismiss`, { method: 'POST' });
+        await authFetch(`${API_URL}/notifications/${id}/dismiss`, { method: 'POST' });
     },
 };

@@ -4,6 +4,8 @@ import { serverService } from '../../services/server.service';
 import type { CreateServerData } from '../../services/server.service';
 import { Globe, Plus, X, ExternalLink, HardDrive, Settings, GitCommit, RefreshCw, CloudUpload, Terminal, RotateCcw, CheckCircle2 } from 'lucide-react';
 import { API_URL } from '../../config';
+import { authFetch } from '../../services/apiFetch';
+import { tokenStorage } from '../../services/tokenStorage';
 import './Websites.css';
 
 const AUTO_DEPLOYED_STORAGE_KEY = 'cc_auto_deployed_v1';
@@ -175,17 +177,16 @@ const Websites = () => {
 
     useEffect(() => {
         const loadServers = async () => {
-            const userStr = localStorage.getItem('user');
-            if (userStr) {
-                const user = JSON.parse(userStr);
-                const data = await serverService.list(user.id);
+            const user = tokenStorage.getUser();
+            if (tokenStorage.getToken() && user) {
+                const data = await serverService.list();
                 setServers(data);
                 if (data.length > 0) {
                     setFormData(prev => ({ ...prev, serverId: data[0].id || '', userId: user.id }));
                 }
 
                 try {
-                    const reposRes = await fetch(`${API_URL}/github/repos/${user.id}`);
+                    const reposRes = await authFetch(`${API_URL}/github/repos`);
                     const reposData = await reposRes.json();
                     if (reposData.success && reposData.repos) {
                         setGithubRepos(reposData.repos);
@@ -198,7 +199,7 @@ const Websites = () => {
                 }
 
                 try {
-                    const sites = await serverService.listWebsites(user.id);
+                    const sites = await serverService.listWebsites();
                     setWebsites(sites);
 
                     // Cargar commits de cada sitio en background
@@ -226,9 +227,7 @@ const Websites = () => {
         e.preventDefault();
         setDeploying(true);
         try {
-            const userStr = localStorage.getItem('user');
-            const currentUser = userStr ? JSON.parse(userStr) : null;
-            const currentUserId = currentUser?.id || '';
+            const currentUserId = tokenStorage.getUser()?.id || '';
 
             if (editingSite) {
                 setDeployLogs('Iniciando actualización de configuración...\n');
@@ -265,10 +264,8 @@ const Websites = () => {
             showToast('Hubo un error al procesar el sitio.', 'error');
         } finally {
             setDeploying(false);
-            const userStr = localStorage.getItem('user');
-            if (userStr) {
-                const user = JSON.parse(userStr);
-                const sites = await serverService.listWebsites(user.id);
+            if (tokenStorage.getToken()) {
+                const sites = await serverService.listWebsites();
                 setWebsites(sites);
             }
         }
@@ -355,10 +352,8 @@ const Websites = () => {
             setShowEnvModal(false);
             setEditingSite(null); // Limpiar para que el modal de progreso se vea si se desea, o para resetear estado
 
-            const userStr = localStorage.getItem('user');
-            if (userStr) {
-                const user = JSON.parse(userStr);
-                const sites = await serverService.listWebsites(user.id);
+            if (tokenStorage.getToken()) {
+                const sites = await serverService.listWebsites();
                 setWebsites(sites);
             }
         } catch (error) {

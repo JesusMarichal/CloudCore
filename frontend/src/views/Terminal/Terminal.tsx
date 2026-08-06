@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Terminal as TerminalIcon, Server, Trash2, X, Plug } from 'lucide-react';
+import { Terminal as TerminalIcon, Server, Trash2, X, Plug, ChevronDown, Check } from 'lucide-react';
 import { Terminal as XTerminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { serverService } from '../../services/server.service';
 import type { CreateServerData } from '../../services/server.service';
+import { tokenStorage } from '../../services/tokenStorage';
 import '@xterm/xterm/css/xterm.css';
 import './Terminal.css';
 
@@ -17,23 +18,33 @@ const Terminal = () => {
     const [servers, setServers] = useState<CreateServerData[]>([]);
     const [selectedServerId, setSelectedServerId] = useState('');
     const [status, setStatus] = useState<Status>('idle');
+    const [serverMenuOpen, setServerMenuOpen] = useState(false);
 
     const termContainerRef = useRef<HTMLDivElement>(null);
     const xtermRef = useRef<XTerminal | null>(null);
     const fitAddonRef = useRef<FitAddon | null>(null);
     const wsRef = useRef<WebSocket | null>(null);
     const onDataDisposable = useRef<{ dispose: () => void } | null>(null);
+    const serverMenuRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         const loadServers = async () => {
-            const userStr = localStorage.getItem('user');
-            if (!userStr) return;
-            const user = JSON.parse(userStr);
-            const data = await serverService.list(user.id);
+            if (!tokenStorage.getToken()) return;
+            const data = await serverService.list();
             setServers(data);
             if (data.length > 0) setSelectedServerId(data[0].id || '');
         };
         loadServers();
+    }, []);
+
+    // Cerrar el menú de servidores al hacer clic fuera
+    useEffect(() => {
+        const handler = (e: MouseEvent) => {
+            if (serverMenuRef.current && !serverMenuRef.current.contains(e.target as Node))
+                setServerMenuOpen(false);
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
     }, []);
 
     // Initialize xterm once on mount
@@ -116,7 +127,8 @@ const Terminal = () => {
         setStatus('connecting');
         wsRef.current?.close();
 
-        const ws = new WebSocket(WS_URL);
+        const token = tokenStorage.getToken() ?? '';
+        const ws = new WebSocket(`${WS_URL}?token=${encodeURIComponent(token)}`);
         wsRef.current = ws;
 
         ws.onopen = () => {
@@ -164,6 +176,8 @@ const Terminal = () => {
 
     const clear = () => xtermRef.current?.clear();
 
+    const selectedServer = servers.find(s => s.id === selectedServerId) || null;
+
     const statusLabel: Record<Status, { text: string; cls: string }> = {
         idle: { text: '', cls: '' },
         connecting: { text: '● Conectando al Servidor...', cls: 'connecting' },
@@ -185,18 +199,37 @@ const Terminal = () => {
                 </div>
 
                 <div className="terminal-controls">
-                    <div className="server-selector">
-                        <Server size={14} className="icon-dim" />
-                        <select
-                            value={selectedServerId}
-                            onChange={(e) => handleServerChange(e.target.value)}
-                            disabled={status === 'connecting'}
+                    <div className="server-selector" ref={serverMenuRef}>
+                        <button
+                            type="button"
+                            className="server-selector-trigger"
+                            onClick={() => setServerMenuOpen(o => !o)}
+                            disabled={status === 'connecting' || servers.length === 0}
                         >
-                            {servers.map(s => (
-                                <option key={s.id} value={s.id}>{s.name} ({s.ip})</option>
-                            ))}
-                            {servers.length === 0 && <option value="">No hay servidores</option>}
-                        </select>
+                            <Server size={14} className="icon-dim" />
+                            <span className="server-selector-label">
+                                {selectedServer ? `${selectedServer.name} (${selectedServer.ip})` : 'No hay servidores'}
+                            </span>
+                            <ChevronDown size={14} className={`server-selector-chevron ${serverMenuOpen ? 'open' : ''}`} />
+                        </button>
+
+                        {serverMenuOpen && servers.length > 0 && (
+                            <div className="server-dropdown-menu">
+                                {servers.map(s => (
+                                    <button
+                                        type="button"
+                                        key={s.id}
+                                        className={`server-dropdown-item ${s.id === selectedServerId ? 'active' : ''}`}
+                                        onClick={() => { handleServerChange(s.id || ''); setServerMenuOpen(false); }}
+                                    >
+                                        <span className={`server-dropdown-dot ${s.status}`} />
+                                        <span className="server-dropdown-name">{s.name}</span>
+                                        <span className="server-dropdown-ip">{s.ip}</span>
+                                        {s.id === selectedServerId && <Check size={14} className="server-dropdown-check" />}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
                     </div>
 
                     {status === 'connected' ? (

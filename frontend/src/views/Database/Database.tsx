@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { serverService } from '../../services/server.service';
 import type { CreateServerData } from '../../services/server.service';
+import { tokenStorage } from '../../services/tokenStorage';
 import { Database as DatabaseIcon, Plus, Play, Square, RotateCcw, Trash2, ExternalLink, Eye, EyeOff, X, HardDrive, Copy, Check, Link, Search, CheckCircle2 } from 'lucide-react';
 import './Database.css';
 
@@ -74,32 +75,22 @@ const DatabaseView = () => {
         adminPort: '8080',
     });
 
-    const getUserId = () => {
-        const userStr = localStorage.getItem('user');
-        if (userStr) {
-            const user = JSON.parse(userStr);
-            return user.id;
-        }
-        return null;
-    };
-
     useEffect(() => {
         const loadData = async () => {
-            const userId = getUserId();
-            if (!userId) {
+            if (!tokenStorage.getToken()) {
                 navigate('/');
                 return;
             }
 
             try {
-                const serverData = await serverService.list(userId);
+                const serverData = await serverService.list();
                 setServers(serverData);
                 if (serverData.length > 0) {
                     setFormData(prev => ({ ...prev, serverId: serverData[0].id || '' }));
                 }
 
                 // Load databases
-                const dbData = await serverService.listDatabases(userId);
+                const dbData = await serverService.listDatabases();
                 setDatabases(dbData);
             } catch (error) {
                 console.error('Error cargando datos:', error);
@@ -131,11 +122,7 @@ const DatabaseView = () => {
         setDeployLogs('Iniciando despliegue de base de datos...\n');
 
         try {
-            const userId = getUserId();
-            await serverService.deployDatabase(formData.serverId, {
-                ...formData,
-                userId: userId || '',
-            }, (chunk: string) => {
+            await serverService.deployDatabase(formData.serverId, formData, (chunk: string) => {
                 setDeployLogs(prev => prev + chunk);
             });
 
@@ -153,9 +140,8 @@ const DatabaseView = () => {
             // setDeployLogs(''); // No limpiar los logs automáticamente
 
             // Reload databases
-            const userId2 = getUserId();
-            if (userId2) {
-                const dbData = await serverService.listDatabases(userId2);
+            if (tokenStorage.getToken()) {
+                const dbData = await serverService.listDatabases();
                 setDatabases(dbData);
             }
         } catch (error) {
@@ -171,9 +157,8 @@ const DatabaseView = () => {
         try {
             await serverService.manageDatabaseContainer(db.serverId, db.id, action);
             // Reload
-            const userId = getUserId();
-            if (userId) {
-                const dbData = await serverService.listDatabases(userId);
+            if (tokenStorage.getToken()) {
+                const dbData = await serverService.listDatabases();
                 setDatabases(dbData);
             }
         } catch (error) {
@@ -199,13 +184,12 @@ const DatabaseView = () => {
     };
 
     const handleScanExisting = async () => {
-        const userId = getUserId();
-        if (!userId) return;
+        if (!tokenStorage.getToken()) return;
         setScanning(true);
         try {
-            const result = await serverService.importDatabases(userId);
+            const result = await serverService.importDatabases();
             if (result.success && result.imported > 0) {
-                const dbData = await serverService.listDatabases(userId);
+                const dbData = await serverService.listDatabases();
                 setDatabases(dbData);
                 showToast(`Se encontraron y registraron ${result.imported} base(s) de datos montada(s) en tus servidores.`, 'success');
             } else if (result.success) {

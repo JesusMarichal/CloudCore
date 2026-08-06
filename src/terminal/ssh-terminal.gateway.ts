@@ -1,20 +1,39 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
 import { WebSocketServer, WebSocket as WsClient } from 'ws';
+import { IncomingMessage } from 'http';
 import { Client } from 'ssh2';
 import { DatabaseService } from '../database/database.service';
 import { decrypt } from '../common/utils/encryption.util';
+import { JwtPayload } from '../common/auth/jwt-payload.interface';
 
 @Injectable()
 export class SshTerminalGateway {
     private readonly logger = new Logger(SshTerminalGateway.name);
 
-    constructor(private readonly dbService: DatabaseService) {}
+    constructor(
+        private readonly dbService: DatabaseService,
+        private readonly jwtService: JwtService,
+    ) {}
 
     init(wss: WebSocketServer) {
-        wss.on('connection', (ws: WsClient) => this.handleConnection(ws));
+        wss.on('connection', (ws: WsClient, req: IncomingMessage) => this.handleConnection(ws, req));
     }
 
-    private handleConnection(ws: WsClient) {
+    private handleConnection(ws: WsClient, req: IncomingMessage) {
+        let userId: string;
+        try {
+            const url = new URL(req.url || '', 'http://localhost');
+            const token = url.searchParams.get('token');
+            if (!token) throw new Error('Token no proporcionado');
+            const payload = this.jwtService.verify<JwtPayload>(token);
+            if (payload.scope === 'pre2fa') throw new Error('Token no válido para esta operación');
+            userId = payload.sub;
+        } catch (e) {
+            ws.close(4401, 'Unauthorized');
+            return;
+        }
+
         let sshConn: Client | null = null;
         let sshStream: any = null;
 
@@ -30,7 +49,7 @@ export class SshTerminalGateway {
                 try {
                     const ctrl = JSON.parse(msg.slice(1));
                     if (ctrl.type === 'init' && !sshConn) {
-                        await this.startSession(ws, ctrl.serverId, send, (conn, stream) => {
+                        await this.startSession(ws, ctrl.serverId, userId, send, (conn, stream) => {
                             sshConn = conn;
                             sshStream = stream;
                         });
@@ -60,6 +79,7 @@ export class SshTerminalGateway {
     private async startSession(
         ws: WsClient,
         serverId: string,
+        userId: string,
         send: (data: string) => void,
         onReady: (conn: Client, stream: any) => void,
     ) {
@@ -69,6 +89,11 @@ export class SshTerminalGateway {
 
             if (!serverData) {
                 send('\r\n\x1b[31m❌ Servidor no encontrado\x1b[0m\r\n');
+                return;
+            }
+
+            if (String(serverData.user_id) !== String(userId)) {
+                send('\r\n\x1b[31m❌ No autorizado para este servidor\x1b[0m\r\n');
                 return;
             }
 

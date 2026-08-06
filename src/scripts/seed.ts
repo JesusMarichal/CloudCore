@@ -5,6 +5,21 @@ import * as path from 'path';
 
 dotenv.config({ path: path.join(__dirname, '../../.env') });
 
+interface SeedUser {
+    name: string;
+    email: string;
+    password: string;
+    role: 'ADMIN' | 'CLIENT';
+}
+
+const seedUsers: SeedUser[] = [
+    // Dueño de la plataforma — no tocar sus datos.
+    { name: 'Jesus Marichal', email: 'jesusmarichal0@gmail.com', password: '28344112', role: 'ADMIN' },
+    // Cuentas de prueba.
+    { name: 'Test Client', email: 'test.client@cloudcore.local', password: 'TestClient123!', role: 'CLIENT' },
+    { name: 'Test Admin', email: 'test.admin@cloudcore.local', password: 'TestAdmin123!', role: 'ADMIN' },
+];
+
 async function seed() {
     const client = new Client({
         host: process.env.DB_HOST,
@@ -33,28 +48,35 @@ async function seed() {
         `;
         await client.query(createTableQuery);
 
-        // 2. Preparar datos de Jesus Marichal
-        const name = 'Jesus Marichal';
-        const email = 'jesusmarichal0@gmail.com'; // En minúsculas para consistencia
-        const rawPassword = '28344112';
+        // 2. Asegurar que la columna role exista (por si este script corre antes que la app)
+        await client.query(`
+            DO $$
+            BEGIN
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                             WHERE table_name='users' AND column_name='role') THEN
+                    ALTER TABLE users ADD COLUMN role VARCHAR(20) DEFAULT 'CLIENT';
+                END IF;
+            END $$;
+        `);
 
-        // Encriptar contraseña para máxima seguridad
-        const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash(rawPassword, salt);
-
-        // 3. Insertar con ON CONFLICT para actualizar si ya existe o no duplicar
+        // 3. Insertar cada usuario con ON CONFLICT para actualizar si ya existe o no duplicar.
         const seedQuery = `
-            INSERT INTO users (name, email, password)
-            VALUES ($1, $2, $3)
-            ON CONFLICT (email) 
-            DO UPDATE SET 
+            INSERT INTO users (name, email, password, role)
+            VALUES ($1, $2, $3, $4)
+            ON CONFLICT (email)
+            DO UPDATE SET
                 name = EXCLUDED.name,
-                password = EXCLUDED.password;
+                password = EXCLUDED.password,
+                role = EXCLUDED.role;
         `;
 
-        await client.query(seedQuery, [name, email, hashedPassword]);
+        for (const u of seedUsers) {
+            const salt = await bcrypt.genSalt(10);
+            const hashedPassword = await bcrypt.hash(u.password, salt);
+            await client.query(seedQuery, [u.name, u.email, hashedPassword, u.role]);
+            console.log(`✅ Usuario ${u.email} (${u.role}) insertado/actualizado con éxito.`);
+        }
 
-        console.log(`✅ Usuario ${email} insertado/actualizado con éxito.`);
         console.log('--- Seeder Finalizado ---');
 
     } catch (error) {

@@ -76,10 +76,32 @@ Para maximizar el orden y la escalabilidad, el proyecto está estructurado bajo 
     SSH_KEY_PATH=C:/ruta/a/tu/CloudCore.pem
     ```
 
-4.  **Ejecutar en Desarrollo**
+4.  **Cargar usuarios de prueba (seed)**
+
+    El script `src/scripts/seed.ts` crea/actualiza estas cuentas en la base de datos:
+
+    | Rol | Email | Contraseña |
+    | :--- | :--- | :--- |
+    | `ADMIN` | `test.admin@cloudcore.local` | `TestAdmin123!` |
+    | `CLIENT` | `test.client@cloudcore.local` | `TestClient123!` |
+
+    > ⚠️ Son cuentas de prueba con contraseñas conocidas — no las dejes activas en un entorno de producción real.
+
+    Para crearlas (o restaurarlas si cambiaron):
     ```bash
-    npm run start:dev
+    npx ts-node src/scripts/seed.ts
     ```
+
+5.  **Ejecutar en Desarrollo**
+    ```bash
+    npm run dev
+    ```
+
+---
+
+## 🔐 Autenticación
+
+El login (`POST /auth/login`) devuelve un JWT (expira en 2h, configurable vía `JWT_EXPIRES_IN` en `.env`) que el frontend adjunta como `Authorization: Bearer <token>` en cada request. Cada usuario tiene un `role`, que solo puede ser `ADMIN` o `CLIENT` (por defecto, los registros nuevos quedan como `CLIENT`).
 
 ---
 

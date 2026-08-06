@@ -1,7 +1,10 @@
-import { Controller, Get, Post, Body, Param, Logger, Req, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Logger, Req, BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
 import { SshService } from '../services/ssh.service';
 import { Octokit } from '@octokit/rest';
+import { Public } from '../common/auth/public.decorator';
+import { CurrentUser } from '../common/auth/current-user.decorator';
+import { verifyGithubSignature } from '../common/utils/webhook-signature.util';
 
 @Controller('github')
 export class GithubController {
@@ -12,8 +15,8 @@ export class GithubController {
         private readonly sshService: SshService
     ) { }
 
-    @Get('settings/:userId')
-    async getSettings(@Param('userId') userId: string) {
+    @Get('settings')
+    async getSettings(@CurrentUser('sub') userId: string) {
         try {
             const result = await this.db.query('SELECT github_token FROM users WHERE id = $1', [userId]);
             if (!result.rows[0]) return { success: false, message: 'Usuario no encontrado' };
@@ -25,8 +28,8 @@ export class GithubController {
         }
     }
 
-    @Post('settings/:userId')
-    async saveSettings(@Param('userId') userId: string, @Body() body: { token: string }) {
+    @Post('settings')
+    async saveSettings(@CurrentUser('sub') userId: string, @Body() body: { token: string }) {
         try {
             await this.db.query('UPDATE users SET github_token = $1 WHERE id = $2', [body.token, userId]);
             return { success: true, message: 'Token guardado correctamente' };
@@ -36,8 +39,8 @@ export class GithubController {
         }
     }
 
-    @Get('repos/:userId')
-    async getRepos(@Param('userId') userId: string) {
+    @Get('repos')
+    async getRepos(@CurrentUser('sub') userId: string) {
         try {
             const result = await this.db.query('SELECT github_token FROM users WHERE id = $1', [userId]);
             const token = result.rows[0]?.github_token;
@@ -72,8 +75,15 @@ export class GithubController {
         }
     }
 
+    @Public()
     @Post('webhook')
     async handleWebhook(@Req() req: any, @Body() payload: any) {
+        const signature = req.headers['x-hub-signature-256'];
+        const rawBody: Buffer | undefined = req.rawBody;
+        if (!verifyGithubSignature(rawBody, signature, process.env.GITHUB_WEBHOOK_SECRET)) {
+            throw new UnauthorizedException('Firma de webhook inválida');
+        }
+
         const event = req.headers['x-github-event'];
 
         // Solo reaccionamos si es un push
@@ -91,10 +101,10 @@ export class GithubController {
 
         this.logger.log(`¡Webhook recibido para repositorio ${repoUrl} en branch ${branch}!`);
 
-        // Buscamos si existe un sitio web (y su servidor) asociado a este repo. 
+        // Buscamos si existe un sitio web (y su servidor) asociado a este repo.
         // Como no tenemos tabla "websites", el usuario indicó que quiere que "con cada Push main" se actualice.
         // Haremos una búsqueda en servers si hay alguno que tenga este repo registrado o usaremos un mapeo provisto.
-        // Por simplicidad en CloudCore (según conversaciones previas la "tabla de sitios" está embebida o se gestiona manualmente), 
+        // Por simplicidad en CloudCore (según conversaciones previas la "tabla de sitios" está embebida o se gestiona manualmente),
         // debemos crear una tabla o lógica para mapear repos a servidores.
         // Dado el alcance actual, crearemos una tabla websites simple si no existe.
         await this.db.query(`

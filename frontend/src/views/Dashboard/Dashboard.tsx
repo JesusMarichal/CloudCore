@@ -22,11 +22,13 @@ import {
     AlertTriangle,
     CircleCheck,
     XCircle,
-    X
+    X,
+    CreditCard
 } from 'lucide-react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { serverService } from '../../services/server.service';
 import type { CreateServerData } from '../../services/server.service';
+import { tokenStorage } from '../../services/tokenStorage';
 import './Dashboard.css';
 
 interface AppNotification {
@@ -76,6 +78,16 @@ const Dashboard = () => {
     const location = useLocation();
     const navigate = useNavigate();
 
+    const currentUser = tokenStorage.getUser();
+    const isClient = currentUser?.role !== 'ADMIN';
+    const displayName = currentUser?.name || currentUser?.email || 'Usuario';
+    const avatarInitials = displayName
+        .split(' ')
+        .filter(Boolean)
+        .slice(0, 2)
+        .map(part => part[0]?.toUpperCase())
+        .join('') || '?';
+
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [servers, setServers] = useState<CreateServerData[]>([]);
     const [deletingServerId, setDeletingServerId] = useState<string | null>(null);
@@ -103,8 +115,7 @@ const Dashboard = () => {
 
     const markAllRead = () => {
         setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-        const userId = getUserId();
-        if (userId) serverService.markNotificationsRead(userId).catch(() => {});
+        if (hasSession()) serverService.markNotificationsRead().catch(() => {});
     };
 
     const dismiss = (id: string) => {
@@ -122,23 +133,15 @@ const Dashboard = () => {
         return () => document.removeEventListener('mousedown', handler);
     }, []);
 
-    const getUserId = () => {
-        const userStr = localStorage.getItem('user');
-        if (userStr) {
-            const user = JSON.parse(userStr);
-            return user.id;
-        }
-        return null;
-    };
+    const hasSession = () => !!tokenStorage.getToken();
 
     // IDs ya vistos — solo dispara notificación nativa para los genuinamente nuevos
     const seenNotifIds = useRef<Set<string>>(new Set(loadStoredNotifications().map(n => n.id)));
 
     const fetchNotifications = useCallback(async () => {
-        const userId = getUserId();
-        if (!userId) return;
+        if (!hasSession()) return;
         try {
-            const res = await serverService.getNotifications(userId);
+            const res = await serverService.getNotifications();
             if (!res.success || !Array.isArray(res.notifications)) return;
             const dbNotifs: AppNotification[] = res.notifications.map((n: any) => ({
                 id: String(n.id),
@@ -173,14 +176,13 @@ const Dashboard = () => {
     }, []);
 
     const loadData = async () => {
-        const userId = getUserId();
-        if (!userId) {
+        if (!hasSession()) {
             navigate('/login');
             return;
         }
 
         try {
-            const data = await serverService.list(userId);
+            const data = await serverService.list();
             setServers(data);
 
             const active = data.filter((s: any) => s.status === 'online').length;
@@ -232,7 +234,7 @@ const Dashboard = () => {
     }, []);
 
     const handleLogout = () => {
-        localStorage.removeItem('user');
+        tokenStorage.clearSession();
         navigate('/login');
     };
 
@@ -281,6 +283,12 @@ const Dashboard = () => {
                         <Terminal size={16} />
                         <span>Terminal SSH</span>
                     </NavLink>
+                    {isClient && (
+                        <NavLink to="/dashboard/billing" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"} onClick={() => setSidebarOpen(false)}>
+                            <CreditCard size={16} />
+                            <span>Facturación</span>
+                        </NavLink>
+                    )}
                     <NavLink to="/dashboard/settings" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"} onClick={() => setSidebarOpen(false)}>
                         <Settings size={16} />
                         <span>Ajustes</span>
@@ -302,8 +310,8 @@ const Dashboard = () => {
                         <h2>Panel de Control / {location.pathname.split('/').pop() || 'Resumen'}</h2>
                     </div>
                     <div className="user-info">
-                        <div className="avatar">JM</div>
-                        <span style={{ fontSize: '12px', fontWeight: 500 }}>Jesus Marichal</span>
+                        <div className="avatar">{avatarInitials}</div>
+                        <span style={{ fontSize: '12px', fontWeight: 500 }}>{displayName}</span>
 
                         <div className="notif-wrapper" ref={notifRef}>
                             <button

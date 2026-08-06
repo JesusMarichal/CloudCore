@@ -4,6 +4,7 @@ import { RefreshCw, Play, Square, RotateCcw, Activity, Shield, Cpu, HardDrive, T
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { serverService } from '../../services/server.service';
 import type { CreateServerData } from '../../services/server.service';
+import { tokenStorage } from '../../services/tokenStorage';
 import './Servidores.css';
 
 interface ServiceInfo {
@@ -39,24 +40,14 @@ const Servidores: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
 
-    const getUserId = () => {
-        const userStr = localStorage.getItem('user');
-        if (userStr) {
-            const user = JSON.parse(userStr);
-            return user.id;
-        }
-        return null;
-    };
-
     const loadServers = async () => {
-        const userId = getUserId();
-        if (!userId) {
+        if (!tokenStorage.getToken()) {
             navigate('/');
             return;
         }
 
         try {
-            const data = await serverService.list(userId);
+            const data = await serverService.list();
             setServers(data);
         } catch (error) {
             console.error('Error cargando servidores:', error);
@@ -97,15 +88,14 @@ const Servidores: React.FC = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        const userId = getUserId();
-        if (!userId) {
+        if (!tokenStorage.getToken()) {
             alert('Error: No se encontró el usuario logueado');
             return;
         }
 
         setLoading(true);
         try {
-            await serverService.create({ ...formData, userId });
+            await serverService.create(formData);
             setShowForm(false);
             setFormData({
                 name: '',

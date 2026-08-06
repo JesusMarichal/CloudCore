@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthService } from '../../services/auth.service';
+import { tokenStorage } from '../../services/tokenStorage';
 import { Mail, Lock, LogIn, ArrowRight, Cloud, ShieldCheck } from 'lucide-react';
 import OTPInput from '../../components/OTPInput';
 import './Login.css';
@@ -10,7 +11,7 @@ const Login: React.FC = () => {
     const [password, setPassword] = useState('');
     const [totpCode, setTotpCode] = useState('');
     const [step, setStep]         = useState<'credentials' | '2fa'>('credentials');
-    const [pendingUserId, setPendingUserId] = useState('');
+    const [preAuthToken, setPreAuthToken] = useState('');
     const [error, setError]       = useState<string | null>(null);
     const [loading, setLoading]   = useState(false);
     const navigate = useNavigate();
@@ -23,18 +24,18 @@ const Login: React.FC = () => {
             if (step === 'credentials') {
                 const result = await AuthService.login({ email, password });
                 if (result.success && result.require2FA) {
-                    setPendingUserId(result.userId);
+                    setPreAuthToken(result.preAuthToken);
                     setStep('2fa');
                 } else if (result.success) {
-                    localStorage.setItem('user', JSON.stringify(result.user));
+                    tokenStorage.setSession(result.token, result.user);
                     navigate('/dashboard');
                 } else {
                     setError(result.message || 'Credenciales incorrectas');
                 }
             } else {
-                const result = await AuthService.verify2FALogin(pendingUserId, totpCode);
+                const result = await AuthService.verify2FALogin(preAuthToken, totpCode);
                 if (result.success) {
-                    localStorage.setItem('user', JSON.stringify(result.user));
+                    tokenStorage.setSession(result.token, result.user);
                     navigate('/dashboard');
                 } else {
                     setError(result.message || 'Código incorrecto');

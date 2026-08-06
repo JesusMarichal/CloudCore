@@ -1,10 +1,11 @@
-import { Controller, Post, Body, Get, Query, Param, Delete, InternalServerErrorException, Res } from '@nestjs/common';
+import { Controller, Post, Body, Get, Param, Delete, InternalServerErrorException, NotFoundException, Res } from '@nestjs/common';
 import { Response } from 'express';
 import { SshService } from '../services/ssh.service';
 import { CreateServerDto } from '../dto/create-server.dto';
 import { Server } from '../models/server.model';
 import { DatabaseService } from '../database/database.service';
 import { encrypt } from '../common/utils/encryption.util';
+import { CurrentUser } from '../common/auth/current-user.decorator';
 import * as crypto from 'crypto';
 import * as dns from 'dns';
 import { promisify } from 'util';
@@ -18,16 +19,43 @@ export class ServerController {
         private readonly dbService: DatabaseService
     ) { }
 
+    // ===== Ownership helpers =====
+    // Lanzan NotFoundException tanto si el recurso no existe como si no pertenece
+    // al usuario autenticado, para no revelar la existencia de recursos ajenos.
+
+    private async assertServerOwnership(serverId: string, userId: string): Promise<any> {
+        const result = await this.dbService.query('SELECT * FROM servers WHERE id = $1 AND user_id = $2', [serverId, userId]);
+        const serverData = result.rows[0];
+        if (!serverData) throw new NotFoundException('Servidor no encontrado');
+        return serverData;
+    }
+
+    private async assertWebsiteOwnership(serverId: string, websiteId: string): Promise<any> {
+        // El serverId ya fue validado contra el usuario por assertServerOwnership,
+        // así que basta con confirmar que el sitio pertenece a ese servidor.
+        const result = await this.dbService.query('SELECT * FROM websites WHERE id = $1 AND server_id = $2', [websiteId, serverId]);
+        const site = result.rows[0];
+        if (!site) throw new NotFoundException('Sitio no encontrado');
+        return site;
+    }
+
+    private async assertDatabaseOwnership(serverId: string, dbId: string): Promise<any> {
+        const result = await this.dbService.query('SELECT * FROM database_instances WHERE id = $1 AND server_id = $2::text', [dbId, serverId]);
+        const dbInstance = result.rows[0];
+        if (!dbInstance) throw new NotFoundException('Base de datos no encontrada');
+        return dbInstance;
+    }
+
     @Get()
-    async findAll(@Query('userId') userId: string): Promise<Server[]> {
+    async findAll(@CurrentUser('sub') userId: string): Promise<Server[]> {
         try {
             const result = await this.dbService.query(
-                `SELECT id, user_id as "userId", name, ip, ssh_port as "sshPort", 
-                ssh_user as "sshUser", auth_type as "authType", status, 
+                `SELECT id, user_id as "userId", name, ip, ssh_port as "sshPort",
+                ssh_user as "sshUser", auth_type as "authType", status,
                 provisioning_step as "provisioningStep",
-                cpu_usage as "cpuUsage", ram_usage as "ramUsage", 
-                disk_usage as "diskUsage", temp, 
-                last_health_check as "lastHealthCheck" 
+                cpu_usage as "cpuUsage", ram_usage as "ramUsage",
+                disk_usage as "diskUsage", temp,
+                last_health_check as "lastHealthCheck"
                 FROM servers WHERE user_id = $1`,
                 [userId]
             );
@@ -39,7 +67,7 @@ export class ServerController {
     }
 
     @Post()
-    async create(@Body() serverDto: CreateServerDto): Promise<Server> {
+    async create(@CurrentUser('sub') userId: string, @Body() serverDto: CreateServerDto): Promise<Server> {
         // Cifrar datos sensibles
         const encryptedPrivateKey = serverDto.privateKey ? encrypt(serverDto.privateKey) : undefined;
         const encryptedPassword = serverDto.password ? encrypt(serverDto.password) : undefined;
@@ -48,7 +76,7 @@ export class ServerController {
 
         const newServer: Server = {
             id: serverId,
-            userId: serverDto.userId,
+            userId: userId,
             name: serverDto.name,
             ip: serverDto.ip,
             sshPort: serverDto.sshPort,
@@ -97,7 +125,7 @@ export class ServerController {
                         'UPDATE servers SET provisioning_step = $1 WHERE id = $2',
                         ['Detectando sitios existentes', serverId]
                     );
-                    const imported = await this.importExistingWebsites(newServer, serverId, serverDto.userId);
+                    const imported = await this.importExistingWebsites(newServer, serverId, userId);
                     if (imported.length > 0) {
                         console.log(`Importados ${imported.length} sitios existentes desde ${newServer.ip}: ${imported.map(s => s.name).join(', ')}`);
                     }
@@ -124,13 +152,9 @@ export class ServerController {
     }
 
     @Delete(':id')
-    async deleteServer(@Param('id') id: string): Promise<any> {
+    async deleteServer(@Param('id') id: string, @CurrentUser('sub') userId: string): Promise<any> {
+        const serverData = await this.assertServerOwnership(id, userId);
         try {
-            // Obtener datos del servidor
-            const serverResult = await this.dbService.query('SELECT * FROM servers WHERE id = $1', [id]);
-            const serverData = serverResult.rows[0];
-            if (!serverData) return { success: false, message: 'Servidor no encontrado' };
-
             const server = this.getServerFromData(serverData);
 
             // 1. Limpiar bases de datos Docker en el servidor (best-effort)
@@ -180,11 +204,8 @@ export class ServerController {
     }
 
     @Post(':id/refresh')
-    async refreshHealth(@Param('id') id: string): Promise<any> {
-        const result = await this.dbService.query('SELECT * FROM servers WHERE id = $1', [id]);
-        const serverData = result.rows[0];
-
-        if (!serverData) return { success: false, message: 'Servidor no encontrado' };
+    async refreshHealth(@Param('id') id: string, @CurrentUser('sub') userId: string): Promise<any> {
+        const serverData = await this.assertServerOwnership(id, userId);
 
         const server: Server = {
             id: serverData.id,
@@ -202,9 +223,9 @@ export class ServerController {
         const health = await this.sshService.getHealth(server);
 
         await this.dbService.query(
-            `UPDATE servers SET 
-                cpu_usage = $1, ram_usage = $2, disk_usage = $3, temp = $4, 
-                status = $5, last_health_check = NOW() 
+            `UPDATE servers SET
+                cpu_usage = $1, ram_usage = $2, disk_usage = $3, temp = $4,
+                status = $5, last_health_check = NOW()
             WHERE id = $6`,
             [health.cpuUsage, health.ramUsage, health.diskUsage, health.temp, health.status, id]
         );
@@ -213,10 +234,8 @@ export class ServerController {
     }
 
     @Get(':id/services')
-    async getServices(@Param('id') id: string): Promise<any[]> {
-        const result = await this.dbService.query('SELECT * FROM servers WHERE id = $1', [id]);
-        const serverData = result.rows[0];
-        if (!serverData) return [];
+    async getServices(@Param('id') id: string, @CurrentUser('sub') userId: string): Promise<any[]> {
+        const serverData = await this.assertServerOwnership(id, userId);
 
         const server: Server = {
             id: serverData.id,
@@ -240,11 +259,13 @@ export class ServerController {
     async installService(
         @Param('id') id: string,
         @Param('serviceName') serviceName: string,
+        @CurrentUser('sub') userId: string,
         @Res() res: Response
     ): Promise<void> {
-        const result = await this.dbService.query('SELECT * FROM servers WHERE id = $1', [id]);
-        const serverData = result.rows[0];
-        if (!serverData) {
+        let serverData: any;
+        try {
+            serverData = await this.assertServerOwnership(id, userId);
+        } catch {
             res.status(404).json({ success: false, message: 'Servidor no encontrado' });
             return;
         }
@@ -281,11 +302,13 @@ export class ServerController {
     async uninstallService(
         @Param('id') id: string,
         @Param('serviceName') serviceName: string,
+        @CurrentUser('sub') userId: string,
         @Res() res: Response
     ): Promise<void> {
-        const result = await this.dbService.query('SELECT * FROM servers WHERE id = $1', [id]);
-        const serverData = result.rows[0];
-        if (!serverData) {
+        let serverData: any;
+        try {
+            serverData = await this.assertServerOwnership(id, userId);
+        } catch {
             res.status(404).json({ success: false, message: 'Servidor no encontrado' });
             return;
         }
@@ -322,11 +345,10 @@ export class ServerController {
     async manageService(
         @Param('id') id: string,
         @Param('serviceName') serviceName: string,
-        @Param('action') action: string
+        @Param('action') action: string,
+        @CurrentUser('sub') userId: string
     ): Promise<any> {
-        const result = await this.dbService.query('SELECT * FROM servers WHERE id = $1', [id]);
-        const serverData = result.rows[0];
-        if (!serverData) return { success: false, message: 'Servidor no encontrado' };
+        const serverData = await this.assertServerOwnership(id, userId);
 
         const server: Server = {
             id: serverData.id,
@@ -348,11 +370,13 @@ export class ServerController {
     @Post(':id/update-system')
     async updateSystem(
         @Param('id') id: string,
+        @CurrentUser('sub') userId: string,
         @Res() res: Response
     ): Promise<void> {
-        const result = await this.dbService.query('SELECT * FROM servers WHERE id = $1', [id]);
-        const serverData = result.rows[0];
-        if (!serverData) {
+        let serverData: any;
+        try {
+            serverData = await this.assertServerOwnership(id, userId);
+        } catch {
             res.status(404).json({ success: false, message: 'Servidor no encontrado' });
             return;
         }
@@ -388,15 +412,17 @@ export class ServerController {
     @Post(':id/deploy-website')
     async deployWebsite(
         @Param('id') id: string,
+        @CurrentUser('sub') userId: string,
         @Body() body: any,
         @Res() res: Response
     ): Promise<void> {
         res.setHeader('Content-Type', 'text/plain; charset=utf-8');
         res.setHeader('Transfer-Encoding', 'chunked');
 
-        const result = await this.dbService.query('SELECT * FROM servers WHERE id = $1', [id]);
-        const serverData = result.rows[0];
-        if (!serverData) {
+        let serverData: any;
+        try {
+            serverData = await this.assertServerOwnership(id, userId);
+        } catch {
             res.status(404).write('---ERROR---\nServidor no encontrado');
             res.end();
             return;
@@ -438,8 +464,8 @@ export class ServerController {
 
         let repoUrlWithToken = body.repo;
         let userEmail = '';
-        if (body.userId) {
-            const userRes = await this.dbService.query('SELECT github_token, email FROM users WHERE id = $1', [body.userId]);
+        {
+            const userRes = await this.dbService.query('SELECT github_token, email FROM users WHERE id = $1', [userId]);
             const userData = userRes.rows[0];
             if (userData?.github_token && body.repo.startsWith('https://github.com/')) {
                 // Agregar el token HTTP basic auth a la URL de Github
@@ -452,7 +478,7 @@ export class ServerController {
 
         const success = await this.sshService.deployWebsite(server, deployBody, (chunk) => {
             // Enmascarar el token en el stream de log para no enviarlo al panel web
-            if (body.userId && repoUrlWithToken !== body.repo) {
+            if (repoUrlWithToken !== body.repo) {
                 const tokenRegex = new RegExp(`https://[^@]+@github\\.com`, 'g');
                 chunk = chunk.replace(tokenRegex, 'https://github.com');
             }
@@ -463,8 +489,8 @@ export class ServerController {
             try {
                 // MIGRACIÓN MANUAL: Asegurar que las columnas existen antes de insertar
                 await this.dbService.query(`
-                    DO $$ 
-                    BEGIN 
+                    DO $$
+                    BEGIN
                         IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='websites' AND column_name='build_command') THEN
                             ALTER TABLE websites ADD COLUMN build_command VARCHAR(255);
                         END IF;
@@ -493,7 +519,7 @@ export class ServerController {
                 await this.dbService.query(`
                     INSERT INTO websites (server_id, user_id, repo_url, name, install_command, build_command, start_command, port, domain, entry_point, env_vars, use_letsencrypt, setup_www_alias)
                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-                `, [id, body.userId || '', body.repo, body.name, body.installCommand, body.buildCommand, body.startCommand, body.port, body.domain, body.entryPoint, body.envVars, body.useLetsEncrypt || false, body.setupWwwAlias || false]);
+                `, [id, userId, body.repo, body.name, body.installCommand, body.buildCommand, body.startCommand, body.port, body.domain, body.entryPoint, body.envVars, body.useLetsEncrypt || false, body.setupWwwAlias || false]);
             } catch (error) {
                 console.error("Error guardando el sitio en la base de datos:", error);
             }
@@ -506,15 +532,18 @@ export class ServerController {
     async updateWebsite(
         @Param('id') id: string, // serverId
         @Param('websiteId') websiteId: string,
+        @CurrentUser('sub') userId: string,
         @Body() body: any,
         @Res() res: Response
     ): Promise<void> {
         res.setHeader('Content-Type', 'text/plain; charset=utf-8');
         res.setHeader('Transfer-Encoding', 'chunked');
 
-        const result = await this.dbService.query('SELECT * FROM servers WHERE id = $1', [id]);
-        const serverData = result.rows[0];
-        if (!serverData) {
+        let serverData: any;
+        try {
+            serverData = await this.assertServerOwnership(id, userId);
+            await this.assertWebsiteOwnership(id, websiteId);
+        } catch {
             res.status(404).write('---ERROR---\nServidor no encontrado');
             res.end();
             return;
@@ -553,8 +582,8 @@ export class ServerController {
 
         // 1. Asegurar que las columnas existen migrando si es necesario
         await this.dbService.query(`
-            DO $$ 
-            BEGIN 
+            DO $$
+            BEGIN
                 IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='websites' AND column_name='use_letsencrypt') THEN
                     ALTER TABLE websites ADD COLUMN use_letsencrypt BOOLEAN DEFAULT FALSE;
                 END IF;
@@ -566,15 +595,15 @@ export class ServerController {
 
         // 2. Actualizar en la base de datos
         await this.dbService.query(`
-            UPDATE websites 
-            SET install_command = $1, build_command = $2, start_command = $3, 
+            UPDATE websites
+            SET install_command = $1, build_command = $2, start_command = $3,
                 port = $4, domain = $5, entry_point = $6, env_vars = $7,
                 use_letsencrypt = $8, setup_www_alias = $9
             WHERE id = $10
         `, [body.installCommand, body.buildCommand, body.startCommand, body.port, body.domain, body.entryPoint, body.envVars, body.useLetsEncrypt || false, body.setupWwwAlias || false, websiteId]);
 
         // Obtener el email del usuario para Let's Encrypt
-        const userRes = await this.dbService.query('SELECT email FROM users WHERE id = $1', [body.userId]);
+        const userRes = await this.dbService.query('SELECT email FROM users WHERE id = $1', [userId]);
         const userEmail = userRes.rows[0]?.email || '';
 
         // 3. Variables para el script de Nginx/SSL
@@ -597,15 +626,15 @@ export class ServerController {
                 ENTRY_POINT="dist/main.js"
                 echo "📌 Detectado NestJS (dist/main.js)"
             fi
-            
+
             # Reiniciar con PM2 asegurando que cargue el nuevo .env
             echo "🔄 Reiniciando aplicación ${safeName}..."
-            
+
             # Ejecutar build si existe el comando (necesario para variables VITE_)
             ${body.buildCommand && body.buildCommand.trim() !== '' ? `echo "🏗️  Re-ejecutando build para aplicar cambios: ${body.buildCommand}"\n${body.buildCommand}` : ''}
 
             pm2 restart ${safeName} --update-env || pm2 start "$ENTRY_POINT" --name "${safeName}" --update-env || pm2 start npm --name "${safeName}" -- run start
-            
+
             # Configuración de Nginx (Forzando IPv4 127.0.0.1)
             if command -v nginx > /dev/null; then
                 echo "⚙️ Configurando Nginx para ${serverNames} (usando 127.0.0.1:${body.port})..."
@@ -628,9 +657,9 @@ export class ServerController {
 
                 sudo ln -sf /etc/nginx/sites-available/${safeName} /etc/nginx/sites-enabled/
                 sudo rm -f /etc/nginx/sites-enabled/default 2>/dev/null
-                
+
                 sudo nginx -t && sudo systemctl reload nginx
-                
+
                 # 4. Gestionar SSL
                 if [ "${useSSL ? 'true' : 'false'}" = "true" ]; then
                     if ! command -v certbot > /dev/null; then
@@ -654,12 +683,12 @@ export class ServerController {
         res.end();
     }
 
-    @Get('websites/:userId')
-    async getWebsites(@Param('userId') userId: string): Promise<any[]> {
+    @Get('websites')
+    async getWebsites(@CurrentUser('sub') userId: string): Promise<any[]> {
         try {
             // Asegurar que las columnas necesarias existen
             await this.dbService.query(`
-                DO $$ BEGIN 
+                DO $$ BEGIN
                     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='websites' AND column_name='env_vars') THEN
                         ALTER TABLE websites ADD COLUMN env_vars TEXT;
                     END IF;
@@ -673,9 +702,9 @@ export class ServerController {
             `);
 
             const result = await this.dbService.query(
-                `SELECT w.*, s.name as "serverName", s.ip as "serverIp" 
-                 FROM websites w 
-                 JOIN servers s ON w.server_id = s.id 
+                `SELECT w.*, s.name as "serverName", s.ip as "serverIp"
+                 FROM websites w
+                 JOIN servers s ON w.server_id = s.id
                  WHERE s.user_id = $1`,
                 [userId]
             );
@@ -748,15 +777,12 @@ export class ServerController {
     }
 
     @Post(':id/import-websites')
-    async importWebsites(@Param('id') id: string): Promise<any> {
-        const result = await this.dbService.query('SELECT * FROM servers WHERE id = $1', [id]);
-        const serverData = result.rows[0];
-        if (!serverData) return { success: false, message: 'Servidor no encontrado' };
-
+    async importWebsites(@Param('id') id: string, @CurrentUser('sub') userId: string): Promise<any> {
+        const serverData = await this.assertServerOwnership(id, userId);
         const server = this.getServerFromData(serverData);
 
         try {
-            const imported = await this.importExistingWebsites(server, id, serverData.user_id);
+            const imported = await this.importExistingWebsites(server, id, userId);
             return {
                 success: true,
                 imported: imported.length,
@@ -773,15 +799,11 @@ export class ServerController {
     @Get(':id/websites/:websiteId/env')
     async getWebsiteEnv(
         @Param('id') id: string,
-        @Param('websiteId') websiteId: string
+        @Param('websiteId') websiteId: string,
+        @CurrentUser('sub') userId: string
     ): Promise<any> {
-        const result = await this.dbService.query('SELECT * FROM servers WHERE id = $1', [id]);
-        const serverData = result.rows[0];
-        if (!serverData) return { success: false, message: 'Servidor no encontrado' };
-
-        const siteResult = await this.dbService.query('SELECT * FROM websites WHERE id = $1', [websiteId]);
-        const site = siteResult.rows[0];
-        if (!site) return { success: false, message: 'Sitio no encontrado' };
+        const serverData = await this.assertServerOwnership(id, userId);
+        const site = await this.assertWebsiteOwnership(id, websiteId);
 
         const server: Server = {
             id: serverData.id,
@@ -811,15 +833,11 @@ export class ServerController {
     @Post(':id/websites/:websiteId/delete')
     async deleteWebsite(
         @Param('id') id: string,
-        @Param('websiteId') websiteId: string
+        @Param('websiteId') websiteId: string,
+        @CurrentUser('sub') userId: string
     ): Promise<any> {
-        // 1. Obtener datos del sitio y servidor
-        const siteResult = await this.dbService.query('SELECT * FROM websites WHERE id = $1', [websiteId]);
-        const site = siteResult.rows[0];
-        if (!site) return { success: false, message: 'Sitio no encontrado' };
-
-        const serverResult = await this.dbService.query('SELECT * FROM servers WHERE id = $1', [id]);
-        const serverData = serverResult.rows[0];
+        const serverData = await this.assertServerOwnership(id, userId);
+        const site = await this.assertWebsiteOwnership(id, websiteId);
 
         const server: Server = {
             id: serverData.id,
@@ -855,14 +873,11 @@ export class ServerController {
     @Get(':id/websites/:websiteId/logs')
     async getWebsiteLogs(
         @Param('id') id: string,
-        @Param('websiteId') websiteId: string
+        @Param('websiteId') websiteId: string,
+        @CurrentUser('sub') userId: string
     ): Promise<any> {
-        const siteResult = await this.dbService.query('SELECT name FROM websites WHERE id = $1', [websiteId]);
-        const site = siteResult.rows[0];
-        if (!site) return { success: false, message: 'Sitio no encontrado' };
-
-        const serverResult = await this.dbService.query('SELECT * FROM servers WHERE id = $1', [id]);
-        const serverData = serverResult.rows[0];
+        const serverData = await this.assertServerOwnership(id, userId);
+        const site = await this.assertWebsiteOwnership(id, websiteId);
 
         const server: Server = {
             id: serverData.id,
@@ -902,14 +917,11 @@ export class ServerController {
     @Get(':id/websites/:websiteId/commit')
     async getWebsiteCommit(
         @Param('id') id: string,
-        @Param('websiteId') websiteId: string
+        @Param('websiteId') websiteId: string,
+        @CurrentUser('sub') userId: string
     ): Promise<any> {
-        const result = await this.dbService.query('SELECT * FROM servers WHERE id = $1', [id]);
-        const serverData = result.rows[0];
-        const siteResult = await this.dbService.query('SELECT * FROM websites WHERE id = $1', [websiteId]);
-        const site = siteResult.rows[0];
-
-        if (!serverData || !site) return { success: false, message: 'No encontrado' };
+        const serverData = await this.assertServerOwnership(id, userId);
+        const site = await this.assertWebsiteOwnership(id, websiteId);
 
         const server: Server = {
             id: serverData.id,
@@ -973,13 +985,11 @@ export class ServerController {
     @Post(':id/websites/:websiteId/deploy-latest')
     async deployLatestCommit(
         @Param('id') id: string,
-        @Param('websiteId') websiteId: string
+        @Param('websiteId') websiteId: string,
+        @CurrentUser('sub') userId: string
     ): Promise<any> {
-        const result = await this.dbService.query('SELECT * FROM servers WHERE id = $1', [id]);
-        const serverData = result.rows[0];
-        const siteResult = await this.dbService.query('SELECT * FROM websites WHERE id = $1', [websiteId]);
-        const site = siteResult.rows[0];
-        if (!serverData || !site) return { success: false, message: 'No encontrado' };
+        const serverData = await this.assertServerOwnership(id, userId);
+        const site = await this.assertWebsiteOwnership(id, websiteId);
 
         const server: Server = {
             id: serverData.id,
@@ -1059,11 +1069,10 @@ echo "---DEPLOY_DONE---"
     @Post(':id/execute')
     async executeCommand(
         @Param('id') id: string,
-        @Body('command') command: string
+        @Body('command') command: string,
+        @CurrentUser('sub') userId: string
     ): Promise<any> {
-        const serverResult = await this.dbService.query('SELECT * FROM servers WHERE id = $1', [id]);
-        const serverData = serverResult.rows[0];
-        if (!serverData) return { success: false, message: 'Servidor no encontrado' };
+        const serverData = await this.assertServerOwnership(id, userId);
 
         const server: Server = {
             id: serverData.id,
@@ -1106,12 +1115,14 @@ echo "---DEPLOY_DONE---"
     @Post(':id/deploy-database')
     async deployDatabase(
         @Param('id') id: string,
+        @CurrentUser('sub') userId: string,
         @Body() body: any,
         @Res() res: Response
     ): Promise<void> {
-        const result = await this.dbService.query('SELECT * FROM servers WHERE id = $1', [id]);
-        const serverData = result.rows[0];
-        if (!serverData) {
+        let serverData: any;
+        try {
+            serverData = await this.assertServerOwnership(id, userId);
+        } catch {
             res.status(404).json({ success: false, message: 'Servidor no encontrado' });
             return;
         }
@@ -1147,7 +1158,7 @@ echo "---DEPLOY_DONE---"
         await this.dbService.query(`
             INSERT INTO database_instances(id, server_id, user_id, name, engine, port, db_name, db_user, db_password, admin_port, container_name, admin_container_name, status)
             VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'deploying')
-        `, [dbId, id, body.userId || '', body.name, body.engine, body.port, body.dbName, body.dbUser, body.dbPassword, body.adminPort || '', containerName, adminContainerName]);
+        `, [dbId, id, userId, body.name, body.engine, body.port, body.dbName, body.dbUser, body.dbPassword, body.adminPort || '', containerName, adminContainerName]);
 
         res.setHeader('Content-Type', 'text/plain; charset=utf-8');
         res.setHeader('Transfer-Encoding', 'chunked');
@@ -1307,8 +1318,8 @@ echo "📊 PostgreSQL disponible en el puerto ${body.port}"
         res.end();
     }
 
-    @Get('databases/:userId')
-    async listDatabases(@Param('userId') userId: string): Promise<any[]> {
+    @Get('databases')
+    async listDatabases(@CurrentUser('sub') userId: string): Promise<any[]> {
         try {
             // Ensure table exists
             await this.dbService.query(`
@@ -1363,8 +1374,8 @@ echo "📊 PostgreSQL disponible en el puerto ${body.port}"
      * Escanea todos los servidores del usuario buscando bases de datos ya montadas
      * (contenedores Docker MySQL/PostgreSQL) y registra las que no estén en la BD.
      */
-    @Post('import-databases/:userId')
-    async importDatabases(@Param('userId') userId: string): Promise<any> {
+    @Post('import-databases')
+    async importDatabases(@CurrentUser('sub') userId: string): Promise<any> {
         const serversRes = await this.dbService.query('SELECT * FROM servers WHERE user_id = $1', [userId]);
         if (serversRes.rows.length === 0) {
             return { success: true, imported: 0, databases: [], message: 'No tienes servidores registrados' };
@@ -1439,15 +1450,11 @@ echo "📊 PostgreSQL disponible en el puerto ${body.port}"
     @Post(':id/databases/:dbId/delete')
     async deleteDatabaseInstance(
         @Param('id') id: string,
-        @Param('dbId') dbId: string
+        @Param('dbId') dbId: string,
+        @CurrentUser('sub') userId: string
     ): Promise<any> {
-        const serverResult = await this.dbService.query('SELECT * FROM servers WHERE id = $1', [id]);
-        const serverData = serverResult.rows[0];
-        if (!serverData) return { success: false, message: 'Servidor no encontrado' };
-
-        const dbResult = await this.dbService.query('SELECT * FROM database_instances WHERE id = $1', [dbId]);
-        const dbInstance = dbResult.rows[0];
-        if (!dbInstance) return { success: false, message: 'Base de datos no encontrada' };
+        const serverData = await this.assertServerOwnership(id, userId);
+        const dbInstance = await this.assertDatabaseOwnership(id, dbId);
 
         const server = this.getServerFromData(serverData);
         const safeName = dbInstance.name.replace(/[^a-zA-Z0-9_-]/g, '').toLowerCase();
@@ -1489,18 +1496,14 @@ echo "📊 PostgreSQL disponible en el puerto ${body.port}"
     async manageDatabaseContainer(
         @Param('id') id: string,
         @Param('dbId') dbId: string,
-        @Param('action') action: string
+        @Param('action') action: string,
+        @CurrentUser('sub') userId: string
     ): Promise<any> {
         const validActions = ['start', 'stop', 'restart'];
         if (!validActions.includes(action)) return { success: false, message: 'Acción no válida' };
 
-        const serverResult = await this.dbService.query('SELECT * FROM servers WHERE id = $1', [id]);
-        const serverData = serverResult.rows[0];
-        if (!serverData) return { success: false, message: 'Servidor no encontrado' };
-
-        const dbResult = await this.dbService.query('SELECT * FROM database_instances WHERE id = $1', [dbId]);
-        const dbInstance = dbResult.rows[0];
-        if (!dbInstance) return { success: false, message: 'Base de datos no encontrada' };
+        const serverData = await this.assertServerOwnership(id, userId);
+        const dbInstance = await this.assertDatabaseOwnership(id, dbId);
 
         const server = this.getServerFromData(serverData);
 
@@ -1526,8 +1529,8 @@ echo "📊 PostgreSQL disponible en el puerto ${body.port}"
 
     // ===== Notification Endpoints =====
 
-    @Get('notifications/:userId')
-    async getNotifications(@Param('userId') userId: string) {
+    @Get('notifications')
+    async getNotifications(@CurrentUser('sub') userId: string) {
         await this.dbService.query(`
             CREATE TABLE IF NOT EXISTS user_notifications (
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -1551,8 +1554,8 @@ echo "📊 PostgreSQL disponible en el puerto ${body.port}"
         return { success: true, notifications: result.rows };
     }
 
-    @Post('notifications/mark-read/:userId')
-    async markNotificationsRead(@Param('userId') userId: string) {
+    @Post('notifications/mark-read')
+    async markNotificationsRead(@CurrentUser('sub') userId: string) {
         await this.dbService.query(
             `UPDATE user_notifications SET read = true WHERE user_id = $1`,
             [userId]
@@ -1561,12 +1564,12 @@ echo "📊 PostgreSQL disponible en el puerto ${body.port}"
     }
 
     @Post('notifications/:id/dismiss')
-    async dismissNotification(@Param('id') id: string) {
+    async dismissNotification(@Param('id') id: string, @CurrentUser('sub') userId: string) {
         const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         if (!uuidRegex.test(id)) return { success: true };
         await this.dbService.query(
-            `DELETE FROM user_notifications WHERE id = $1`,
-            [id]
+            `DELETE FROM user_notifications WHERE id = $1 AND user_id = $2`,
+            [id, userId]
         );
         return { success: true };
     }

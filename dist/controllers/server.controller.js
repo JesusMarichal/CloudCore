@@ -20,6 +20,7 @@ const ssh_service_1 = require("../services/ssh.service");
 const create_server_dto_1 = require("../dto/create-server.dto");
 const database_service_1 = require("../database/database.service");
 const encryption_util_1 = require("../common/utils/encryption.util");
+const current_user_decorator_1 = require("../common/auth/current-user.decorator");
 const crypto = require("crypto");
 const dns = require("dns");
 const util_1 = require("util");
@@ -29,14 +30,35 @@ let ServerController = class ServerController {
         this.sshService = sshService;
         this.dbService = dbService;
     }
+    async assertServerOwnership(serverId, userId) {
+        const result = await this.dbService.query('SELECT * FROM servers WHERE id = $1 AND user_id = $2', [serverId, userId]);
+        const serverData = result.rows[0];
+        if (!serverData)
+            throw new common_1.NotFoundException('Servidor no encontrado');
+        return serverData;
+    }
+    async assertWebsiteOwnership(serverId, websiteId) {
+        const result = await this.dbService.query('SELECT * FROM websites WHERE id = $1 AND server_id = $2', [websiteId, serverId]);
+        const site = result.rows[0];
+        if (!site)
+            throw new common_1.NotFoundException('Sitio no encontrado');
+        return site;
+    }
+    async assertDatabaseOwnership(serverId, dbId) {
+        const result = await this.dbService.query('SELECT * FROM database_instances WHERE id = $1 AND server_id = $2::text', [dbId, serverId]);
+        const dbInstance = result.rows[0];
+        if (!dbInstance)
+            throw new common_1.NotFoundException('Base de datos no encontrada');
+        return dbInstance;
+    }
     async findAll(userId) {
         try {
-            const result = await this.dbService.query(`SELECT id, user_id as "userId", name, ip, ssh_port as "sshPort", 
-                ssh_user as "sshUser", auth_type as "authType", status, 
+            const result = await this.dbService.query(`SELECT id, user_id as "userId", name, ip, ssh_port as "sshPort",
+                ssh_user as "sshUser", auth_type as "authType", status,
                 provisioning_step as "provisioningStep",
-                cpu_usage as "cpuUsage", ram_usage as "ramUsage", 
-                disk_usage as "diskUsage", temp, 
-                last_health_check as "lastHealthCheck" 
+                cpu_usage as "cpuUsage", ram_usage as "ramUsage",
+                disk_usage as "diskUsage", temp,
+                last_health_check as "lastHealthCheck"
                 FROM servers WHERE user_id = $1`, [userId]);
             return result.rows;
         }
@@ -45,13 +67,13 @@ let ServerController = class ServerController {
             return [];
         }
     }
-    async create(serverDto) {
+    async create(userId, serverDto) {
         const encryptedPrivateKey = serverDto.privateKey ? (0, encryption_util_1.encrypt)(serverDto.privateKey) : undefined;
         const encryptedPassword = serverDto.password ? (0, encryption_util_1.encrypt)(serverDto.password) : undefined;
         const serverId = crypto.randomUUID();
         const newServer = {
             id: serverId,
-            userId: serverDto.userId,
+            userId: userId,
             name: serverDto.name,
             ip: serverDto.ip,
             sshPort: serverDto.sshPort,
@@ -87,7 +109,7 @@ let ServerController = class ServerController {
             .then(async () => {
             try {
                 await this.dbService.query('UPDATE servers SET provisioning_step = $1 WHERE id = $2', ['Detectando sitios existentes', serverId]);
-                const imported = await this.importExistingWebsites(newServer, serverId, serverDto.userId);
+                const imported = await this.importExistingWebsites(newServer, serverId, userId);
                 if (imported.length > 0) {
                     console.log(`Importados ${imported.length} sitios existentes desde ${newServer.ip}: ${imported.map(s => s.name).join(', ')}`);
                 }
@@ -104,12 +126,9 @@ let ServerController = class ServerController {
         const { privateKey, password, ...safeServer } = newServer;
         return safeServer;
     }
-    async deleteServer(id) {
+    async deleteServer(id, userId) {
+        const serverData = await this.assertServerOwnership(id, userId);
         try {
-            const serverResult = await this.dbService.query('SELECT * FROM servers WHERE id = $1', [id]);
-            const serverData = serverResult.rows[0];
-            if (!serverData)
-                return { success: false, message: 'Servidor no encontrado' };
             const server = this.getServerFromData(serverData);
             try {
                 const dbInstances = await this.dbService.query('SELECT * FROM database_instances WHERE server_id = $1::text', [id]);
@@ -170,11 +189,8 @@ let ServerController = class ServerController {
             return { success: true, message: 'Servidor eliminado (algunos recursos remotos no pudieron limpiarse)' };
         }
     }
-    async refreshHealth(id) {
-        const result = await this.dbService.query('SELECT * FROM servers WHERE id = $1', [id]);
-        const serverData = result.rows[0];
-        if (!serverData)
-            return { success: false, message: 'Servidor no encontrado' };
+    async refreshHealth(id, userId) {
+        const serverData = await this.assertServerOwnership(id, userId);
         const server = {
             id: serverData.id,
             name: serverData.name,
@@ -188,17 +204,14 @@ let ServerController = class ServerController {
             lastHealthCheck: serverData.last_health_check
         };
         const health = await this.sshService.getHealth(server);
-        await this.dbService.query(`UPDATE servers SET 
-                cpu_usage = $1, ram_usage = $2, disk_usage = $3, temp = $4, 
-                status = $5, last_health_check = NOW() 
+        await this.dbService.query(`UPDATE servers SET
+                cpu_usage = $1, ram_usage = $2, disk_usage = $3, temp = $4,
+                status = $5, last_health_check = NOW()
             WHERE id = $6`, [health.cpuUsage, health.ramUsage, health.diskUsage, health.temp, health.status, id]);
         return { success: true, health };
     }
-    async getServices(id) {
-        const result = await this.dbService.query('SELECT * FROM servers WHERE id = $1', [id]);
-        const serverData = result.rows[0];
-        if (!serverData)
-            return [];
+    async getServices(id, userId) {
+        const serverData = await this.assertServerOwnership(id, userId);
         const server = {
             id: serverData.id,
             name: serverData.name,
@@ -213,10 +226,12 @@ let ServerController = class ServerController {
         };
         return this.sshService.listServices(server);
     }
-    async installService(id, serviceName, res) {
-        const result = await this.dbService.query('SELECT * FROM servers WHERE id = $1', [id]);
-        const serverData = result.rows[0];
-        if (!serverData) {
+    async installService(id, serviceName, userId, res) {
+        let serverData;
+        try {
+            serverData = await this.assertServerOwnership(id, userId);
+        }
+        catch {
             res.status(404).json({ success: false, message: 'Servidor no encontrado' });
             return;
         }
@@ -245,10 +260,12 @@ let ServerController = class ServerController {
         }
         res.end();
     }
-    async uninstallService(id, serviceName, res) {
-        const result = await this.dbService.query('SELECT * FROM servers WHERE id = $1', [id]);
-        const serverData = result.rows[0];
-        if (!serverData) {
+    async uninstallService(id, serviceName, userId, res) {
+        let serverData;
+        try {
+            serverData = await this.assertServerOwnership(id, userId);
+        }
+        catch {
             res.status(404).json({ success: false, message: 'Servidor no encontrado' });
             return;
         }
@@ -277,11 +294,8 @@ let ServerController = class ServerController {
         }
         res.end();
     }
-    async manageService(id, serviceName, action) {
-        const result = await this.dbService.query('SELECT * FROM servers WHERE id = $1', [id]);
-        const serverData = result.rows[0];
-        if (!serverData)
-            return { success: false, message: 'Servidor no encontrado' };
+    async manageService(id, serviceName, action, userId) {
+        const serverData = await this.assertServerOwnership(id, userId);
         const server = {
             id: serverData.id,
             name: serverData.name,
@@ -297,10 +311,12 @@ let ServerController = class ServerController {
         const success = await this.sshService.manageService(server, serviceName, action);
         return { success };
     }
-    async updateSystem(id, res) {
-        const result = await this.dbService.query('SELECT * FROM servers WHERE id = $1', [id]);
-        const serverData = result.rows[0];
-        if (!serverData) {
+    async updateSystem(id, userId, res) {
+        let serverData;
+        try {
+            serverData = await this.assertServerOwnership(id, userId);
+        }
+        catch {
             res.status(404).json({ success: false, message: 'Servidor no encontrado' });
             return;
         }
@@ -329,12 +345,14 @@ let ServerController = class ServerController {
         }
         res.end();
     }
-    async deployWebsite(id, body, res) {
+    async deployWebsite(id, userId, body, res) {
         res.setHeader('Content-Type', 'text/plain; charset=utf-8');
         res.setHeader('Transfer-Encoding', 'chunked');
-        const result = await this.dbService.query('SELECT * FROM servers WHERE id = $1', [id]);
-        const serverData = result.rows[0];
-        if (!serverData) {
+        let serverData;
+        try {
+            serverData = await this.assertServerOwnership(id, userId);
+        }
+        catch {
             res.status(404).write('---ERROR---\nServidor no encontrado');
             res.end();
             return;
@@ -373,8 +391,8 @@ let ServerController = class ServerController {
         res.setHeader('Transfer-Encoding', 'chunked');
         let repoUrlWithToken = body.repo;
         let userEmail = '';
-        if (body.userId) {
-            const userRes = await this.dbService.query('SELECT github_token, email FROM users WHERE id = $1', [body.userId]);
+        {
+            const userRes = await this.dbService.query('SELECT github_token, email FROM users WHERE id = $1', [userId]);
             const userData = userRes.rows[0];
             if (userData?.github_token && body.repo.startsWith('https://github.com/')) {
                 repoUrlWithToken = body.repo.replace('https://github.com/', `https://${userData.github_token}@github.com/`);
@@ -383,7 +401,7 @@ let ServerController = class ServerController {
         }
         const deployBody = { ...body, repo: repoUrlWithToken, userEmail };
         const success = await this.sshService.deployWebsite(server, deployBody, (chunk) => {
-            if (body.userId && repoUrlWithToken !== body.repo) {
+            if (repoUrlWithToken !== body.repo) {
                 const tokenRegex = new RegExp(`https://[^@]+@github\\.com`, 'g');
                 chunk = chunk.replace(tokenRegex, 'https://github.com');
             }
@@ -392,8 +410,8 @@ let ServerController = class ServerController {
         if (success) {
             try {
                 await this.dbService.query(`
-                    DO $$ 
-                    BEGIN 
+                    DO $$
+                    BEGIN
                         IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='websites' AND column_name='build_command') THEN
                             ALTER TABLE websites ADD COLUMN build_command VARCHAR(255);
                         END IF;
@@ -420,7 +438,7 @@ let ServerController = class ServerController {
                 await this.dbService.query(`
                     INSERT INTO websites (server_id, user_id, repo_url, name, install_command, build_command, start_command, port, domain, entry_point, env_vars, use_letsencrypt, setup_www_alias)
                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-                `, [id, body.userId || '', body.repo, body.name, body.installCommand, body.buildCommand, body.startCommand, body.port, body.domain, body.entryPoint, body.envVars, body.useLetsEncrypt || false, body.setupWwwAlias || false]);
+                `, [id, userId, body.repo, body.name, body.installCommand, body.buildCommand, body.startCommand, body.port, body.domain, body.entryPoint, body.envVars, body.useLetsEncrypt || false, body.setupWwwAlias || false]);
             }
             catch (error) {
                 console.error("Error guardando el sitio en la base de datos:", error);
@@ -428,12 +446,15 @@ let ServerController = class ServerController {
         }
         res.end();
     }
-    async updateWebsite(id, websiteId, body, res) {
+    async updateWebsite(id, websiteId, userId, body, res) {
         res.setHeader('Content-Type', 'text/plain; charset=utf-8');
         res.setHeader('Transfer-Encoding', 'chunked');
-        const result = await this.dbService.query('SELECT * FROM servers WHERE id = $1', [id]);
-        const serverData = result.rows[0];
-        if (!serverData) {
+        let serverData;
+        try {
+            serverData = await this.assertServerOwnership(id, userId);
+            await this.assertWebsiteOwnership(id, websiteId);
+        }
+        catch {
             res.status(404).write('---ERROR---\nServidor no encontrado');
             res.end();
             return;
@@ -469,8 +490,8 @@ let ServerController = class ServerController {
             lastHealthCheck: serverData.last_health_check || new Date(),
         };
         await this.dbService.query(`
-            DO $$ 
-            BEGIN 
+            DO $$
+            BEGIN
                 IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='websites' AND column_name='use_letsencrypt') THEN
                     ALTER TABLE websites ADD COLUMN use_letsencrypt BOOLEAN DEFAULT FALSE;
                 END IF;
@@ -480,13 +501,13 @@ let ServerController = class ServerController {
             END $$;
         `);
         await this.dbService.query(`
-            UPDATE websites 
-            SET install_command = $1, build_command = $2, start_command = $3, 
+            UPDATE websites
+            SET install_command = $1, build_command = $2, start_command = $3,
                 port = $4, domain = $5, entry_point = $6, env_vars = $7,
                 use_letsencrypt = $8, setup_www_alias = $9
             WHERE id = $10
         `, [body.installCommand, body.buildCommand, body.startCommand, body.port, body.domain, body.entryPoint, body.envVars, body.useLetsEncrypt || false, body.setupWwwAlias || false, websiteId]);
-        const userRes = await this.dbService.query('SELECT email FROM users WHERE id = $1', [body.userId]);
+        const userRes = await this.dbService.query('SELECT email FROM users WHERE id = $1', [userId]);
         const userEmail = userRes.rows[0]?.email || '';
         const safeName = body.name.replace(/[^a-zA-Z0-9_-]/g, '').toLowerCase();
         const projectPath = `/var/www/${safeName}`;
@@ -506,15 +527,15 @@ let ServerController = class ServerController {
                 ENTRY_POINT="dist/main.js"
                 echo "📌 Detectado NestJS (dist/main.js)"
             fi
-            
+
             # Reiniciar con PM2 asegurando que cargue el nuevo .env
             echo "🔄 Reiniciando aplicación ${safeName}..."
-            
+
             # Ejecutar build si existe el comando (necesario para variables VITE_)
             ${body.buildCommand && body.buildCommand.trim() !== '' ? `echo "🏗️  Re-ejecutando build para aplicar cambios: ${body.buildCommand}"\n${body.buildCommand}` : ''}
 
             pm2 restart ${safeName} --update-env || pm2 start "$ENTRY_POINT" --name "${safeName}" --update-env || pm2 start npm --name "${safeName}" -- run start
-            
+
             # Configuración de Nginx (Forzando IPv4 127.0.0.1)
             if command -v nginx > /dev/null; then
                 echo "⚙️ Configurando Nginx para ${serverNames} (usando 127.0.0.1:${body.port})..."
@@ -537,9 +558,9 @@ let ServerController = class ServerController {
 
                 sudo ln -sf /etc/nginx/sites-available/${safeName} /etc/nginx/sites-enabled/
                 sudo rm -f /etc/nginx/sites-enabled/default 2>/dev/null
-                
+
                 sudo nginx -t && sudo systemctl reload nginx
-                
+
                 # 4. Gestionar SSL
                 if [ "${useSSL ? 'true' : 'false'}" = "true" ]; then
                     if ! command -v certbot > /dev/null; then
@@ -563,7 +584,7 @@ let ServerController = class ServerController {
     async getWebsites(userId) {
         try {
             await this.dbService.query(`
-                DO $$ BEGIN 
+                DO $$ BEGIN
                     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='websites' AND column_name='env_vars') THEN
                         ALTER TABLE websites ADD COLUMN env_vars TEXT;
                     END IF;
@@ -575,9 +596,9 @@ let ServerController = class ServerController {
                     END IF;
                 END $$;
             `);
-            const result = await this.dbService.query(`SELECT w.*, s.name as "serverName", s.ip as "serverIp" 
-                 FROM websites w 
-                 JOIN servers s ON w.server_id = s.id 
+            const result = await this.dbService.query(`SELECT w.*, s.name as "serverName", s.ip as "serverIp"
+                 FROM websites w
+                 JOIN servers s ON w.server_id = s.id
                  WHERE s.user_id = $1`, [userId]);
             return result.rows;
         }
@@ -637,14 +658,11 @@ let ServerController = class ServerController {
         }
         return imported;
     }
-    async importWebsites(id) {
-        const result = await this.dbService.query('SELECT * FROM servers WHERE id = $1', [id]);
-        const serverData = result.rows[0];
-        if (!serverData)
-            return { success: false, message: 'Servidor no encontrado' };
+    async importWebsites(id, userId) {
+        const serverData = await this.assertServerOwnership(id, userId);
         const server = this.getServerFromData(serverData);
         try {
-            const imported = await this.importExistingWebsites(server, id, serverData.user_id);
+            const imported = await this.importExistingWebsites(server, id, userId);
             return {
                 success: true,
                 imported: imported.length,
@@ -658,15 +676,9 @@ let ServerController = class ServerController {
             return { success: false, message: error.message };
         }
     }
-    async getWebsiteEnv(id, websiteId) {
-        const result = await this.dbService.query('SELECT * FROM servers WHERE id = $1', [id]);
-        const serverData = result.rows[0];
-        if (!serverData)
-            return { success: false, message: 'Servidor no encontrado' };
-        const siteResult = await this.dbService.query('SELECT * FROM websites WHERE id = $1', [websiteId]);
-        const site = siteResult.rows[0];
-        if (!site)
-            return { success: false, message: 'Sitio no encontrado' };
+    async getWebsiteEnv(id, websiteId, userId) {
+        const serverData = await this.assertServerOwnership(id, userId);
+        const site = await this.assertWebsiteOwnership(id, websiteId);
         const server = {
             id: serverData.id,
             name: serverData.name,
@@ -689,13 +701,9 @@ let ServerController = class ServerController {
             return { success: false, message: 'No se pudo leer el archivo .env remoto' };
         }
     }
-    async deleteWebsite(id, websiteId) {
-        const siteResult = await this.dbService.query('SELECT * FROM websites WHERE id = $1', [websiteId]);
-        const site = siteResult.rows[0];
-        if (!site)
-            return { success: false, message: 'Sitio no encontrado' };
-        const serverResult = await this.dbService.query('SELECT * FROM servers WHERE id = $1', [id]);
-        const serverData = serverResult.rows[0];
+    async deleteWebsite(id, websiteId, userId) {
+        const serverData = await this.assertServerOwnership(id, userId);
+        const site = await this.assertWebsiteOwnership(id, websiteId);
         const server = {
             id: serverData.id,
             name: serverData.name,
@@ -720,13 +728,9 @@ let ServerController = class ServerController {
         await this.dbService.query('DELETE FROM websites WHERE id = $1', [websiteId]);
         return { success: true, message: 'Sitio eliminado correctamente' };
     }
-    async getWebsiteLogs(id, websiteId) {
-        const siteResult = await this.dbService.query('SELECT name FROM websites WHERE id = $1', [websiteId]);
-        const site = siteResult.rows[0];
-        if (!site)
-            return { success: false, message: 'Sitio no encontrado' };
-        const serverResult = await this.dbService.query('SELECT * FROM servers WHERE id = $1', [id]);
-        const serverData = serverResult.rows[0];
+    async getWebsiteLogs(id, websiteId, userId) {
+        const serverData = await this.assertServerOwnership(id, userId);
+        const site = await this.assertWebsiteOwnership(id, websiteId);
         const server = {
             id: serverData.id,
             name: serverData.name,
@@ -757,13 +761,9 @@ let ServerController = class ServerController {
             }
         };
     }
-    async getWebsiteCommit(id, websiteId) {
-        const result = await this.dbService.query('SELECT * FROM servers WHERE id = $1', [id]);
-        const serverData = result.rows[0];
-        const siteResult = await this.dbService.query('SELECT * FROM websites WHERE id = $1', [websiteId]);
-        const site = siteResult.rows[0];
-        if (!serverData || !site)
-            return { success: false, message: 'No encontrado' };
+    async getWebsiteCommit(id, websiteId, userId) {
+        const serverData = await this.assertServerOwnership(id, userId);
+        const site = await this.assertWebsiteOwnership(id, websiteId);
         const server = {
             id: serverData.id,
             name: serverData.name,
@@ -820,13 +820,9 @@ let ServerController = class ServerController {
             return { success: false, message: error.message };
         }
     }
-    async deployLatestCommit(id, websiteId) {
-        const result = await this.dbService.query('SELECT * FROM servers WHERE id = $1', [id]);
-        const serverData = result.rows[0];
-        const siteResult = await this.dbService.query('SELECT * FROM websites WHERE id = $1', [websiteId]);
-        const site = siteResult.rows[0];
-        if (!serverData || !site)
-            return { success: false, message: 'No encontrado' };
+    async deployLatestCommit(id, websiteId, userId) {
+        const serverData = await this.assertServerOwnership(id, userId);
+        const site = await this.assertWebsiteOwnership(id, websiteId);
         const server = {
             id: serverData.id,
             name: serverData.name,
@@ -899,11 +895,8 @@ echo "---DEPLOY_DONE---"
             return { success: false, message: error.message };
         }
     }
-    async executeCommand(id, command) {
-        const serverResult = await this.dbService.query('SELECT * FROM servers WHERE id = $1', [id]);
-        const serverData = serverResult.rows[0];
-        if (!serverData)
-            return { success: false, message: 'Servidor no encontrado' };
+    async executeCommand(id, command, userId) {
+        const serverData = await this.assertServerOwnership(id, userId);
         const server = {
             id: serverData.id,
             name: serverData.name,
@@ -938,10 +931,12 @@ echo "---DEPLOY_DONE---"
             lastHealthCheck: serverData.last_health_check || new Date(),
         };
     }
-    async deployDatabase(id, body, res) {
-        const result = await this.dbService.query('SELECT * FROM servers WHERE id = $1', [id]);
-        const serverData = result.rows[0];
-        if (!serverData) {
+    async deployDatabase(id, userId, body, res) {
+        let serverData;
+        try {
+            serverData = await this.assertServerOwnership(id, userId);
+        }
+        catch {
             res.status(404).json({ success: false, message: 'Servidor no encontrado' });
             return;
         }
@@ -971,7 +966,7 @@ echo "---DEPLOY_DONE---"
         await this.dbService.query(`
             INSERT INTO database_instances(id, server_id, user_id, name, engine, port, db_name, db_user, db_password, admin_port, container_name, admin_container_name, status)
             VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'deploying')
-        `, [dbId, id, body.userId || '', body.name, body.engine, body.port, body.dbName, body.dbUser, body.dbPassword, body.adminPort || '', containerName, adminContainerName]);
+        `, [dbId, id, userId, body.name, body.engine, body.port, body.dbName, body.dbUser, body.dbPassword, body.adminPort || '', containerName, adminContainerName]);
         res.setHeader('Content-Type', 'text/plain; charset=utf-8');
         res.setHeader('Transfer-Encoding', 'chunked');
         let deployCmd = '';
@@ -1227,15 +1222,9 @@ echo "📊 PostgreSQL disponible en el puerto ${body.port}"
                 : 'No se encontraron bases de datos montadas en tus servidores'
         };
     }
-    async deleteDatabaseInstance(id, dbId) {
-        const serverResult = await this.dbService.query('SELECT * FROM servers WHERE id = $1', [id]);
-        const serverData = serverResult.rows[0];
-        if (!serverData)
-            return { success: false, message: 'Servidor no encontrado' };
-        const dbResult = await this.dbService.query('SELECT * FROM database_instances WHERE id = $1', [dbId]);
-        const dbInstance = dbResult.rows[0];
-        if (!dbInstance)
-            return { success: false, message: 'Base de datos no encontrada' };
+    async deleteDatabaseInstance(id, dbId, userId) {
+        const serverData = await this.assertServerOwnership(id, userId);
+        const dbInstance = await this.assertDatabaseOwnership(id, dbId);
         const server = this.getServerFromData(serverData);
         const safeName = dbInstance.name.replace(/[^a-zA-Z0-9_-]/g, '').toLowerCase();
         const containerName = dbInstance.container_name ? dbInstance.container_name.trim() : '';
@@ -1266,18 +1255,12 @@ echo "📊 PostgreSQL disponible en el puerto ${body.port}"
         await this.dbService.query('DELETE FROM database_instances WHERE id = $1', [dbId]);
         return { success: true, message: 'Base de datos eliminada correctamente' };
     }
-    async manageDatabaseContainer(id, dbId, action) {
+    async manageDatabaseContainer(id, dbId, action, userId) {
         const validActions = ['start', 'stop', 'restart'];
         if (!validActions.includes(action))
             return { success: false, message: 'Acción no válida' };
-        const serverResult = await this.dbService.query('SELECT * FROM servers WHERE id = $1', [id]);
-        const serverData = serverResult.rows[0];
-        if (!serverData)
-            return { success: false, message: 'Servidor no encontrado' };
-        const dbResult = await this.dbService.query('SELECT * FROM database_instances WHERE id = $1', [dbId]);
-        const dbInstance = dbResult.rows[0];
-        if (!dbInstance)
-            return { success: false, message: 'Base de datos no encontrada' };
+        const serverData = await this.assertServerOwnership(id, userId);
+        const dbInstance = await this.assertDatabaseOwnership(id, dbId);
         const server = this.getServerFromData(serverData);
         let cmd = `sudo docker ${action} ${dbInstance.container_name}`;
         if (dbInstance.engine === 'mysql' && dbInstance.admin_container_name) {
@@ -1318,66 +1301,72 @@ echo "📊 PostgreSQL disponible en el puerto ${body.port}"
         await this.dbService.query(`UPDATE user_notifications SET read = true WHERE user_id = $1`, [userId]);
         return { success: true };
     }
-    async dismissNotification(id) {
+    async dismissNotification(id, userId) {
         const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         if (!uuidRegex.test(id))
             return { success: true };
-        await this.dbService.query(`DELETE FROM user_notifications WHERE id = $1`, [id]);
+        await this.dbService.query(`DELETE FROM user_notifications WHERE id = $1 AND user_id = $2`, [id, userId]);
         return { success: true };
     }
 };
 exports.ServerController = ServerController;
 __decorate([
     (0, common_1.Get)(),
-    __param(0, (0, common_1.Query)('userId')),
+    __param(0, (0, current_user_decorator_1.CurrentUser)('sub')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], ServerController.prototype, "findAll", null);
 __decorate([
     (0, common_1.Post)(),
-    __param(0, (0, common_1.Body)()),
+    __param(0, (0, current_user_decorator_1.CurrentUser)('sub')),
+    __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [create_server_dto_1.CreateServerDto]),
+    __metadata("design:paramtypes", [String, create_server_dto_1.CreateServerDto]),
     __metadata("design:returntype", Promise)
 ], ServerController.prototype, "create", null);
 __decorate([
     (0, common_1.Delete)(':id'),
     __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, current_user_decorator_1.CurrentUser)('sub')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", Promise)
 ], ServerController.prototype, "deleteServer", null);
 __decorate([
     (0, common_1.Post)(':id/refresh'),
     __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, current_user_decorator_1.CurrentUser)('sub')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", Promise)
 ], ServerController.prototype, "refreshHealth", null);
 __decorate([
     (0, common_1.Get)(':id/services'),
     __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, current_user_decorator_1.CurrentUser)('sub')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", Promise)
 ], ServerController.prototype, "getServices", null);
 __decorate([
     (0, common_1.Post)(':id/services/install/:serviceName'),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Param)('serviceName')),
-    __param(2, (0, common_1.Res)()),
+    __param(2, (0, current_user_decorator_1.CurrentUser)('sub')),
+    __param(3, (0, common_1.Res)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String, typeof (_a = typeof express_1.Response !== "undefined" && express_1.Response) === "function" ? _a : Object]),
+    __metadata("design:paramtypes", [String, String, String, typeof (_a = typeof express_1.Response !== "undefined" && express_1.Response) === "function" ? _a : Object]),
     __metadata("design:returntype", Promise)
 ], ServerController.prototype, "installService", null);
 __decorate([
     (0, common_1.Post)(':id/services/uninstall/:serviceName'),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Param)('serviceName')),
-    __param(2, (0, common_1.Res)()),
+    __param(2, (0, current_user_decorator_1.CurrentUser)('sub')),
+    __param(3, (0, common_1.Res)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String, typeof (_b = typeof express_1.Response !== "undefined" && express_1.Response) === "function" ? _b : Object]),
+    __metadata("design:paramtypes", [String, String, String, typeof (_b = typeof express_1.Response !== "undefined" && express_1.Response) === "function" ? _b : Object]),
     __metadata("design:returntype", Promise)
 ], ServerController.prototype, "uninstallService", null);
 __decorate([
@@ -1385,40 +1374,44 @@ __decorate([
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Param)('serviceName')),
     __param(2, (0, common_1.Param)('action')),
+    __param(3, (0, current_user_decorator_1.CurrentUser)('sub')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String, String]),
+    __metadata("design:paramtypes", [String, String, String, String]),
     __metadata("design:returntype", Promise)
 ], ServerController.prototype, "manageService", null);
 __decorate([
     (0, common_1.Post)(':id/update-system'),
     __param(0, (0, common_1.Param)('id')),
-    __param(1, (0, common_1.Res)()),
+    __param(1, (0, current_user_decorator_1.CurrentUser)('sub')),
+    __param(2, (0, common_1.Res)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, typeof (_c = typeof express_1.Response !== "undefined" && express_1.Response) === "function" ? _c : Object]),
+    __metadata("design:paramtypes", [String, String, typeof (_c = typeof express_1.Response !== "undefined" && express_1.Response) === "function" ? _c : Object]),
     __metadata("design:returntype", Promise)
 ], ServerController.prototype, "updateSystem", null);
 __decorate([
     (0, common_1.Post)(':id/deploy-website'),
     __param(0, (0, common_1.Param)('id')),
-    __param(1, (0, common_1.Body)()),
-    __param(2, (0, common_1.Res)()),
+    __param(1, (0, current_user_decorator_1.CurrentUser)('sub')),
+    __param(2, (0, common_1.Body)()),
+    __param(3, (0, common_1.Res)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, Object, typeof (_d = typeof express_1.Response !== "undefined" && express_1.Response) === "function" ? _d : Object]),
+    __metadata("design:paramtypes", [String, String, Object, typeof (_d = typeof express_1.Response !== "undefined" && express_1.Response) === "function" ? _d : Object]),
     __metadata("design:returntype", Promise)
 ], ServerController.prototype, "deployWebsite", null);
 __decorate([
     (0, common_1.Post)(':id/websites/:websiteId/update'),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Param)('websiteId')),
-    __param(2, (0, common_1.Body)()),
-    __param(3, (0, common_1.Res)()),
+    __param(2, (0, current_user_decorator_1.CurrentUser)('sub')),
+    __param(3, (0, common_1.Body)()),
+    __param(4, (0, common_1.Res)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String, Object, typeof (_e = typeof express_1.Response !== "undefined" && express_1.Response) === "function" ? _e : Object]),
+    __metadata("design:paramtypes", [String, String, String, Object, typeof (_e = typeof express_1.Response !== "undefined" && express_1.Response) === "function" ? _e : Object]),
     __metadata("design:returntype", Promise)
 ], ServerController.prototype, "updateWebsite", null);
 __decorate([
-    (0, common_1.Get)('websites/:userId'),
-    __param(0, (0, common_1.Param)('userId')),
+    (0, common_1.Get)('websites'),
+    __param(0, (0, current_user_decorator_1.CurrentUser)('sub')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
@@ -1426,77 +1419,85 @@ __decorate([
 __decorate([
     (0, common_1.Post)(':id/import-websites'),
     __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, current_user_decorator_1.CurrentUser)('sub')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", Promise)
 ], ServerController.prototype, "importWebsites", null);
 __decorate([
     (0, common_1.Get)(':id/websites/:websiteId/env'),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Param)('websiteId')),
+    __param(2, (0, current_user_decorator_1.CurrentUser)('sub')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:paramtypes", [String, String, String]),
     __metadata("design:returntype", Promise)
 ], ServerController.prototype, "getWebsiteEnv", null);
 __decorate([
     (0, common_1.Post)(':id/websites/:websiteId/delete'),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Param)('websiteId')),
+    __param(2, (0, current_user_decorator_1.CurrentUser)('sub')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:paramtypes", [String, String, String]),
     __metadata("design:returntype", Promise)
 ], ServerController.prototype, "deleteWebsite", null);
 __decorate([
     (0, common_1.Get)(':id/websites/:websiteId/logs'),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Param)('websiteId')),
+    __param(2, (0, current_user_decorator_1.CurrentUser)('sub')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:paramtypes", [String, String, String]),
     __metadata("design:returntype", Promise)
 ], ServerController.prototype, "getWebsiteLogs", null);
 __decorate([
     (0, common_1.Get)(':id/websites/:websiteId/commit'),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Param)('websiteId')),
+    __param(2, (0, current_user_decorator_1.CurrentUser)('sub')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:paramtypes", [String, String, String]),
     __metadata("design:returntype", Promise)
 ], ServerController.prototype, "getWebsiteCommit", null);
 __decorate([
     (0, common_1.Post)(':id/websites/:websiteId/deploy-latest'),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Param)('websiteId')),
+    __param(2, (0, current_user_decorator_1.CurrentUser)('sub')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:paramtypes", [String, String, String]),
     __metadata("design:returntype", Promise)
 ], ServerController.prototype, "deployLatestCommit", null);
 __decorate([
     (0, common_1.Post)(':id/execute'),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Body)('command')),
+    __param(2, (0, current_user_decorator_1.CurrentUser)('sub')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:paramtypes", [String, String, String]),
     __metadata("design:returntype", Promise)
 ], ServerController.prototype, "executeCommand", null);
 __decorate([
     (0, common_1.Post)(':id/deploy-database'),
     __param(0, (0, common_1.Param)('id')),
-    __param(1, (0, common_1.Body)()),
-    __param(2, (0, common_1.Res)()),
+    __param(1, (0, current_user_decorator_1.CurrentUser)('sub')),
+    __param(2, (0, common_1.Body)()),
+    __param(3, (0, common_1.Res)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, Object, typeof (_f = typeof express_1.Response !== "undefined" && express_1.Response) === "function" ? _f : Object]),
+    __metadata("design:paramtypes", [String, String, Object, typeof (_f = typeof express_1.Response !== "undefined" && express_1.Response) === "function" ? _f : Object]),
     __metadata("design:returntype", Promise)
 ], ServerController.prototype, "deployDatabase", null);
 __decorate([
-    (0, common_1.Get)('databases/:userId'),
-    __param(0, (0, common_1.Param)('userId')),
+    (0, common_1.Get)('databases'),
+    __param(0, (0, current_user_decorator_1.CurrentUser)('sub')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], ServerController.prototype, "listDatabases", null);
 __decorate([
-    (0, common_1.Post)('import-databases/:userId'),
-    __param(0, (0, common_1.Param)('userId')),
+    (0, common_1.Post)('import-databases'),
+    __param(0, (0, current_user_decorator_1.CurrentUser)('sub')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
@@ -1505,8 +1506,9 @@ __decorate([
     (0, common_1.Post)(':id/databases/:dbId/delete'),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Param)('dbId')),
+    __param(2, (0, current_user_decorator_1.CurrentUser)('sub')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:paramtypes", [String, String, String]),
     __metadata("design:returntype", Promise)
 ], ServerController.prototype, "deleteDatabaseInstance", null);
 __decorate([
@@ -1514,20 +1516,21 @@ __decorate([
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Param)('dbId')),
     __param(2, (0, common_1.Param)('action')),
+    __param(3, (0, current_user_decorator_1.CurrentUser)('sub')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String, String]),
+    __metadata("design:paramtypes", [String, String, String, String]),
     __metadata("design:returntype", Promise)
 ], ServerController.prototype, "manageDatabaseContainer", null);
 __decorate([
-    (0, common_1.Get)('notifications/:userId'),
-    __param(0, (0, common_1.Param)('userId')),
+    (0, common_1.Get)('notifications'),
+    __param(0, (0, current_user_decorator_1.CurrentUser)('sub')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], ServerController.prototype, "getNotifications", null);
 __decorate([
-    (0, common_1.Post)('notifications/mark-read/:userId'),
-    __param(0, (0, common_1.Param)('userId')),
+    (0, common_1.Post)('notifications/mark-read'),
+    __param(0, (0, current_user_decorator_1.CurrentUser)('sub')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
@@ -1535,8 +1538,9 @@ __decorate([
 __decorate([
     (0, common_1.Post)('notifications/:id/dismiss'),
     __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, current_user_decorator_1.CurrentUser)('sub')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", Promise)
 ], ServerController.prototype, "dismissNotification", null);
 exports.ServerController = ServerController = __decorate([

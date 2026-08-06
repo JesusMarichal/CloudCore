@@ -6,13 +6,10 @@ import {
 } from 'lucide-react';
 import { API_URL } from '../../config';
 import { AuthService } from '../../services/auth.service';
+import { authFetch } from '../../services/apiFetch';
+import { tokenStorage } from '../../services/tokenStorage';
 import OTPInput from '../../components/OTPInput';
 import './Settings.css';
-
-const getUserId = () => {
-    const s = localStorage.getItem('user');
-    return s ? JSON.parse(s).id : null;
-};
 
 // ── Sección: GitHub ───────────────────────────────────────────────────────────
 const GithubSection = () => {
@@ -22,10 +19,9 @@ const GithubSection = () => {
     const [status, setStatus] = useState<{ type: 'success' | 'error' | null; msg: string }>({ type: null, msg: '' });
 
     useEffect(() => {
-        const userId = getUserId();
-        if (!userId) return;
+        if (!tokenStorage.getToken()) return;
         setLoading(true);
-        fetch(`${API_URL}/github/settings/${userId}`)
+        authFetch(`${API_URL}/github/settings`)
             .then(r => r.json())
             .then(d => { if (d.success && d.token) setToken(d.token); })
             .catch(() => { })
@@ -33,12 +29,11 @@ const GithubSection = () => {
     }, []);
 
     const handleSave = async () => {
-        const userId = getUserId();
-        if (!userId) return;
+        if (!tokenStorage.getToken()) return;
         setSaving(true);
         setStatus({ type: null, msg: '' });
         try {
-            const r = await fetch(`${API_URL}/github/settings/${userId}`, {
+            const r = await authFetch(`${API_URL}/github/settings`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ token }),
@@ -116,11 +111,10 @@ const ChangePasswordSection = () => {
             setStatus({ type: 'error', msg: 'Las contraseñas no coinciden' });
             return;
         }
-        const userId = getUserId();
-        if (!userId) return;
+        if (!tokenStorage.getToken()) return;
         setLoading(true);
         try {
-            const result = await AuthService.changePassword(userId, form.current, form.newPass);
+            const result = await AuthService.changePassword(form.current, form.newPass);
             setStatus({ type: result.success ? 'success' : 'error', msg: result.message });
             if (result.success) setForm({ current: '', newPass: '', confirm: '' });
         } catch {
@@ -200,21 +194,19 @@ const TwoFASection = () => {
     const [status, setStatus]   = useState<{ type: 'success' | 'error' | null; msg: string }>({ type: null, msg: '' });
     const [saving, setSaving]   = useState(false);
 
-    const userId = getUserId();
-
     useEffect(() => {
-        if (!userId) return;
-        AuthService.get2FAStatus(userId)
+        if (!tokenStorage.getToken()) return;
+        AuthService.get2FAStatus()
             .then(d => setEnabled(!!d.enabled))
             .finally(() => setLoading(false));
     }, []);
 
     const handleGenerate = async () => {
-        if (!userId) return;
+        if (!tokenStorage.getToken()) return;
         setSaving(true);
         setStatus({ type: null, msg: '' });
         try {
-            const d = await AuthService.generate2FA(userId);
+            const d = await AuthService.generate2FA();
             if (d.success) {
                 setSecret(d.secret);
                 const qr = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(d.otpauthUrl)}`;
@@ -232,11 +224,11 @@ const TwoFASection = () => {
 
     const handleEnable = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!userId) return;
+        if (!tokenStorage.getToken()) return;
         setSaving(true);
         setStatus({ type: null, msg: '' });
         try {
-            const d = await AuthService.enable2FA(userId, code);
+            const d = await AuthService.enable2FA(code);
             if (d.success) {
                 setEnabled(true);
                 setStep('idle');
@@ -254,11 +246,11 @@ const TwoFASection = () => {
 
     const handleDisable = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!userId) return;
+        if (!tokenStorage.getToken()) return;
         setSaving(true);
         setStatus({ type: null, msg: '' });
         try {
-            const d = await AuthService.disable2FA(userId, password);
+            const d = await AuthService.disable2FA(password);
             if (d.success) {
                 setEnabled(false);
                 setStep('idle');

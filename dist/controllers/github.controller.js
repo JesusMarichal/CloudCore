@@ -18,6 +18,9 @@ const common_1 = require("@nestjs/common");
 const database_service_1 = require("../database/database.service");
 const ssh_service_1 = require("../services/ssh.service");
 const rest_1 = require("@octokit/rest");
+const public_decorator_1 = require("../common/auth/public.decorator");
+const current_user_decorator_1 = require("../common/auth/current-user.decorator");
+const webhook_signature_util_1 = require("../common/utils/webhook-signature.util");
 let GithubController = GithubController_1 = class GithubController {
     constructor(db, sshService) {
         this.db = db;
@@ -78,6 +81,11 @@ let GithubController = GithubController_1 = class GithubController {
         }
     }
     async handleWebhook(req, payload) {
+        const signature = req.headers['x-hub-signature-256'];
+        const rawBody = req.rawBody;
+        if (!(0, webhook_signature_util_1.verifyGithubSignature)(rawBody, signature, process.env.GITHUB_WEBHOOK_SECRET)) {
+            throw new common_1.UnauthorizedException('Firma de webhook inválida');
+        }
         const event = req.headers['x-github-event'];
         if (event !== 'push') {
             return { success: true, message: 'Evento ignorado' };
@@ -170,28 +178,29 @@ let GithubController = GithubController_1 = class GithubController {
 };
 exports.GithubController = GithubController;
 __decorate([
-    (0, common_1.Get)('settings/:userId'),
-    __param(0, (0, common_1.Param)('userId')),
+    (0, common_1.Get)('settings'),
+    __param(0, (0, current_user_decorator_1.CurrentUser)('sub')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], GithubController.prototype, "getSettings", null);
 __decorate([
-    (0, common_1.Post)('settings/:userId'),
-    __param(0, (0, common_1.Param)('userId')),
+    (0, common_1.Post)('settings'),
+    __param(0, (0, current_user_decorator_1.CurrentUser)('sub')),
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", Promise)
 ], GithubController.prototype, "saveSettings", null);
 __decorate([
-    (0, common_1.Get)('repos/:userId'),
-    __param(0, (0, common_1.Param)('userId')),
+    (0, common_1.Get)('repos'),
+    __param(0, (0, current_user_decorator_1.CurrentUser)('sub')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], GithubController.prototype, "getRepos", null);
 __decorate([
+    (0, public_decorator_1.Public)(),
     (0, common_1.Post)('webhook'),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Body)()),

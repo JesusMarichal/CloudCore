@@ -12,18 +12,35 @@ var SshTerminalGateway_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SshTerminalGateway = void 0;
 const common_1 = require("@nestjs/common");
+const jwt_1 = require("@nestjs/jwt");
 const ssh2_1 = require("ssh2");
 const database_service_1 = require("../database/database.service");
 const encryption_util_1 = require("../common/utils/encryption.util");
 let SshTerminalGateway = SshTerminalGateway_1 = class SshTerminalGateway {
-    constructor(dbService) {
+    constructor(dbService, jwtService) {
         this.dbService = dbService;
+        this.jwtService = jwtService;
         this.logger = new common_1.Logger(SshTerminalGateway_1.name);
     }
     init(wss) {
-        wss.on('connection', (ws) => this.handleConnection(ws));
+        wss.on('connection', (ws, req) => this.handleConnection(ws, req));
     }
-    handleConnection(ws) {
+    handleConnection(ws, req) {
+        let userId;
+        try {
+            const url = new URL(req.url || '', 'http://localhost');
+            const token = url.searchParams.get('token');
+            if (!token)
+                throw new Error('Token no proporcionado');
+            const payload = this.jwtService.verify(token);
+            if (payload.scope === 'pre2fa')
+                throw new Error('Token no válido para esta operación');
+            userId = payload.sub;
+        }
+        catch (e) {
+            ws.close(4401, 'Unauthorized');
+            return;
+        }
         let sshConn = null;
         let sshStream = null;
         const send = (data) => {
@@ -36,7 +53,7 @@ let SshTerminalGateway = SshTerminalGateway_1 = class SshTerminalGateway {
                 try {
                     const ctrl = JSON.parse(msg.slice(1));
                     if (ctrl.type === 'init' && !sshConn) {
-                        await this.startSession(ws, ctrl.serverId, send, (conn, stream) => {
+                        await this.startSession(ws, ctrl.serverId, userId, send, (conn, stream) => {
                             sshConn = conn;
                             sshStream = stream;
                         });
@@ -61,12 +78,16 @@ let SshTerminalGateway = SshTerminalGateway_1 = class SshTerminalGateway {
             sshConn?.end();
         });
     }
-    async startSession(ws, serverId, send, onReady) {
+    async startSession(ws, serverId, userId, send, onReady) {
         try {
             const result = await this.dbService.query('SELECT * FROM servers WHERE id = $1', [serverId]);
             const serverData = result.rows[0];
             if (!serverData) {
                 send('\r\n\x1b[31m❌ Servidor no encontrado\x1b[0m\r\n');
+                return;
+            }
+            if (String(serverData.user_id) !== String(userId)) {
+                send('\r\n\x1b[31m❌ No autorizado para este servidor\x1b[0m\r\n');
                 return;
             }
             const conn = new ssh2_1.Client();
@@ -120,6 +141,7 @@ let SshTerminalGateway = SshTerminalGateway_1 = class SshTerminalGateway {
 exports.SshTerminalGateway = SshTerminalGateway;
 exports.SshTerminalGateway = SshTerminalGateway = SshTerminalGateway_1 = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [database_service_1.DatabaseService])
+    __metadata("design:paramtypes", [database_service_1.DatabaseService,
+        jwt_1.JwtService])
 ], SshTerminalGateway);
 //# sourceMappingURL=ssh-terminal.gateway.js.map

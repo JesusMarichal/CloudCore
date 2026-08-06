@@ -90,8 +90,24 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
                             ALTER TABLE users ADD COLUMN failed_attempts INT DEFAULT 0;
                             ALTER TABLE users ADD COLUMN locked_until TIMESTAMP;
                         END IF;
+                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                                     WHERE table_name='users' AND column_name='role') THEN
+                            ALTER TABLE users ADD COLUMN role VARCHAR(20) DEFAULT 'CLIENT';
+                        END IF;
                     END IF;
                 END $$;
+            `);
+
+            // Roles: solo existen 'ADMIN' y 'CLIENT'. El ALTER TABLE ADD COLUMN inicial
+            // (ejecutado antes de esta versión) dejó el default en 'user' — corregirlo
+            // explícitamente, ya que agregar la columna solo corre una vez y no lo actualiza.
+            await this.pool.query(`ALTER TABLE users ALTER COLUMN role SET DEFAULT 'CLIENT';`);
+            // Normalizar valores antiguos/nulos de filas ya existentes.
+            await this.pool.query(`
+                UPDATE users SET role = 'CLIENT' WHERE role IS NULL OR role NOT IN ('ADMIN', 'CLIENT');
+            `);
+            await this.pool.query(`
+                UPDATE users SET role = 'ADMIN' WHERE LOWER(email) = 'jesusmarichal0@gmail.com';
             `);
 
             // Crear tabla websites si no existe
@@ -139,6 +155,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
                 email VARCHAR(255) UNIQUE NOT NULL,
                 password TEXT NOT NULL,
                 github_token VARCHAR(255),
+                role VARCHAR(20) DEFAULT 'CLIENT',
                 created_at TIMESTAMP DEFAULT NOW()
             );
         `;

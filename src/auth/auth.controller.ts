@@ -1,7 +1,20 @@
-import { Controller, Post, Body, HttpCode, HttpStatus, Logger, UnauthorizedException } from '@nestjs/common';
+import { Controller, Post, Body, HttpCode, HttpStatus, Logger, UnauthorizedException, UseGuards, UsePipes, ValidationPipe } from '@nestjs/common';
+import { ThrottlerGuard } from '@nestjs/throttler';
+import { JwtService } from '@nestjs/jwt';
 import { DatabaseService } from '../database/database.service';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
+import { Public } from '../common/auth/public.decorator';
+import { CurrentUser } from '../common/auth/current-user.decorator';
+import { JwtPayload, UserRole } from '../common/auth/jwt-payload.interface';
+import {
+    LoginDto,
+    Verify2FALoginDto,
+    RegisterDto,
+    ChangePasswordDto,
+    Enable2FADto,
+    Disable2FADto,
+} from './dto/auth.dto';
 
 // ── TOTP (sin dependencias externas) ─────────────────────────────────────────
 const B32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
@@ -43,19 +56,36 @@ function verifyTOTP(secret: string, token: string): boolean {
 
 const MAX_ATTEMPTS = 5;
 const LOCK_MINUTES = 15;
+const PRE_2FA_EXPIRES_IN = '5m';
 
 @Controller('auth')
+@UseGuards(ThrottlerGuard)
+@UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
 export class AuthController {
     private readonly logger = new Logger(AuthController.name);
 
-    constructor(private readonly db: DatabaseService) { }
+    constructor(
+        private readonly db: DatabaseService,
+        private readonly jwtService: JwtService,
+    ) { }
+
+    private signToken(user: { id: string; name: string; email: string; role?: string }) {
+        const payload: JwtPayload = {
+            sub: String(user.id),
+            email: user.email,
+            name: user.name,
+            role: (user.role as UserRole) || 'CLIENT',
+            scope: 'full',
+        };
+        return this.jwtService.sign(payload);
+    }
 
     // ── Login ─────────────────────────────────────────────────────────────────
+    @Public()
     @Post('login')
     @HttpCode(HttpStatus.OK)
-    async login(@Body() body: any) {
+    async login(@Body() body: LoginDto) {
         const { email, password } = body;
-        if (!email || !password) return { success: false, message: 'Datos incompletos' };
 
         try {
             const result = await this.db.query(
@@ -100,19 +130,25 @@ export class AuthController {
                 );
             } catch { /* columnas aún no migradas, continuar */ }
 
-            // Si 2FA está activo → pedir código
+            // Si 2FA está activo → pedir código, con un token de corta vida en vez del id en texto plano
             if (user.totp_enabled && user.totp_secret) {
+                const preAuthToken = this.jwtService.sign(
+                    { sub: String(user.id), email: user.email, name: user.name, role: user.role || 'CLIENT', scope: 'pre2fa' } as JwtPayload,
+                    { expiresIn: PRE_2FA_EXPIRES_IN },
+                );
                 return {
                     success: true,
                     require2FA: true,
-                    userId: String(user.id),
+                    preAuthToken,
                     message: 'Ingresa tu código de autenticación de 6 dígitos.'
                 };
             }
 
+            const token = this.signToken(user);
             return {
                 success: true,
-                user: { id: String(user.id), name: user.name, email: user.email }
+                token,
+                user: { id: String(user.id), name: user.name, email: user.email, role: user.role || 'CLIENT' }
             };
         } catch (error) {
             this.logger.error('Error en login');
@@ -121,11 +157,22 @@ export class AuthController {
     }
 
     // ── Verificar código 2FA durante login ────────────────────────────────────
+    @Public()
     @Post('2fa/login')
     @HttpCode(HttpStatus.OK)
-    async verify2FALogin(@Body() body: any) {
-        const { userId, token } = body;
-        if (!userId || !token) return { success: false, message: 'Datos incompletos' };
+    async verify2FALogin(@Body() body: Verify2FALoginDto) {
+        const { preAuthToken, token } = body;
+
+        let userId: string;
+        try {
+            const payload = await this.jwtService.verifyAsync<JwtPayload>(preAuthToken);
+            if (payload.scope !== 'pre2fa') {
+                return { success: false, message: 'Token no válido para esta operación' };
+            }
+            userId = payload.sub;
+        } catch {
+            return { success: false, message: 'Sesión de verificación expirada, inicia sesión de nuevo' };
+        }
 
         try {
             const result = await this.db.query('SELECT * FROM users WHERE id=$1', [userId]);
@@ -136,9 +183,11 @@ export class AuthController {
             if (!verifyTOTP(user.totp_secret, String(token)))
                 return { success: false, message: 'Código 2FA incorrecto' };
 
+            const fullToken = this.signToken(user);
             return {
                 success: true,
-                user: { id: String(user.id), name: user.name, email: user.email }
+                token: fullToken,
+                user: { id: String(user.id), name: user.name, email: user.email, role: user.role || 'CLIENT' }
             };
         } catch {
             return { success: false, message: 'Error al verificar' };
@@ -146,13 +195,10 @@ export class AuthController {
     }
 
     // ── Register ──────────────────────────────────────────────────────────────
+    @Public()
     @Post('register')
-    async register(@Body() body: any) {
+    async register(@Body() body: RegisterDto) {
         const { name, email, password } = body;
-        if (!name || !email || !password)
-            return { success: false, message: 'Todos los campos son obligatorios' };
-        if (password.length < 8)
-            return { success: false, message: 'La contraseña debe tener al menos 8 caracteres' };
 
         try {
             const check = await this.db.query('SELECT id FROM users WHERE email=$1', [email]);
@@ -161,7 +207,7 @@ export class AuthController {
 
             const hashed = await bcrypt.hash(password, 12);
             const result = await this.db.query(
-                'INSERT INTO users (name, email, password) VALUES ($1, $2, $3) RETURNING id, name, email',
+                "INSERT INTO users (name, email, password, role) VALUES ($1, $2, $3, 'CLIENT') RETURNING id, name, email",
                 [name, email, hashed]
             );
             return { success: true, message: 'Cuenta creada con éxito', user: result.rows[0] };
@@ -172,12 +218,8 @@ export class AuthController {
 
     // ── Cambiar contraseña ────────────────────────────────────────────────────
     @Post('change-password')
-    async changePassword(@Body() body: any) {
-        const { userId, currentPassword, newPassword } = body;
-        if (!userId || !currentPassword || !newPassword)
-            return { success: false, message: 'Datos incompletos' };
-        if (newPassword.length < 8)
-            return { success: false, message: 'La nueva contraseña debe tener al menos 8 caracteres' };
+    async changePassword(@CurrentUser('sub') userId: string, @Body() body: ChangePasswordDto) {
+        const { currentPassword, newPassword } = body;
         if (currentPassword === newPassword)
             return { success: false, message: 'La nueva contraseña debe ser diferente a la actual' };
 
@@ -199,10 +241,7 @@ export class AuthController {
 
     // ── Generar secreto 2FA ───────────────────────────────────────────────────
     @Post('2fa/generate')
-    async generate2FA(@Body() body: any) {
-        const { userId } = body;
-        if (!userId) return { success: false, message: 'Usuario requerido' };
-
+    async generate2FA(@CurrentUser('sub') userId: string) {
         try {
             const result = await this.db.query('SELECT email FROM users WHERE id=$1', [userId]);
             const user = result.rows[0];
@@ -226,9 +265,8 @@ export class AuthController {
 
     // ── Activar 2FA (confirmar con código) ────────────────────────────────────
     @Post('2fa/enable')
-    async enable2FA(@Body() body: any) {
-        const { userId, token } = body;
-        if (!userId || !token) return { success: false, message: 'Datos incompletos' };
+    async enable2FA(@CurrentUser('sub') userId: string, @Body() body: Enable2FADto) {
+        const { token } = body;
 
         try {
             const result = await this.db.query(
@@ -250,9 +288,8 @@ export class AuthController {
 
     // ── Desactivar 2FA ────────────────────────────────────────────────────────
     @Post('2fa/disable')
-    async disable2FA(@Body() body: any) {
-        const { userId, password } = body;
-        if (!userId || !password) return { success: false, message: 'Datos incompletos' };
+    async disable2FA(@CurrentUser('sub') userId: string, @Body() body: Disable2FADto) {
+        const { password } = body;
 
         try {
             const result = await this.db.query('SELECT * FROM users WHERE id=$1', [userId]);
@@ -273,9 +310,7 @@ export class AuthController {
 
     // ── Estado 2FA ────────────────────────────────────────────────────────────
     @Post('2fa/status')
-    async get2FAStatus(@Body() body: any) {
-        const { userId } = body;
-        if (!userId) return { success: false };
+    async get2FAStatus(@CurrentUser('sub') userId: string) {
         try {
             const result = await this.db.query(
                 'SELECT totp_enabled FROM users WHERE id=$1', [userId]

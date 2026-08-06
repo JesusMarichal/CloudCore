@@ -1,45 +1,56 @@
+import { JwtService } from '@nestjs/jwt';
 import { DatabaseService } from '../database/database.service';
+import { LoginDto, Verify2FALoginDto, RegisterDto, ChangePasswordDto, Enable2FADto, Disable2FADto } from './dto/auth.dto';
 export declare class AuthController {
     private readonly db;
+    private readonly jwtService;
     private readonly logger;
-    constructor(db: DatabaseService);
-    login(body: any): Promise<{
+    constructor(db: DatabaseService, jwtService: JwtService);
+    private signToken;
+    login(body: LoginDto): Promise<{
         success: boolean;
         message: string;
         require2FA?: undefined;
-        userId?: undefined;
+        preAuthToken?: undefined;
+        token?: undefined;
         user?: undefined;
     } | {
         success: boolean;
         require2FA: boolean;
-        userId: string;
+        preAuthToken: string;
         message: string;
+        token?: undefined;
         user?: undefined;
     } | {
         success: boolean;
+        token: string;
         user: {
             id: string;
             name: any;
             email: any;
+            role: any;
         };
         message?: undefined;
         require2FA?: undefined;
-        userId?: undefined;
+        preAuthToken?: undefined;
     }>;
-    verify2FALogin(body: any): Promise<{
+    verify2FALogin(body: Verify2FALoginDto): Promise<{
         success: boolean;
         message: string;
+        token?: undefined;
         user?: undefined;
     } | {
         success: boolean;
+        token: string;
         user: {
             id: string;
             name: any;
             email: any;
+            role: any;
         };
         message?: undefined;
     }>;
-    register(body: any): Promise<{
+    register(body: RegisterDto): Promise<{
         success: boolean;
         message: string;
         user?: undefined;
@@ -48,11 +59,11 @@ export declare class AuthController {
         message: string;
         user: any;
     }>;
-    changePassword(body: any): Promise<{
+    changePassword(userId: string, body: ChangePasswordDto): Promise<{
         success: boolean;
         message: string;
     }>;
-    generate2FA(body: any): Promise<{
+    generate2FA(userId: string): Promise<{
         success: boolean;
         message: string;
         secret?: undefined;
@@ -63,18 +74,15 @@ export declare class AuthController {
         otpauthUrl: string;
         message?: undefined;
     }>;
-    enable2FA(body: any): Promise<{
+    enable2FA(userId: string, body: Enable2FADto): Promise<{
         success: boolean;
         message: string;
     }>;
-    disable2FA(body: any): Promise<{
+    disable2FA(userId: string, body: Disable2FADto): Promise<{
         success: boolean;
         message: string;
     }>;
-    get2FAStatus(body: any): Promise<{
-        success: boolean;
-        enabled?: undefined;
-    } | {
+    get2FAStatus(userId: string): Promise<{
         success: boolean;
         enabled: boolean;
     }>;
