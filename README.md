@@ -118,15 +118,4 @@ src/
 └── main.ts         # Punto de entrada
 ```
 
----
-
-## 📝 Próximos Pasos
-
-- [ ] Implementar `SshService` para ejecución remota.
-- [ ] Módulo de aprovisionamiento de Nginx.
-- [ ] Integración de WebSockets para logs en vivo.
-- [ ] Panel de administración en React/NextJS.
-
----
-
 <p align="center">Desarrollado con ❤️ desde 🇻🇪</p>
