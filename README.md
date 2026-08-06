@@ -9,7 +9,7 @@
 
 ## 📖 Descripción
 
-**CloudCore** es una potente plataforma SaaS desarrollada sobre **NestJS**, diseñada para revolucionar la gestión de infraestructura. Permite el aprovisionamiento automatizado, la instalación de stacks tecnológicos y el despliegue de aplicaciones mediante conexiones **SSH programáticas** directas a instancias AWS EC2 y otros proveedores VPS.
+**CloudCore** es una potente plataforma SaaS desarrollada sobre **NestJS**, diseñada para revolucionar la gestión de infraestructura. Permite el aprovisionamiento automatizado, la instalación de stacks tecnológicos y el despliegue de aplicaciones mediante conexiones **SSH programáticas** directas a instancias VPS.
 
 ---
 
