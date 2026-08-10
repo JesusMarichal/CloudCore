@@ -1,76 +1,175 @@
 import { useNavigate } from 'react-router-dom';
-import { useRef, useEffect, useState } from 'react';
-import { Server, Globe, Database, Terminal, Shield, Activity, ArrowRight, Cloud, Cpu, HardDrive, GitCommit, BarChart2, ChevronRight, Layers } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import {
+    Server, ShieldCheck, Cpu, Lock, Globe, Zap, Cloud,
+    ChevronRight, Sun, Moon, ArrowRight, Activity,
+    CheckCircle2, Rocket, Gauge
+} from 'lucide-react';
 import './Landing.css';
 
 const steps = [
-    { number: '01', title: 'Conecta tu servidor', desc: 'Agrega cualquier VPS con tu clave SSH o contraseña. Compatible con DigitalOcean, AWS, Hetzner, Vultr y más.' },
-    { number: '02', title: 'Despliega tu proyecto', desc: 'Selecciona tu repositorio Git, configura los comandos y CloudCore hace el resto automáticamente.' },
-    { number: '03', title: 'Monitorea y gestiona', desc: 'CPU, RAM, disco, servicios, certificados SSL y variables de entorno — todo desde un solo panel.' },
+    { number: '01', icon: Server, title: 'Conecta tu servidor', desc: 'Agrega cualquier VPS con tu clave SSH o contraseña. Compatible con DigitalOcean, AWS, Hetzner, Vultr y más.' },
+    { number: '02', icon: Rocket, title: 'Despliega tu proyecto', desc: 'Selecciona tu repositorio Git, configura los comandos y CloudCore hace el resto automáticamente.' },
+    { number: '03', icon: Gauge, title: 'Monitorea y gestiona', desc: 'CPU, RAM, disco, servicios, certificados SSL y variables de entorno — todo desde un solo panel.' },
 ];
 
 const deepFeatures = [
     {
-        icon: <Server size={20} />, color: '#58a6ff',
         title: 'Consola de administración del servidor',
         desc: 'Compatible con DigitalOcean, AWS, Linode, Vultr, Hetzner y UpCloud. ¿Tienes tu propio servidor? También funciona con cualquier VPS con acceso SSH.',
     },
     {
-        icon: <Layers size={20} />, color: '#a371f7',
         title: 'Despliega cualquier stack',
         desc: 'Node.js, WordPress, NuxtJS, Laravel, Strapi, PHP y HTML estático. Instalación con un clic desde tu repositorio Git.',
     },
     {
-        icon: <Database size={20} />, color: '#58a6ff',
         title: 'Bases de datos gestionadas',
         desc: 'Crea instancias MySQL, PostgreSQL o MariaDB. Gestiona usuarios, permisos y conexiones directamente desde el panel.',
     },
     {
-        icon: <HardDrive size={20} />, color: '#f0883e',
         title: 'Copias de seguridad automáticas',
         desc: 'Backups programados de archivos y bases de datos. Compatible con AWS S3, Wasabi, BackBlaze, DO Spaces y SFTP.',
     },
     {
-        icon: <Shield size={20} />, color: '#3fb950',
         title: 'Seguridad integrada',
         desc: 'SSL gratuito con Let\'s Encrypt, UFW, Fail2Ban, SSH con clave privada y aislamiento por sitio.',
     },
     {
-        icon: <GitCommit size={20} />, color: '#3fb950',
         title: 'Deploy sin tiempo de inactividad',
         desc: 'Despliega con un clic o push-to-deploy automático desde GitHub, GitLab o Bitbucket.',
     },
     {
-        icon: <Terminal size={20} />, color: '#f0883e',
         title: 'Terminal SSH integrado',
         desc: 'Accede a tus servidores desde el navegador con una terminal SSH completa y segura, sin instalar nada.',
     },
     {
-        icon: <Globe size={20} />, color: '#a371f7',
         title: '¡Y mucho más!',
         desc: 'Gestiona dominios, instala Docker, Redis y PM2, configura cron jobs, variables de entorno y certificados desde un solo lugar.',
     },
 ];
 
+const commandTokens: { text: string; cls?: string }[] = [
+    { text: 'cloudcore', cls: 't-cmd-bin' },
+    { text: ' ' },
+    { text: 'deploy', cls: 't-cmd-sub' },
+    { text: ' ' },
+    { text: '--vps', cls: 't-cmd-flag' },
+    { text: ' ' },
+    { text: 'main-server', cls: 't-cmd-val' },
+    { text: ' ' },
+    { text: '--domain', cls: 't-cmd-flag' },
+    { text: ' ' },
+    { text: 'cloudcore.com', cls: 't-cmd-val' },
+];
+const commandText = commandTokens.map(t => t.text).join('');
+
 const Landing = () => {
     const navigate = useNavigate();
-    const metricsRef = useRef<HTMLDivElement>(null);
-    const [metricsVisible, setMetricsVisible] = useState(false);
     const [navOpen, setNavOpen] = useState(false);
+    const [isDark, setIsDark] = useState(false);
 
+    // Mouse movement green spotlight effect
+    const [mousePos, setMousePos] = useState({ x: -1000, y: -1000 });
+    const [mouseActive, setMouseActive] = useState(false);
+
+    // Terminal typing & step animation
+    const [typedText, setTypedText] = useState("");
+    const [terminalStep, setTerminalStep] = useState(0);
+
+    // Live footer metrics (fluctuate subtly to match the LIVE badge)
+    const [cpu, setCpu] = useState(2.1);
+    const [ram, setRam] = useState(1.2);
     useEffect(() => {
-        const el = metricsRef.current;
-        if (!el) return;
-        const obs = new IntersectionObserver(
-            ([entry]) => { if (entry.isIntersecting) { setMetricsVisible(true); obs.disconnect(); } },
-            { threshold: 0.2 }
-        );
-        obs.observe(el);
-        return () => obs.disconnect();
+        const id = setInterval(() => {
+            setCpu(+(1.6 + Math.random() * 3).toFixed(1));
+            setRam(+(1.1 + Math.random() * 0.9).toFixed(1));
+        }, 2200);
+        return () => clearInterval(id);
     }, []);
 
+    // Render the command with syntax highlighting as it types out
+    const renderTypedCommand = () => {
+        let remaining = typedText.length;
+        return commandTokens.map((tok, i) => {
+            if (remaining <= 0) return null;
+            const visible = tok.text.slice(0, remaining);
+            remaining -= tok.text.length;
+            return <span key={i} className={tok.cls}>{visible}</span>;
+        });
+    };
+
+    // Scroll reveal for feature cards & steps
+    useEffect(() => {
+        const items = document.querySelectorAll<HTMLElement>('.landing-root .reveal');
+        const observer = new IntersectionObserver(
+            (entries) => {
+                entries.forEach((entry) => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('revealed');
+                        observer.unobserve(entry.target);
+                    }
+                });
+            },
+            { threshold: 0.15, rootMargin: '0px 0px -60px 0px' }
+        );
+        items.forEach((el) => observer.observe(el));
+        return () => observer.disconnect();
+    }, []);
+
+    useEffect(() => {
+        let timer: ReturnType<typeof setTimeout>;
+        if (terminalStep === 0) {
+            if (typedText.length < commandText.length) {
+                timer = setTimeout(() => {
+                    setTypedText(commandText.slice(0, typedText.length + 1));
+                }, 35);
+            } else {
+                timer = setTimeout(() => setTerminalStep(1), 350);
+            }
+        } else if (terminalStep === 1) {
+            timer = setTimeout(() => setTerminalStep(2), 450);
+        } else if (terminalStep === 2) {
+            timer = setTimeout(() => setTerminalStep(3), 450);
+        } else if (terminalStep === 3) {
+            timer = setTimeout(() => setTerminalStep(4), 450);
+        } else if (terminalStep === 4) {
+            timer = setTimeout(() => setTerminalStep(5), 450);
+        } else if (terminalStep === 5) {
+            timer = setTimeout(() => setTerminalStep(6), 450);
+        } else if (terminalStep === 6) {
+            timer = setTimeout(() => {
+                setTypedText("");
+                setTerminalStep(0);
+            }, 7500);
+        }
+        return () => clearTimeout(timer);
+    }, [typedText, terminalStep]);
+
+    const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        setMousePos({
+            x: e.clientX - rect.left,
+            y: e.clientY - rect.top,
+        });
+        if (!mouseActive) setMouseActive(true);
+    };
+
     return (
-        <div className="landing-root">
+        <div 
+            className={`landing-root ${isDark ? 'dark-theme' : ''}`}
+            onMouseMove={handleMouseMove}
+            onMouseLeave={() => setMouseActive(false)}
+        >
+            {/* Interactive mouse follow green glow */}
+            <div 
+                className="mouse-green-glow"
+                style={{
+                    left: `${mousePos.x}px`,
+                    top: `${mousePos.y}px`,
+                    opacity: mouseActive ? 1 : 0,
+                }}
+            />
+
             <div className="landing-bg-animation">
                 <div className="landing-shape shape-1" />
                 <div className="landing-shape shape-2" />
@@ -82,7 +181,7 @@ const Landing = () => {
             <nav className="landing-nav">
                 <div className="landing-nav-inner">
                     <div className="landing-logo">
-                        <Cloud size={20} />
+                        <Cloud size={22} />
                         <span>CloudCore</span>
                     </div>
                     <div className={`landing-nav-links${navOpen ? ' open' : ''}`}>
@@ -91,6 +190,9 @@ const Landing = () => {
                         <a href="#features" className="nav-link-mobile-cta" onClick={() => { setNavOpen(false); navigate('/login'); }}>Iniciar sesión</a>
                     </div>
                     <div className="landing-nav-actions">
+                        <button className="theme-toggle-btn" onClick={() => setIsDark(!isDark)} title={isDark ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}>
+                            {isDark ? <Sun size={18} /> : <Moon size={18} />}
+                        </button>
                         <button className="landing-btn-ghost" onClick={() => navigate('/login')}>Iniciar sesión</button>
                         <button className="landing-btn-primary" onClick={() => navigate('/register')}>
                             Empezar gratis <ArrowRight size={14} />
@@ -103,69 +205,115 @@ const Landing = () => {
             </nav>
 
             {/* ── Hero ── */}
-            <section className="landing-hero">
-                <h1 className="hero-title">
-                    Gestiona tu infraestructura<br />
-                    <span className="hero-gradient">desde un solo lugar.</span>
-                </h1>
-                <p className="hero-sub">
-                    Despliega servidores, sitios web, WordPress, bases de datos y terminales SSH con una interfaz profesional, en tiempo real y sin complicaciones.
-                </p>
-                <div className="hero-actions">
-                    <button className="landing-btn-primary hero-cta" onClick={() => navigate('/register')}>
-                        Crear cuenta gratis <ArrowRight size={16} />
-                    </button>
-                    <button className="landing-btn-outline" onClick={() => navigate('/login')}>
-                        Ver el panel <ChevronRight size={15} />
-                    </button>
-                </div>
-
-                {/* Dashboard mockup */}
-                <div className="hero-preview">
-                    <div className="preview-bar">
-                        <span className="preview-dot" style={{ background: '#ff5f56' }} />
-                        <span className="preview-dot" style={{ background: '#ffbd2e' }} />
-                        <span className="preview-dot" style={{ background: '#27c93f' }} />
-                        <span className="preview-url">cloudcore.lat · Panel de Control</span>
-                    </div>
-                    <div className="preview-body">
-                        <div className="preview-sidebar">
-                            <div className="preview-logo-mini"><Cloud size={13} /> CloudCore</div>
-                            {['Resumen', 'Instancias', 'Sitios Webs', 'Bases de Datos', 'Terminal SSH'].map(item => (
-                                <div key={item} className={`preview-nav-item${item === 'Instancias' ? ' active' : ''}`}>{item}</div>
-                            ))}
+            <section className="landing-hero-container">
+                <div className="landing-hero-inner">
+                    <div className="hero-content">
+                        <h1 className="hero-title">
+                            Gestiona tu infraestructura<br />
+                            <span className="hero-gradient">desde un solo lugar.</span>
+                        </h1>
+                        <p className="hero-sub">
+                            Despliega servidores, sitios web, WordPress, bases de datos y terminales SSH con una interfaz profesional, en tiempo real y sin complicaciones.
+                        </p>
+                        <div className="hero-actions">
+                            <button className="landing-btn-primary hero-cta" onClick={() => navigate('/register')}>
+                                Crear cuenta gratis <ArrowRight size={16} />
+                            </button>
+                            <button className="landing-btn-outline" onClick={() => navigate('/login')}>
+                                Ver el panel <ChevronRight size={15} />
+                            </button>
                         </div>
-                        <div className="preview-main">
-                            <div className="preview-stat-row">
-                                {[
-                                    { label: 'Servidores',    val: '3',   icon: <Server size={11} />,   color: '#58a6ff' },
-                                    { label: 'CPU Promedio',  val: '24%', icon: <Cpu size={11} />,      color: '#3fb950' },
-                                    { label: 'Sitios',        val: '5',   icon: <Globe size={11} />,    color: '#a371f7' },
-                                    { label: 'Disco',         val: '68%', icon: <HardDrive size={11} />,color: '#f0883e' },
-                                ].map(s => (
-                                    <div key={s.label} className="preview-stat">
-                                        <div style={{ color: s.color }}>{s.icon}</div>
-                                        <div className="preview-stat-val" style={{ color: s.color }}>{s.val}</div>
-                                        <div className="preview-stat-label">{s.label}</div>
-                                    </div>
-                                ))}
-                            </div>
-                            <div className="preview-table">
-                                <div className="preview-table-header">
-                                    <span>Servidor</span><span>Status</span><span>CPU</span><span>RAM</span>
+                    </div>
+
+                    {/* Height-balanced Animated Terminal Box */}
+                    <div className="hero-visual">
+                        <div className="terminal-box">
+                            <div className="terminal-header">
+                                <div className="t-dots">
+                                    <span className="t-dot red" />
+                                    <span className="t-dot yellow" />
+                                    <span className="t-dot green" />
                                 </div>
-                                {[
-                                    { name: 'prod-server-01', cpu: '18%', ram: '42%' },
-                                    { name: 'staging-server', cpu: '31%', ram: '58%' },
-                                    { name: 'db-server-eu',   cpu: '9%',  ram: '71%' },
-                                ].map(r => (
-                                    <div key={r.name} className="preview-table-row">
-                                        <span className="preview-mono">{r.name}</span>
-                                        <span className="preview-online">● online</span>
-                                        <span>{r.cpu}</span>
-                                        <span>{r.ram}</span>
+                                <span className="t-title">cloudcore-cli — bash</span>
+                                <span className="t-live-pill">
+                                    <span className="live-dot" /> LIVE
+                                </span>
+                            </div>
+
+                            <div className="terminal-body">
+                                {/* Command Prompt */}
+                                <div className="t-line prompt">
+                                    <span className="t-user">cloudcore@server</span>:<span className="t-dir">~</span>$&nbsp;
+                                    <span className="t-cmd">{renderTypedCommand()}</span>
+                                    <span className="t-cursor">|</span>
+                                </div>
+
+                                {/* Step 1: SSH Connection */}
+                                {terminalStep >= 1 && (
+                                    <div className="t-animated-line">
+                                        <Server size={14} className="t-step-icon blue" />
+                                        <span className="t-text">Conectando a VPS (ubuntu-22.04)...</span>
+                                        <span className="t-val blue">104.248.192.12</span>
                                     </div>
-                                ))}
+                                )}
+
+                                {/* Step 2: Firewall Security */}
+                                {terminalStep >= 2 && (
+                                    <div className="t-animated-line">
+                                        <ShieldCheck size={14} className="t-step-icon green" />
+                                        <span className="t-text">Configurando Firewall (UFW & Fail2Ban)...</span>
+                                        <span className="t-val green">Protegido</span>
+                                    </div>
+                                )}
+
+                                {/* Step 3: Stack Provisioning */}
+                                {terminalStep >= 3 && (
+                                    <div className="t-animated-line">
+                                        <Cpu size={14} className="t-step-icon purple" />
+                                        <span className="t-text">Instalando Docker, Nginx & PM2...</span>
+                                        <span className="t-val green">v24.2.0 Ready</span>
+                                    </div>
+                                )}
+
+                                {/* Step 4: SSL Certificate */}
+                                {terminalStep >= 4 && (
+                                    <div className="t-animated-line">
+                                        <Lock size={14} className="t-step-icon green" />
+                                        <span className="t-text">Emitiendo certificado TLS 1.3 / Let's Encrypt...</span>
+                                        <span className="t-val green">SSL Activo</span>
+                                    </div>
+                                )}
+
+                                {/* Step 5: DNS & Health Check */}
+                                {terminalStep >= 5 && (
+                                    <div className="t-animated-line">
+                                        <Globe size={14} className="t-step-icon blue" />
+                                        <span className="t-text">Verificando propagación DNS & Health...</span>
+                                        <span className="t-val green">200 OK (12ms)</span>
+                                    </div>
+                                )}
+
+                                {/* Step 6: Success Line (Clean Text, No Background Box) */}
+                                {terminalStep >= 6 && (
+                                    <div className="t-animated-success-line">
+                                        <Zap size={16} className="t-success-icon" />
+                                        <span>¡Servidor listo en producción! <strong className="t-domain">https://cloudcore.com</strong></span>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Live System Status Bar */}
+                            <div className="terminal-footer">
+                                <div className="t-metric">
+                                    <Activity size={12} className="t-metric-icon" />
+                                    <span>CPU: <strong>{cpu.toFixed(1)}%</strong></span>
+                                </div>
+                                <div className="t-metric">
+                                    <span>RAM: <strong>{ram.toFixed(1)} GB / 8 GB</strong></span>
+                                </div>
+                                <div className="t-metric">
+                                    <span>Puertos: <strong>80, 443, 22</strong></span>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -175,93 +323,17 @@ const Landing = () => {
             {/* ── Features ── */}
             <section className="landing-section deep-features-section" id="features">
                 <div className="landing-section-inner">
-                    <div className="section-label">Características</div>
                     <h2 className="section-title">Gestiona tus servidores y aplicaciones con confianza.</h2>
                     <p className="section-sub">CloudCore reemplaza múltiples herramientas con un solo panel — lanza sitios web y aplicaciones en minutos, no en horas.</p>
                     <div className="deep-grid">
-                        {deepFeatures.map(f => (
-                            <div key={f.title} className="deep-card">
-                                <div className="deep-card-icon" style={{ color: f.color, background: `${f.color}12`, border: `1px solid ${f.color}22` }}>
-                                    {f.icon}
-                                </div>
-                                <div>
-                                    <h3 className="deep-card-title">{f.title}</h3>
-                                    <p className="deep-card-desc">{f.desc}</p>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </section>
-
-            {/* ── Metrics dashboard ── */}
-            <section className="landing-metrics">
-                <div className="landing-section-inner">
-                    <div className="section-label">Monitoreo en tiempo real</div>
-                    <h2 className="section-title">Cada métrica, visible al instante.</h2>
-                    <p className="section-sub">Un panel de instrumentos que te muestra el estado exacto de cada servidor — actualizado cada 5 segundos.</p>
-
-                    <div ref={metricsRef} className={`dash-panel${metricsVisible ? ' animate' : ''}`}>
-                        <div className="dash-header">
-                            <div className="dash-server-info">
-                                <span className="dash-online-dot" />
-                                <span className="dash-server-name">prod-server-01</span>
-                                <span className="dash-sep">·</span>
-                                <span className="dash-tag">Ubuntu 22.04 LTS</span>
-                                <span className="dash-sep">·</span>
-                                <span className="dash-tag">Uptime: 47d 12h</span>
-                            </div>
-                            <span className="dash-live">● LIVE</span>
-                        </div>
-
-                        <div className="dash-gauges">
-                            {([
-                                { label: 'CPU',   value: 24.5, max: 100, unit: '%',  color: '#58a6ff' },
-                                { label: 'RAM',   value: 42.1, max: 100, unit: '%',  color: '#3fb950' },
-                                { label: 'Disco', value: 68,   max: 100, unit: '%',  color: '#d29922' },
-                                { label: 'Temp',  value: 52,   max: 100, unit: '°C', color: '#3fb950' },
-                            ] as { label: string; value: number; max: number; unit: string; color: string }[]).map(g => {
-                                const r = 38, C = 2 * Math.PI * r, L = 0.75 * C;
-                                const filled = (g.value / g.max) * L;
-                                const offset = metricsVisible ? L - filled : L;
-                                const gc = g.value > 80 ? '#f85149' : g.value > 60 ? '#d29922' : g.color;
-                                return (
-                                    <div key={g.label} className="gauge-wrap">
-                                        <svg viewBox="0 0 100 100" className="gauge-svg">
-                                            <circle cx="50" cy="50" r={r} fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth="7" strokeDasharray={`${L} ${C}`} strokeLinecap="round" transform="rotate(135 50 50)" />
-                                            <circle cx="50" cy="50" r={r} fill="none" stroke={gc} strokeWidth="9" strokeOpacity="0.12" strokeDasharray={`${L} ${C}`} strokeLinecap="round" transform="rotate(135 50 50)" style={{ strokeDashoffset: offset, transition: 'stroke-dashoffset 1.4s cubic-bezier(0.4,0,0.2,1) 0.1s' }} />
-                                            <circle cx="50" cy="50" r={r} fill="none" stroke={gc} strokeWidth="7" strokeDasharray={`${L} ${C}`} strokeLinecap="round" transform="rotate(135 50 50)" style={{ strokeDashoffset: offset, transition: 'stroke-dashoffset 1.4s cubic-bezier(0.4,0,0.2,1) 0.2s', filter: `drop-shadow(0 0 5px ${gc})` }} />
-                                            <text x="50" y="48" textAnchor="middle" dominantBaseline="middle" fill="#f0f6fc" fontSize="15" fontWeight="700" fontFamily="JetBrains Mono, monospace">{g.value}{g.unit}</text>
-                                            <text x="50" y="64" textAnchor="middle" fill="rgba(139,148,158,0.8)" fontSize="8" fontFamily="Inter, sans-serif" letterSpacing="0.5">{g.label.toUpperCase()}</text>
-                                        </svg>
-                                    </div>
-                                );
-                            })}
-                        </div>
-
-                        <div className="dash-services">
-                            <span className="dash-services-label">Servicios</span>
-                            {[
-                                { name: 'nginx', active: true }, { name: 'mysql', active: true },
-                                { name: 'pm2', active: true },   { name: 'redis', active: false },
-                                { name: 'docker', active: true },{ name: 'postgresql', active: false },
-                            ].map(s => (
-                                <div key={s.name} className={`dash-service ${s.active ? 'on' : 'off'}`}>
-                                    <span className="dash-service-dot" />{s.name}
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    <div className="dash-features-row">
-                        {[
-                            { icon: <BarChart2 size={14} />, text: 'Gráficas históricas de CPU y RAM' },
-                            { icon: <Activity size={14} />,  text: 'Actualización automática cada 5 s' },
-                            { icon: <Shield size={14} />,    text: 'Control de servicios systemd' },
-                            { icon: <GitCommit size={14} />, text: 'Detección de commits desactualizados' },
-                        ].map(f => (
-                            <div key={f.text} className="dash-feature-pill">
-                                <span style={{ color: 'var(--primary)' }}>{f.icon}</span>{f.text}
+                        {deepFeatures.map((f, i) => (
+                            <div
+                                key={f.title}
+                                className="deep-card reveal"
+                                style={{ transitionDelay: `${(i % 2) * 0.08 + Math.floor(i / 2) * 0.06}s` }}
+                            >
+                                <h3 className="deep-card-title">{f.title}</h3>
+                                <p className="deep-card-desc">{f.desc}</p>
                             </div>
                         ))}
                     </div>
@@ -271,11 +343,23 @@ const Landing = () => {
             {/* ── Cómo funciona ── */}
             <section className="landing-section" id="how">
                 <div className="landing-section-inner">
-                    <div className="section-label">Cómo funciona</div>
                     <h2 className="section-title">En producción en minutos, no en horas.</h2>
                     <div className="steps-grid">
                         {steps.map((s, i) => (
-                            <div key={i} className="step-card">
+                            <div
+                                key={i}
+                                className="step-card reveal"
+                                style={{ transitionDelay: `${i * 0.15}s` }}
+                            >
+                                <div className="step-head">
+                                    <span className="step-badge">
+                                        <s.icon size={26} strokeWidth={1.75} />
+                                    </span>
+                                    <span className="step-check">
+                                        <CheckCircle2 size={18} />
+                                    </span>
+                                    {i < steps.length - 1 && <span className="step-connector" />}
+                                </div>
                                 <div className="step-number">{s.number}</div>
                                 <h3>{s.title}</h3>
                                 <p>{s.desc}</p>
@@ -299,8 +383,8 @@ const Landing = () => {
             {/* ── Footer ── */}
             <footer className="landing-footer">
                 <div className="landing-footer-inner">
-                    <div className="landing-logo" style={{ opacity: 0.6 }}>
-                        <Cloud size={16} /><span>CloudCore</span>
+                    <div className="landing-logo">
+                        <Cloud size={18} /><span>CloudCore</span>
                     </div>
                     <p className="footer-copy">© 2025 CloudCore. Infraestructura SaaS. · Desarrollado por <span className="footer-dev">AbstracDev</span></p>
                 </div>
@@ -310,3 +394,4 @@ const Landing = () => {
 };
 
 export default Landing;
+

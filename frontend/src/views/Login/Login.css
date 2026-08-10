@@ -415,6 +415,134 @@
 }
 
 
+/* =========================================================
+   LIGHT THEME (default) — overrides the dark variables/colors
+   ========================================================= */
+.login-container.theme-light {
+    --primary: #2563eb;
+    --primary-hover: #1d4ed8;
+    --primary-glow: rgba(37, 99, 235, 0.15);
+    --text-main: #1f2328;
+    --text-muted: #57606a;
+    --gh-border: #d0d7de;
+    --gh-text-muted: #6e7781;
+    --bg-dark: #ffffff;
+    background-color: #f6f8fa;
+    background-image:
+        radial-gradient(circle at 0% 0%, rgba(37, 99, 235, 0.06) 0%, transparent 50%),
+        radial-gradient(circle at 100% 100%, rgba(22, 163, 74, 0.05) 0%, transparent 50%),
+        radial-gradient(circle at 50% 50%, #ffffff 0%, #eef1f5 100%);
+}
+
+.login-container.theme-light::before {
+    background-image:
+        linear-gradient(rgba(203, 213, 225, 0.5) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(203, 213, 225, 0.5) 1px, transparent 1px);
+}
+
+.login-container.theme-light .login-card {
+    background: rgba(255, 255, 255, 0.9);
+    box-shadow: 0 20px 40px rgba(140, 149, 159, 0.2),
+        0 0 0 1px rgba(208, 215, 222, 0.8);
+}
+
+.login-container.theme-light .auth-brand-name {
+    background: linear-gradient(135deg, #1f2328 0%, #57606a 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.login-container.theme-light .auth-brand-icon {
+    filter: drop-shadow(0 0 12px rgba(37, 99, 235, 0.35));
+}
+
+.login-container.theme-light input {
+    background: #f6f8fa;
+    color: #1f2328;
+}
+
+.login-container.theme-light input:focus {
+    background: #ffffff;
+}
+
+/* ── Theme toggle button (overrides the global gradient button) ── */
+.login-container .theme-toggle {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    width: 38px;
+    height: 38px;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    border: 1px solid var(--gh-border);
+    color: var(--text-muted);
+    border-radius: 8px;
+    box-shadow: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2;
+    transition: all 0.2s ease;
+}
+
+.login-container .theme-toggle:hover {
+    transform: none;
+    filter: none;
+    color: var(--text-main);
+    border-color: var(--gh-text-muted);
+    background: rgba(127, 127, 127, 0.08);
+    box-shadow: none;
+}
+
+/* ── "o continúa con" divider ── */
+.social-divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 22px 0 16px;
+    color: var(--text-muted);
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.social-divider::before,
+.social-divider::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--gh-border);
+}
+
+/* ── Google / GitHub buttons (UI only) ── */
+.social-buttons {
+    display: flex;
+    gap: 12px;
+}
+
+.login-container .social-btn {
+    flex: 1;
+    margin-top: 0;
+    padding: 12px 14px;
+    background: var(--bg-dark);
+    color: var(--text-main);
+    border: 1px solid var(--gh-border);
+    box-shadow: none;
+    font-size: 14px;
+    font-weight: 600;
+    gap: 8px;
+}
+
+.login-container .social-btn:hover {
+    transform: translateY(-1px);
+    filter: none;
+    background: var(--bg-dark);
+    border-color: var(--gh-text-muted);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
 /* Responsive Login */
 @media (max-width: 480px) {
     .login-card {
