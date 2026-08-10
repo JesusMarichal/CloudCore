@@ -6,14 +6,15 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
 import { ServerController } from './controllers/server.controller';
-import { SshService } from './services/ssh.service';
+import { SshModule } from './services/ssh.module';
 import { AuthController } from './auth/auth.controller';
-import { DatabaseService } from './database/database.service';
+import { DatabaseModule } from './database/database.module';
 import { TerminalService } from './terminal/terminal.service';
 import { TerminalController } from './terminal/terminal.controller';
 import { GithubController } from './controllers/github.controller';
 import { SshTerminalGateway } from './terminal/ssh-terminal.gateway';
 import { JwtAuthGuard } from './common/auth/jwt-auth.guard';
+import { DeployModule } from './deploy/deploy.module';
 
 @Module({
     imports: [
@@ -30,11 +31,12 @@ import { JwtAuthGuard } from './common/auth/jwt-auth.guard';
         ServeStaticModule.forRoot({
             rootPath: join(__dirname, '..', 'public'),
         }),
+        DatabaseModule,
+        SshModule,
+        DeployModule,
     ],
     controllers: [ServerController, AuthController, TerminalController, GithubController],
     providers: [
-        SshService,
-        DatabaseService,
         TerminalService,
         SshTerminalGateway,
         { provide: APP_GUARD, useClass: JwtAuthGuard },

@@ -19,7 +19,6 @@ export declare class ServerController {
     uninstallService(id: string, serviceName: string, userId: string, res: Response): Promise<void>;
     manageService(id: string, serviceName: string, action: string, userId: string): Promise<any>;
     updateSystem(id: string, userId: string, res: Response): Promise<void>;
-    deployWebsite(id: string, userId: string, body: any, res: Response): Promise<void>;
     updateWebsite(id: string, websiteId: string, userId: string, body: any, res: Response): Promise<void>;
     getWebsites(userId: string): Promise<any[]>;
     private importExistingWebsites;

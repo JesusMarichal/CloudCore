@@ -15,14 +15,15 @@ const throttler_1 = require("@nestjs/throttler");
 const serve_static_1 = require("@nestjs/serve-static");
 const path_1 = require("path");
 const server_controller_1 = require("./controllers/server.controller");
-const ssh_service_1 = require("./services/ssh.service");
+const ssh_module_1 = require("./services/ssh.module");
 const auth_controller_1 = require("./auth/auth.controller");
-const database_service_1 = require("./database/database.service");
+const database_module_1 = require("./database/database.module");
 const terminal_service_1 = require("./terminal/terminal.service");
 const terminal_controller_1 = require("./terminal/terminal.controller");
 const github_controller_1 = require("./controllers/github.controller");
 const ssh_terminal_gateway_1 = require("./terminal/ssh-terminal.gateway");
 const jwt_auth_guard_1 = require("./common/auth/jwt-auth.guard");
+const deploy_module_1 = require("./deploy/deploy.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -42,11 +43,12 @@ exports.AppModule = AppModule = __decorate([
             serve_static_1.ServeStaticModule.forRoot({
                 rootPath: (0, path_1.join)(__dirname, '..', 'public'),
             }),
+            database_module_1.DatabaseModule,
+            ssh_module_1.SshModule,
+            deploy_module_1.DeployModule,
         ],
         controllers: [server_controller_1.ServerController, auth_controller_1.AuthController, terminal_controller_1.TerminalController, github_controller_1.GithubController],
         providers: [
-            ssh_service_1.SshService,
-            database_service_1.DatabaseService,
             terminal_service_1.TerminalService,
             ssh_terminal_gateway_1.SshTerminalGateway,
             { provide: core_1.APP_GUARD, useClass: jwt_auth_guard_1.JwtAuthGuard },

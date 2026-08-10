@@ -11,7 +11,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
-var _a, _b, _c, _d, _e, _f;
+var _a, _b, _c, _d, _e;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ServerController = void 0;
 const common_1 = require("@nestjs/common");
@@ -342,107 +342,6 @@ let ServerController = class ServerController {
         }
         else {
             res.write('\n\n---ERROR---\n');
-        }
-        res.end();
-    }
-    async deployWebsite(id, userId, body, res) {
-        res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-        res.setHeader('Transfer-Encoding', 'chunked');
-        let serverData;
-        try {
-            serverData = await this.assertServerOwnership(id, userId);
-        }
-        catch {
-            res.status(404).write('---ERROR---\nServidor no encontrado');
-            res.end();
-            return;
-        }
-        if (body.useLetsEncrypt && body.domain && body.domain !== '_') {
-            res.write(`🔍 Verificando propagación DNS para ${body.domain}...\n`);
-            try {
-                const addresses = await resolve4(body.domain);
-                const serverIp = serverData.ip;
-                if (!addresses.includes(serverIp)) {
-                    res.write(`⚠️ ADVERTENCIA: El dominio ${body.domain} apunta a ${addresses.join(', ')} pero el servidor es ${serverIp}.\n`);
-                    res.write(`❌ La generación de SSL podría fallar. Asegúrate de que el registro A en Spaceship sea correcto.\n\n`);
-                }
-                else {
-                    res.write(`✅ DNS verificado correctamente.\n\n`);
-                }
-            }
-            catch (error) {
-                res.write(`⚠️ No se pudo resolver el dominio ${body.domain}. Es posible que los DNS no hayan propagado aún.\n`);
-                res.write(`❌ Procediendo con precaución, pero SSL podría fallar.\n\n`);
-            }
-        }
-        const server = {
-            id: serverData.id,
-            name: serverData.name,
-            ip: serverData.ip,
-            sshPort: serverData.ssh_port,
-            sshUser: serverData.ssh_user,
-            authType: serverData.auth_type,
-            privateKey: serverData.private_key,
-            password: serverData.password,
-            status: serverData.status,
-            lastHealthCheck: serverData.last_health_check || new Date(),
-        };
-        res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-        res.setHeader('Transfer-Encoding', 'chunked');
-        let repoUrlWithToken = body.repo;
-        let userEmail = '';
-        {
-            const userRes = await this.dbService.query('SELECT github_token, email FROM users WHERE id = $1', [userId]);
-            const userData = userRes.rows[0];
-            if (userData?.github_token && body.repo.startsWith('https://github.com/')) {
-                repoUrlWithToken = body.repo.replace('https://github.com/', `https://${userData.github_token}@github.com/`);
-            }
-            userEmail = userData?.email || '';
-        }
-        const deployBody = { ...body, repo: repoUrlWithToken, userEmail };
-        const success = await this.sshService.deployWebsite(server, deployBody, (chunk) => {
-            if (repoUrlWithToken !== body.repo) {
-                const tokenRegex = new RegExp(`https://[^@]+@github\\.com`, 'g');
-                chunk = chunk.replace(tokenRegex, 'https://github.com');
-            }
-            res.write(chunk);
-        });
-        if (success) {
-            try {
-                await this.dbService.query(`
-                    DO $$
-                    BEGIN
-                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='websites' AND column_name='build_command') THEN
-                            ALTER TABLE websites ADD COLUMN build_command VARCHAR(255);
-                        END IF;
-                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='websites' AND column_name='domain') THEN
-                            ALTER TABLE websites ADD COLUMN domain VARCHAR(255);
-                        END IF;
-                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='websites' AND column_name='entry_point') THEN
-                            ALTER TABLE websites ADD COLUMN entry_point VARCHAR(255);
-                        END IF;
-                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='websites' AND column_name='user_id') THEN
-                            ALTER TABLE websites ADD COLUMN user_id VARCHAR(255);
-                        END IF;
-                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='websites' AND column_name='env_vars') THEN
-                            ALTER TABLE websites ADD COLUMN env_vars TEXT;
-                        END IF;
-                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='websites' AND column_name='use_letsencrypt') THEN
-                            ALTER TABLE websites ADD COLUMN use_letsencrypt BOOLEAN DEFAULT FALSE;
-                        END IF;
-                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='websites' AND column_name='setup_www_alias') THEN
-                            ALTER TABLE websites ADD COLUMN setup_www_alias BOOLEAN DEFAULT FALSE;
-                        END IF;
-                    END $$;
-                `);
-                await this.dbService.query(`
-                    INSERT INTO websites (server_id, user_id, repo_url, name, install_command, build_command, start_command, port, domain, entry_point, env_vars, use_letsencrypt, setup_www_alias)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-                `, [id, userId, body.repo, body.name, body.installCommand, body.buildCommand, body.startCommand, body.port, body.domain, body.entryPoint, body.envVars, body.useLetsEncrypt || false, body.setupWwwAlias || false]);
-            }
-            catch (error) {
-                console.error("Error guardando el sitio en la base de datos:", error);
-            }
         }
         res.end();
     }
@@ -1389,16 +1288,6 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], ServerController.prototype, "updateSystem", null);
 __decorate([
-    (0, common_1.Post)(':id/deploy-website'),
-    __param(0, (0, common_1.Param)('id')),
-    __param(1, (0, current_user_decorator_1.CurrentUser)('sub')),
-    __param(2, (0, common_1.Body)()),
-    __param(3, (0, common_1.Res)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String, Object, typeof (_d = typeof express_1.Response !== "undefined" && express_1.Response) === "function" ? _d : Object]),
-    __metadata("design:returntype", Promise)
-], ServerController.prototype, "deployWebsite", null);
-__decorate([
     (0, common_1.Post)(':id/websites/:websiteId/update'),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Param)('websiteId')),
@@ -1406,7 +1295,7 @@ __decorate([
     __param(3, (0, common_1.Body)()),
     __param(4, (0, common_1.Res)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String, String, Object, typeof (_e = typeof express_1.Response !== "undefined" && express_1.Response) === "function" ? _e : Object]),
+    __metadata("design:paramtypes", [String, String, String, Object, typeof (_d = typeof express_1.Response !== "undefined" && express_1.Response) === "function" ? _d : Object]),
     __metadata("design:returntype", Promise)
 ], ServerController.prototype, "updateWebsite", null);
 __decorate([
@@ -1485,7 +1374,7 @@ __decorate([
     __param(2, (0, common_1.Body)()),
     __param(3, (0, common_1.Res)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String, Object, typeof (_f = typeof express_1.Response !== "undefined" && express_1.Response) === "function" ? _f : Object]),
+    __metadata("design:paramtypes", [String, String, Object, typeof (_e = typeof express_1.Response !== "undefined" && express_1.Response) === "function" ? _e : Object]),
     __metadata("design:returntype", Promise)
 ], ServerController.prototype, "deployDatabase", null);
 __decorate([

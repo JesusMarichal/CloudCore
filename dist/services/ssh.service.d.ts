@@ -11,18 +11,4 @@ export declare class SshService {
     installService(server: Server, serviceName: string, onData?: (chunk: string) => void): Promise<boolean>;
     uninstallService(server: Server, serviceName: string, onData?: (chunk: string) => void): Promise<boolean>;
     updateServer(server: Server, onData?: (chunk: string) => void): Promise<boolean>;
-    deployWebsite(server: Server, data: {
-        name: string;
-        repo: string;
-        installCommand: string;
-        buildCommand?: string;
-        startCommand: string;
-        port: string;
-        domain?: string;
-        envVars?: string;
-        entryPoint?: string;
-        useLetsEncrypt?: boolean;
-        setupWwwAlias?: boolean;
-        userEmail?: string;
-    }, onData?: (chunk: string) => void): Promise<boolean>;
 }
