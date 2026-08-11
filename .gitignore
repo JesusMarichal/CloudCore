@@ -1,0 +1,11 @@
+# Variables de entorno
+.env
+.env.local
+.env.development
+.env.production
+
+# Dependencias y compilación
+node_modules/
+dist/
+build/
+.vite/
