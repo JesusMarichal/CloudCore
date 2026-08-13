@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthService } from '../../services/auth.service';
-import { Mail, Lock, User, ArrowRight, Cloud, CheckCircle } from 'lucide-react';
+import { Mail, Lock, User, ArrowRight, Cloud, CheckCircle, Sun, Moon } from 'lucide-react';
 import '../Login/Login.css';
 import './Register.css';
 
@@ -12,6 +12,7 @@ const Register: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [isDark, setIsDark] = useState(false); // arranca en claro (blanco) por defecto
     const navigate = useNavigate();
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -37,7 +38,7 @@ const Register: React.FC = () => {
     };
 
     return (
-        <div className="login-container">
+        <div className={`login-container ${isDark ? 'theme-dark' : 'theme-light'}`}>
             <div className="background-animation">
                 <div className="shape shape-1"></div>
                 <div className="shape shape-2"></div>
@@ -46,6 +47,16 @@ const Register: React.FC = () => {
             </div>
 
             <div className="login-card">
+                <button
+                    type="button"
+                    className="theme-toggle"
+                    onClick={() => setIsDark(v => !v)}
+                    title={isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+                    aria-label="Cambiar tema"
+                >
+                    {isDark ? <Sun size={18} /> : <Moon size={18} />}
+                </button>
+
                 {success ? (
                     <div className="reg-success">
                         <CheckCircle size={44} className="reg-success-icon" />
