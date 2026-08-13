@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthService } from '../../services/auth.service';
 import { tokenStorage } from '../../services/tokenStorage';
-import { Mail, Lock, LogIn, ArrowRight, Cloud, ShieldCheck, Sun, Moon } from 'lucide-react';
+import { Mail, Lock, ArrowRight, Cloud, ShieldCheck, Sun, Moon } from 'lucide-react';
 import OTPInput from '../../components/OTPInput';
 import './Login.css';
 
@@ -83,7 +83,9 @@ const Login: React.FC = () => {
                     title={isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
                     aria-label="Cambiar tema"
                 >
-                    {isDark ? <Sun size={18} /> : <Moon size={18} />}
+                    <span key={isDark ? 'dark' : 'light'} className="theme-icon">
+                        {isDark ? <Sun size={18} /> : <Moon size={18} />}
+                    </span>
                 </button>
 
                 <div className="login-header">
@@ -130,7 +132,7 @@ const Login: React.FC = () => {
 
                     <button type="submit" disabled={loading || (step === '2fa' && totpCode.length < 6)}>
                         {loading ? 'Verificando...' : step === 'credentials'
-                            ? <><LogIn size={17} /> Iniciar Sesión</>
+                            ? 'Iniciar Sesión'
                             : <><ShieldCheck size={17} /> Verificar</>
                         }
                     </button>

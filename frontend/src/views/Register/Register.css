@@ -45,3 +45,134 @@
     font-size: 14px;
     color: var(--text-muted);
 }
+
+/* ── Tighter label-to-input spacing ── */
+.reg-form .form-group label {
+    margin-bottom: 6px;
+}
+
+/* ── Staggered field entrance ── */
+@keyframes regFieldIn {
+    from {
+        opacity: 0;
+        transform: translateY(14px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.reg-form > * {
+    animation: regFieldIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
+.reg-form > *:nth-child(1) { animation-delay: 0.05s; }
+.reg-form > *:nth-child(2) { animation-delay: 0.12s; }
+.reg-form > *:nth-child(3) { animation-delay: 0.19s; }
+.reg-form > *:nth-child(4) { animation-delay: 0.26s; }
+.reg-form > *:nth-child(5) { animation-delay: 0.32s; }
+.reg-form > *:nth-child(6) { animation-delay: 0.38s; }
+
+/* ── Password strength meter ── */
+.pw-strength {
+    margin-top: 10px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--gh-border);
+    overflow: hidden;
+}
+
+.pw-strength-bar {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), background 0.3s ease;
+}
+
+.pw-strength-bar.level-1 { background: #f85149; }
+.pw-strength-bar.level-2 { background: #d29922; }
+.pw-strength-bar.level-3 { background: #3fb950; }
+
+.pw-strength-label {
+    display: block;
+    margin-top: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-muted);
+    animation: fadeIn 0.3s ease;
+}
+
+.pw-strength-label.level-1 { color: #f85149; }
+.pw-strength-label.level-2 { color: #d29922; }
+.pw-strength-label.level-3 { color: #3fb950; }
+
+/* ── Password requirements checklist (floats to the right) ── */
+.form-group.pw-group {
+    position: relative;
+}
+
+.pw-requirements {
+    position: absolute;
+    top: 0;
+    left: calc(100% + 20px);
+    width: 200px;
+    padding: 14px 16px;
+    background: rgba(22, 27, 34, 0.97);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid var(--gh-border);
+    border-radius: 10px;
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.35);
+    z-index: 3;
+    animation: fadeIn 0.25s ease;
+}
+
+.login-container.theme-light .pw-requirements {
+    background: rgba(255, 255, 255, 0.97);
+    box-shadow: 0 12px 24px rgba(140, 149, 159, 0.2), 0 0 0 1px rgba(208, 215, 222, 0.6);
+}
+
+.pw-requirements ul {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    margin: 0;
+    padding: 0;
+}
+
+.pw-requirements li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--text-muted);
+    transition: color 0.2s ease;
+}
+
+.pw-requirements li svg {
+    flex-shrink: 0;
+    color: var(--gh-text-muted);
+    transition: color 0.2s ease, transform 0.2s ease;
+}
+
+.pw-requirements li.pw-req-met {
+    color: var(--text-main);
+}
+
+.pw-requirements li.pw-req-met svg {
+    color: #3fb950;
+    transform: scale(1.1);
+}
+
+/* Not enough room beside the card on narrow/tablet screens - stack below instead */
+@media (max-width: 900px) {
+    .pw-requirements {
+        position: static;
+        width: 100%;
+        margin-top: 10px;
+        box-shadow: none;
+        animation: fadeIn 0.25s ease;
+    }
+}
