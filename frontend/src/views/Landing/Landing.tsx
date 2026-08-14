@@ -4,7 +4,8 @@ import {
     Server, ShieldCheck, Cpu, Lock, Globe, Zap, Cloud,
     ChevronRight, Sun, Moon, ArrowRight, Activity,
     CheckCircle2, Rocket, Gauge
-} from 'lucide-react';
+} from 'lucide';
+import { MorphIcon } from 'morphicons/react';
 import './Landing.css';
 
 const steps = [
@@ -155,13 +156,13 @@ const Landing = () => {
     };
 
     return (
-        <div 
+        <div
             className={`landing-root ${isDark ? 'dark-theme' : ''}`}
             onMouseMove={handleMouseMove}
             onMouseLeave={() => setMouseActive(false)}
         >
             {/* Interactive mouse follow green glow */}
-            <div 
+            <div
                 className="mouse-green-glow"
                 style={{
                     left: `${mousePos.x}px`,
@@ -181,7 +182,7 @@ const Landing = () => {
             <nav className="landing-nav">
                 <div className="landing-nav-inner">
                     <div className="landing-logo">
-                        <Cloud size={22} />
+                        <MorphIcon icon={Cloud} size={22} />
                         <span>CloudCore</span>
                     </div>
                     <div className={`landing-nav-links${navOpen ? ' open' : ''}`}>
@@ -191,11 +192,11 @@ const Landing = () => {
                     </div>
                     <div className="landing-nav-actions">
                         <button className="theme-toggle-btn" onClick={() => setIsDark(!isDark)} title={isDark ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}>
-                            {isDark ? <Sun size={18} /> : <Moon size={18} />}
+                            <MorphIcon icon={isDark ? Sun : Moon} size={18} spring="snappy" />
                         </button>
                         <button className="landing-btn-ghost" onClick={() => navigate('/login')}>Iniciar sesión</button>
                         <button className="landing-btn-primary" onClick={() => navigate('/register')}>
-                            Empezar gratis <ArrowRight size={14} />
+                            Empezar gratis <MorphIcon icon={ArrowRight} size={14} />
                         </button>
                     </div>
                     <button className="nav-hamburger" onClick={() => setNavOpen(!navOpen)} aria-label="Menú">
@@ -217,10 +218,10 @@ const Landing = () => {
                         </p>
                         <div className="hero-actions">
                             <button className="landing-btn-primary hero-cta" onClick={() => navigate('/register')}>
-                                Crear cuenta gratis <ArrowRight size={16} />
+                                Crear cuenta gratis <MorphIcon icon={ArrowRight} size={16} />
                             </button>
                             <button className="landing-btn-outline" onClick={() => navigate('/login')}>
-                                Ver el panel <ChevronRight size={15} />
+                                Ver el panel <MorphIcon icon={ChevronRight} size={15} />
                             </button>
                         </div>
                     </div>
@@ -251,7 +252,7 @@ const Landing = () => {
                                 {/* Step 1: SSH Connection */}
                                 {terminalStep >= 1 && (
                                     <div className="t-animated-line">
-                                        <Server size={14} className="t-step-icon blue" />
+                                        <MorphIcon icon={Server} size={14} className="t-step-icon blue" />
                                         <span className="t-text">Conectando a VPS (ubuntu-22.04)...</span>
                                         <span className="t-val blue">104.248.192.12</span>
                                     </div>
@@ -260,7 +261,7 @@ const Landing = () => {
                                 {/* Step 2: Firewall Security */}
                                 {terminalStep >= 2 && (
                                     <div className="t-animated-line">
-                                        <ShieldCheck size={14} className="t-step-icon green" />
+                                        <MorphIcon icon={ShieldCheck} size={14} className="t-step-icon green" />
                                         <span className="t-text">Configurando Firewall (UFW & Fail2Ban)...</span>
                                         <span className="t-val green">Protegido</span>
                                     </div>
@@ -269,7 +270,7 @@ const Landing = () => {
                                 {/* Step 3: Stack Provisioning */}
                                 {terminalStep >= 3 && (
                                     <div className="t-animated-line">
-                                        <Cpu size={14} className="t-step-icon purple" />
+                                        <MorphIcon icon={Cpu} size={14} className="t-step-icon purple" />
                                         <span className="t-text">Instalando Docker, Nginx & PM2...</span>
                                         <span className="t-val green">v24.2.0 Ready</span>
                                     </div>
@@ -278,7 +279,7 @@ const Landing = () => {
                                 {/* Step 4: SSL Certificate */}
                                 {terminalStep >= 4 && (
                                     <div className="t-animated-line">
-                                        <Lock size={14} className="t-step-icon green" />
+                                        <MorphIcon icon={Lock} size={14} className="t-step-icon green" />
                                         <span className="t-text">Emitiendo certificado TLS 1.3 / Let's Encrypt...</span>
                                         <span className="t-val green">SSL Activo</span>
                                     </div>
@@ -287,7 +288,7 @@ const Landing = () => {
                                 {/* Step 5: DNS & Health Check */}
                                 {terminalStep >= 5 && (
                                     <div className="t-animated-line">
-                                        <Globe size={14} className="t-step-icon blue" />
+                                        <MorphIcon icon={Globe} size={14} className="t-step-icon blue" />
                                         <span className="t-text">Verificando propagación DNS & Health...</span>
                                         <span className="t-val green">200 OK (12ms)</span>
                                     </div>
@@ -296,7 +297,7 @@ const Landing = () => {
                                 {/* Step 6: Success Line (Clean Text, No Background Box) */}
                                 {terminalStep >= 6 && (
                                     <div className="t-animated-success-line">
-                                        <Zap size={16} className="t-success-icon" />
+                                        <MorphIcon icon={Zap} size={16} className="t-success-icon" />
                                         <span>¡Servidor listo en producción! <strong className="t-domain">https://cloudcore.com</strong></span>
                                     </div>
                                 )}
@@ -305,7 +306,7 @@ const Landing = () => {
                             {/* Live System Status Bar */}
                             <div className="terminal-footer">
                                 <div className="t-metric">
-                                    <Activity size={12} className="t-metric-icon" />
+                                    <MorphIcon icon={Activity} size={12} className="t-metric-icon" />
                                     <span>CPU: <strong>{cpu.toFixed(1)}%</strong></span>
                                 </div>
                                 <div className="t-metric">
@@ -353,10 +354,10 @@ const Landing = () => {
                             >
                                 <div className="step-head">
                                     <span className="step-badge">
-                                        <s.icon size={26} strokeWidth={1.75} />
+                                        <MorphIcon icon={s.icon} size={26} strokeWidth={1.75} />
                                     </span>
                                     <span className="step-check">
-                                        <CheckCircle2 size={18} />
+                                        <MorphIcon icon={CheckCircle2} size={18} />
                                     </span>
                                     {i < steps.length - 1 && <span className="step-connector" />}
                                 </div>
@@ -375,7 +376,7 @@ const Landing = () => {
                     <h2>Empieza a gestionar tu infraestructura hoy.</h2>
                     <p>Sin tarjeta de crédito. Sin configuración compleja. Listo en minutos.</p>
                     <button className="landing-btn-primary hero-cta" onClick={() => navigate('/register')}>
-                        Crear cuenta gratis <ArrowRight size={16} />
+                        Crear cuenta gratis <MorphIcon icon={ArrowRight} size={16} />
                     </button>
                 </div>
             </section>
@@ -384,7 +385,7 @@ const Landing = () => {
             <footer className="landing-footer">
                 <div className="landing-footer-inner">
                     <div className="landing-logo">
-                        <Cloud size={18} /><span>CloudCore</span>
+                        <MorphIcon icon={Cloud} size={18} /><span>CloudCore</span>
                     </div>
                     <p className="footer-copy">© 2025 CloudCore. Infraestructura SaaS. · Desarrollado por <span className="footer-dev">AbstracDev</span></p>
                 </div>
@@ -394,4 +395,3 @@ const Landing = () => {
 };
 
 export default Landing;
-

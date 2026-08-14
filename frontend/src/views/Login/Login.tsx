@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthService } from '../../services/auth.service';
 import { tokenStorage } from '../../services/tokenStorage';
-import { Mail, Lock, ArrowRight, Cloud, ShieldCheck, MailCheck, Eye, EyeOff, Sun, Moon } from 'lucide-react';
+import { Mail, Lock, ArrowRight, Cloud, ShieldCheck, MailCheck, Eye, EyeOff, Sun, Moon } from 'lucide';
+import { MorphIcon } from 'morphicons/react';
 import OTPInput from '../../components/OTPInput';
 import './Login.css';
 
@@ -114,14 +115,12 @@ const Login: React.FC = () => {
                     title={isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
                     aria-label="Cambiar tema"
                 >
-                    <span key={isDark ? 'dark' : 'light'} className="theme-icon">
-                        {isDark ? <Sun size={18} /> : <Moon size={18} />}
-                    </span>
+                    <MorphIcon icon={isDark ? Sun : Moon} size={18} spring="snappy" className="theme-icon" />
                 </button>
 
                 <div className="login-header">
                     <div className="auth-brand">
-                        <Cloud size={32} className="auth-brand-icon" />
+                        <MorphIcon icon={Cloud} size={32} className="auth-brand-icon" />
                         <span className="auth-brand-name">CloudCore</span>
                     </div>
                     <div className="auth-divider" />
@@ -150,7 +149,7 @@ const Login: React.FC = () => {
                 {step === 'forgot' ? (
                     forgotSent ? (
                         <div className="reg-success">
-                            <MailCheck size={44} className="reg-success-icon" />
+                            <MorphIcon icon={MailCheck} size={44} className="reg-success-icon" />
                             <h2>Enlace enviado</h2>
                             <p>Si el correo está registrado, te llegará un enlace válido por 5 minutos.</p>
                             <div className="login-footer">
@@ -162,13 +161,13 @@ const Login: React.FC = () => {
                     ) : (
                         <form onSubmit={handleForgotSubmit}>
                             <div className="form-group">
-                                <label><Mail size={15} /> Correo Electrónico</label>
+                                <label><MorphIcon icon={Mail} size={15} /> Correo Electrónico</label>
                                 <input type="email" value={forgotEmail} onChange={e => setForgotEmail(e.target.value)}
                                     placeholder="nombre@ejemplo.com" required autoFocus />
                             </div>
 
                             <button type="submit" disabled={loading}>
-                                {loading ? 'Enviando...' : <><Mail size={17} /> Enviar enlace de recuperación</>}
+                                {loading ? 'Enviando...' : <><MorphIcon icon={Mail} size={17} /> Enviar enlace de recuperación</>}
                             </button>
 
                             <div className="login-footer">
@@ -187,12 +186,12 @@ const Login: React.FC = () => {
                         {step === 'credentials' ? (
                             <>
                                 <div className="form-group">
-                                    <label><Mail size={15} /> Correo Electrónico</label>
+                                    <label><MorphIcon icon={Mail} size={15} /> Correo Electrónico</label>
                                     <input type="email" value={email} onChange={e => setEmail(e.target.value)}
                                         placeholder="nombre@ejemplo.com" required autoFocus />
                                 </div>
                                 <div className="form-group">
-                                    <label><Lock size={15} /> Contraseña</label>
+                                    <label><MorphIcon icon={Lock} size={15} /> Contraseña</label>
                                     <div className="password-field-wrapper">
                                         <input type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)}
                                             placeholder="••••••••" required />
@@ -203,7 +202,7 @@ const Login: React.FC = () => {
                                             onClick={() => setShowPassword(v => !v)}
                                             aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
                                         >
-                                            {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+                                            <MorphIcon icon={showPassword ? EyeOff : Eye} size={17} spring="snappy" />
                                         </button>
                                     </div>
                                     <button
@@ -218,7 +217,7 @@ const Login: React.FC = () => {
                         ) : (
                             <div className="totp-group">
                                 <p className="totp-hint">
-                                    <ShieldCheck size={14} /> Código de tu app autenticadora
+                                    <MorphIcon icon={ShieldCheck} size={14} /> Código de tu app autenticadora
                                 </p>
                                 <OTPInput value={totpCode} onChange={setTotpCode} />
                             </div>
@@ -227,7 +226,7 @@ const Login: React.FC = () => {
                         <button type="submit" disabled={loading || (step === '2fa' && totpCode.length < 6)}>
                             {loading ? 'Verificando...' : step === 'credentials'
                                 ? 'Iniciar Sesión'
-                                : <><ShieldCheck size={17} /> Verificar</>
+                                : <><MorphIcon icon={ShieldCheck} size={17} /> Verificar</>
                             }
                         </button>
 
@@ -257,7 +256,7 @@ const Login: React.FC = () => {
                         {step === 'credentials' && (
                             <div className="login-footer">
                                 <button type="button" className="btn-link" onClick={() => navigate('/register')}>
-                                    ¿No tienes cuenta? Regístrate gratis <ArrowRight size={14} />
+                                    ¿No tienes cuenta? Regístrate gratis <MorphIcon icon={ArrowRight} size={14} />
                                 </button>
                             </div>
                         )}

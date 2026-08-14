@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AuthService } from '../../services/auth.service';
-import { Lock, KeyRound, CheckCircle, Circle, Eye, EyeOff, Sun, Moon, ArrowRight } from 'lucide-react';
+import { Lock, KeyRound, CheckCircle, Circle, Eye, EyeOff, Sun, Moon, ArrowRight } from 'lucide';
+import { MorphIcon } from 'morphicons/react';
 import '../Login/Login.css';
 import './ResetPassword.css';
 
@@ -78,14 +79,12 @@ const ResetPassword: React.FC = () => {
                     title={isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
                     aria-label="Cambiar tema"
                 >
-                    <span key={isDark ? 'dark' : 'light'} className="theme-icon">
-                        {isDark ? <Sun size={18} /> : <Moon size={18} />}
-                    </span>
+                    <MorphIcon icon={isDark ? Sun : Moon} size={18} spring="snappy" className="theme-icon" />
                 </button>
 
                 {!token ? (
                     <div className="reg-success">
-                        <KeyRound size={44} className="reg-success-icon reset-invalid-icon" />
+                        <MorphIcon icon={KeyRound} size={44} className="reg-success-icon reset-invalid-icon" />
                         <h2>Enlace inválido</h2>
                         <p>Este enlace de recuperación no es válido o está incompleto. Solicita uno nuevo desde el login.</p>
                         <div className="login-footer">
@@ -96,7 +95,7 @@ const ResetPassword: React.FC = () => {
                     </div>
                 ) : success ? (
                     <div className="reg-success">
-                        <CheckCircle size={44} className="reg-success-icon" />
+                        <MorphIcon icon={CheckCircle} size={44} className="reg-success-icon" />
                         <h2>¡Contraseña actualizada!</h2>
                         <p>Redirigiendo al inicio de sesión...</p>
                     </div>
@@ -104,7 +103,7 @@ const ResetPassword: React.FC = () => {
                     <>
                         <div className="login-header">
                             <div className="auth-brand">
-                                <KeyRound size={32} className="auth-brand-icon" />
+                                <MorphIcon icon={KeyRound} size={32} className="auth-brand-icon" />
                                 <span className="auth-brand-name">CloudCore</span>
                             </div>
                             <div className="auth-divider" />
@@ -114,7 +113,7 @@ const ResetPassword: React.FC = () => {
 
                         <form onSubmit={handleSubmit} className="reg-form">
                             <div className="form-group pw-group">
-                                <label><Lock size={15} /> Nueva contraseña</label>
+                                <label><MorphIcon icon={Lock} size={15} /> Nueva contraseña</label>
                                 <div className="password-field-wrapper">
                                     <input
                                         type={showPassword ? 'text' : 'password'}
@@ -132,7 +131,7 @@ const ResetPassword: React.FC = () => {
                                         onClick={() => setShowPassword(v => !v)}
                                         aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
                                     >
-                                        {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+                                        <MorphIcon icon={showPassword ? EyeOff : Eye} size={17} spring="snappy" />
                                     </button>
                                 </div>
                                 {newPassword && (
@@ -150,23 +149,23 @@ const ResetPassword: React.FC = () => {
                                         <div className="pw-requirements">
                                             <ul>
                                                 <li className={pwChecks.length ? 'pw-req-met' : ''}>
-                                                    {pwChecks.length ? <CheckCircle size={13} /> : <Circle size={13} />}
+                                                    <MorphIcon icon={pwChecks.length ? CheckCircle : Circle} size={13} spring="snappy" />
                                                     <span>Mínimo 8 caracteres</span>
                                                 </li>
                                                 <li className={pwChecks.upper ? 'pw-req-met' : ''}>
-                                                    {pwChecks.upper ? <CheckCircle size={13} /> : <Circle size={13} />}
+                                                    <MorphIcon icon={pwChecks.upper ? CheckCircle : Circle} size={13} spring="snappy" />
                                                     <span>Una letra mayúscula</span>
                                                 </li>
                                                 <li className={pwChecks.lower ? 'pw-req-met' : ''}>
-                                                    {pwChecks.lower ? <CheckCircle size={13} /> : <Circle size={13} />}
+                                                    <MorphIcon icon={pwChecks.lower ? CheckCircle : Circle} size={13} spring="snappy" />
                                                     <span>Una letra minúscula</span>
                                                 </li>
                                                 <li className={pwChecks.number ? 'pw-req-met' : ''}>
-                                                    {pwChecks.number ? <CheckCircle size={13} /> : <Circle size={13} />}
+                                                    <MorphIcon icon={pwChecks.number ? CheckCircle : Circle} size={13} spring="snappy" />
                                                     <span>Un número</span>
                                                 </li>
                                                 <li className={pwChecks.special ? 'pw-req-met' : ''}>
-                                                    {pwChecks.special ? <CheckCircle size={13} /> : <Circle size={13} />}
+                                                    <MorphIcon icon={pwChecks.special ? CheckCircle : Circle} size={13} spring="snappy" />
                                                     <span>Un carácter especial</span>
                                                 </li>
                                             </ul>
@@ -176,7 +175,7 @@ const ResetPassword: React.FC = () => {
                             </div>
 
                             <div className="form-group">
-                                <label><Lock size={15} /> Confirmar contraseña</label>
+                                <label><MorphIcon icon={Lock} size={15} /> Confirmar contraseña</label>
                                 <div className="password-field-wrapper">
                                     <input
                                         type={showConfirmPassword ? 'text' : 'password'}
@@ -193,18 +192,18 @@ const ResetPassword: React.FC = () => {
                                         onClick={() => setShowConfirmPassword(v => !v)}
                                         aria-label={showConfirmPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
                                     >
-                                        {showConfirmPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+                                        <MorphIcon icon={showConfirmPassword ? EyeOff : Eye} size={17} spring="snappy" />
                                     </button>
                                 </div>
                             </div>
 
                             <button type="submit" disabled={loading}>
-                                {loading ? 'Actualizando...' : <><KeyRound size={17} /> Restablecer contraseña</>}
+                                {loading ? 'Actualizando...' : <><MorphIcon icon={KeyRound} size={17} /> Restablecer contraseña</>}
                             </button>
 
                             <div className="login-footer">
                                 <button type="button" className="btn-link" onClick={() => navigate('/login')}>
-                                    ¿Ya la recordaste? Inicia sesión <ArrowRight size={14} />
+                                    ¿Ya la recordaste? Inicia sesión <MorphIcon icon={ArrowRight} size={14} />
                                 </button>
                             </div>
 

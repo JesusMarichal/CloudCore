@@ -2,7 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import { serverService } from '../../services/server.service';
 import type { CreateServerData } from '../../services/server.service';
-import { Globe, Plus, X, ExternalLink, HardDrive, Settings, GitCommit, RefreshCw, CloudUpload, Terminal, RotateCcw, CheckCircle2 } from 'lucide-react';
+import { Globe, Plus, X, ExternalLink, HardDrive, Settings, GitCommit, RefreshCw, CloudUpload, Terminal, RotateCcw, CheckCircle2 } from 'lucide';
+import { MorphIcon } from 'morphicons/react';
 import { API_URL } from '../../config';
 import { authFetch } from '../../services/apiFetch';
 import { tokenStorage } from '../../services/tokenStorage';
@@ -475,12 +476,12 @@ echo "=== DIAGNÓSTICO COMPLETADO ==="`;
         <div className="websites-container">
             <header className="page-header">
                 <div>
-                    <h1><Globe size={24} className="icon-blue" /> Gestión de Sitios Web</h1>
+                    <h1><MorphIcon icon={Globe} size={24} className="icon-blue" /> Gestión de Sitios Web</h1>
                     <p className="text-muted">Despliega tus proyectos Node.js, React o estáticos fácilmente.</p>
                 </div>
                 {servers.length > 0 && (
                     <button className="btn-primary" onClick={() => setShowForm(true)}>
-                        <Plus size={16} /> Desplegar Proyecto
+                        <MorphIcon icon={Plus} size={16} /> Desplegar Proyecto
                     </button>
                 )}
             </header>
@@ -498,13 +499,13 @@ echo "=== DIAGNÓSTICO COMPLETADO ==="`;
                 </div>
             ) : websites.length === 0 ? (
                 <div className="empty-state-list">
-                    <div className="empty-icon"><Globe size={40} /></div>
+                    <div className="empty-icon"><MorphIcon icon={Globe} size={40} /></div>
                     <h3>No hay sitios web desplegados</h3>
                     <p className="text-muted">
                         Tienes {servers.length} servidor(es) listo(s). ¡Es hora de poner tu primera aplicación en línea!
                     </p>
                     <button className="btn-primary" onClick={() => setShowForm(true)}>
-                        <Plus size={16} /> Desplegar mi primer Proyecto
+                        <MorphIcon icon={Plus} size={16} /> Desplegar mi primer Proyecto
                     </button>
                 </div>
             ) : (
@@ -519,31 +520,31 @@ echo "=== DIAGNÓSTICO COMPLETADO ==="`;
                                     </span>
                                 </div>
                                 <div className="website-meta">
-                                    <div className="meta-item"><HardDrive size={13} /> {site.serverIp}</div>
-                                    <div className="meta-item"><ExternalLink size={13} /> Port {site.port}</div>
+                                    <div className="meta-item"><MorphIcon icon={HardDrive} size={13} /> {site.serverIp}</div>
+                                    <div className="meta-item"><MorphIcon icon={ExternalLink} size={13} /> Port {site.port}</div>
                                     {site.domain ? (
-                                        <div className="meta-item"><Globe size={13} /> {site.domain}</div>
+                                        <div className="meta-item"><MorphIcon icon={Globe} size={13} /> {site.domain}</div>
                                     ) : (
                                         <div className="meta-item no-domain" onClick={() => handleEdit(site)} title="Clic para agregar dominio">
-                                            <Globe size={13} /> <span>Sin dominio</span>
+                                            <MorphIcon icon={Globe} size={13} /> <span>Sin dominio</span>
                                         </div>
                                     )}
                                     {site.use_letsencrypt && site.domain && (
                                         <div className="meta-item ssl-active">
-                                            <RefreshCw size={11} /> SSL activo
+                                            <MorphIcon icon={RefreshCw} size={11} /> SSL activo
                                         </div>
                                     )}
                                 </div>
                                 <div className="card-links">
                                     <a href={site.domain ? `http://${site.domain}` : `http://${site.serverIp}`} target="_blank" rel="noopener noreferrer" className="site-link-premium">
-                                        <ExternalLink size={12} /> Abrir Sitio
+                                        <MorphIcon icon={ExternalLink} size={12} /> Abrir Sitio
                                     </a>
                                 </div>
                             </div>
                             <div className="website-commit-info">
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
                                     <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '5px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                                        <GitCommit size={12} /> Último Commit
+                                        <MorphIcon icon={GitCommit} size={12} /> Último Commit
                                         {checkingCommits[site.id] && (
                                             <span className="commit-checking-dots">
                                                 <span /><span /><span />
@@ -556,11 +557,11 @@ echo "=== DIAGNÓSTICO COMPLETADO ==="`;
                                         disabled={deployingSites[site.id]}
                                     >
                                         {deployingSites[site.id] ? (
-                                            <><RefreshCw size={11} className="spinning" /> Desplegando...</>
+                                            <><MorphIcon icon={RefreshCw} size={11} className="spinning" /> Desplegando...</>
                                         ) : commits[site.id]?.isOutdated ? (
-                                            <><CloudUpload size={11} /> Actualizar Sitio</>
+                                            <><MorphIcon icon={CloudUpload} size={11} /> Actualizar Sitio</>
                                         ) : (
-                                            <><CloudUpload size={11} /> Desplegar Último</>
+                                            <><MorphIcon icon={CloudUpload} size={11} /> Desplegar Último</>
                                         )}
                                     </button>
                                 </div>
@@ -575,12 +576,12 @@ echo "=== DIAGNÓSTICO COMPLETADO ==="`;
                                                 {commits[site.id]!.isOutdated && (
                                                     deployingSites[site.id] ? (
                                                         <span style={{ color: '#3fb950', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', background: 'rgba(63,185,80,0.1)', border: '1px solid rgba(63,185,80,0.25)', padding: '1px 6px' }}>
-                                                            <RefreshCw size={9} className="spinning" /> Actualizando
+                                                            <MorphIcon icon={RefreshCw} size={9} className="spinning" /> Actualizando
                                                         </span>
                                                     ) : (
                                                         <span style={{ color: '#f0883e', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', background: 'rgba(240,136,62,0.1)', border: '1px solid rgba(240,136,62,0.25)', padding: '1px 6px' }}
                                                             title={`Desplegado: ${commits[site.id]!.hash}`}>
-                                                            <RefreshCw size={9} className="spinning" /> desactualizado
+                                                            <MorphIcon icon={RefreshCw} size={9} className="spinning" /> desactualizado
                                                         </span>
                                                     )
                                                 )}
@@ -600,10 +601,10 @@ echo "=== DIAGNÓSTICO COMPLETADO ==="`;
                                 )}
                             </div>
                             <div className="website-actions">
-                                <button className="btn-action" onClick={() => handleViewLogs(site.server_id, site.id, site.name)} title="Ver Logs"><Terminal size={16} /></button>
-                                <button className="btn-action" onClick={() => handleOpenEnvModal(site)} title="Variables .env"><Globe size={16} /></button>
-                                <button className="btn-action" onClick={() => handleEdit(site)} title="Configuración"><Settings size={16} /></button>
-                                <button className="btn-action-danger" onClick={() => handleDelete(site.server_id, site.id)} title="Eliminar"><X size={16} /></button>
+                                <button className="btn-action" onClick={() => handleViewLogs(site.server_id, site.id, site.name)} title="Ver Logs"><MorphIcon icon={Terminal} size={16} /></button>
+                                <button className="btn-action" onClick={() => handleOpenEnvModal(site)} title="Variables .env"><MorphIcon icon={Globe} size={16} /></button>
+                                <button className="btn-action" onClick={() => handleEdit(site)} title="Configuración"><MorphIcon icon={Settings} size={16} /></button>
+                                <button className="btn-action-danger" onClick={() => handleDelete(site.server_id, site.id)} title="Eliminar"><MorphIcon icon={X} size={16} /></button>
                             </div>
                         </div>
                     ))}
@@ -617,7 +618,7 @@ echo "=== DIAGNÓSTICO COMPLETADO ==="`;
                         <div className="ws-form-header">
                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                 <div className="ws-form-icon">
-                                    <Globe size={15} />
+                                    <MorphIcon icon={Globe} size={15} />
                                 </div>
                                 <div>
                                     <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 600, color: 'var(--text-main)' }}>
@@ -629,7 +630,7 @@ echo "=== DIAGNÓSTICO COMPLETADO ==="`;
                                 </div>
                             </div>
                             <button type="button" className="btn-close" onClick={() => { setShowForm(false); setEditingSite(null); }}>
-                                <X size={15} />
+                                <MorphIcon icon={X} size={15} />
                             </button>
                         </div>
                         <form onSubmit={handleSubmit}>
@@ -742,7 +743,7 @@ echo "=== DIAGNÓSTICO COMPLETADO ==="`;
                     <div className="env-modal">
                         <div className="env-modal-header">
                             <h3>🔍 Variables .env - {editingSite?.name}</h3>
-                            <button className="btn-close" onClick={() => setShowEnvModal(false)}><X size={20} /></button>
+                            <button className="btn-close" onClick={() => setShowEnvModal(false)}><MorphIcon icon={X} size={20} /></button>
                         </div>
                         <div className="env-modal-body">
                             <div className="env-editor">
@@ -758,11 +759,11 @@ echo "=== DIAGNÓSTICO COMPLETADO ==="`;
                                             newList[index].value = e.target.value;
                                             setEnvList(newList);
                                         }} />
-                                        <button type="button" className="btn-delete-env" onClick={() => setEnvList(envList.filter((_, i) => i !== index))}><X size={16} /></button>
+                                        <button type="button" className="btn-delete-env" onClick={() => setEnvList(envList.filter((_, i) => i !== index))}><MorphIcon icon={X} size={16} /></button>
                                     </div>
                                 ))}
                                 <button type="button" className="btn-add-env" onClick={() => setEnvList([...envList, { key: '', value: '' }])}>
-                                    <Plus size={14} /> Nueva Variable
+                                    <MorphIcon icon={Plus} size={14} /> Nueva Variable
                                 </button>
                             </div>
                         </div>
@@ -789,7 +790,7 @@ echo "=== DIAGNÓSTICO COMPLETADO ==="`;
                                 )}
                             </h3>
                             {!deploying && (
-                                <button className="btn-close" onClick={() => { setShowForm(false); setDeployLogs(''); }}><X size={20} /></button>
+                                <button className="btn-close" onClick={() => { setShowForm(false); setDeployLogs(''); }}><MorphIcon icon={X} size={20} /></button>
                             )}
                         </div>
                         <div className="site-deploy-modal-body">
@@ -824,12 +825,12 @@ echo "=== DIAGNÓSTICO COMPLETADO ==="`;
             {toast && (
                 <div className={`modern-toast toast-${toast.type}`}>
                     <div className="toast-icon">
-                        {toast.type === 'success' && <div className="icon-success"><CheckCircle2 size={16} /></div>}
-                        {toast.type === 'error' && <div className="icon-error"><X size={16} /></div>}
+                        {toast.type === 'success' && <div className="icon-success"><MorphIcon icon={CheckCircle2} size={16} /></div>}
+                        {toast.type === 'error' && <div className="icon-error"><MorphIcon icon={X} size={16} /></div>}
                         {toast.type === 'info' && <div className="icon-info">i</div>}
                     </div>
                     <div className="toast-message">{toast.message}</div>
-                    <button className="toast-close" onClick={() => setToast(null)}><X size={14} /></button>
+                    <button className="toast-close" onClick={() => setToast(null)}><MorphIcon icon={X} size={14} /></button>
                 </div>
             )}
 
@@ -859,7 +860,7 @@ echo "=== DIAGNÓSTICO COMPLETADO ==="`;
                                         <span className="dot-yellow"></span>
                                         <span className="dot-green"></span>
                                     </div>
-                                    <Terminal size={16} />
+                                    <MorphIcon icon={Terminal} size={16} />
                                     <span className="logs-modal-name">{logsSiteName}</span>
                                     <span className="logs-modal-sep">—</span>
                                     <span className="logs-modal-subtitle">Logs del Servidor</span>
@@ -867,10 +868,10 @@ echo "=== DIAGNÓSTICO COMPLETADO ==="`;
                                 <div className="logs-modal-actions">
                                     {site && (
                                         <button className="logs-refresh-btn" onClick={() => handleViewLogs(site.server_id, site.id, site.name)} title="Recargar logs">
-                                            <RotateCcw size={14} />
+                                            <MorphIcon icon={RotateCcw} size={14} />
                                         </button>
                                     )}
-                                    <button className="logs-close-btn" onClick={closeLogsModal}><X size={16} /></button>
+                                    <button className="logs-close-btn" onClick={closeLogsModal}><MorphIcon icon={X} size={16} /></button>
                                 </div>
                             </div>
                             <div className="logs-modal-tabs">

@@ -1,4 +1,5 @@
-import { CreditCard } from 'lucide-react';
+import { CreditCard } from 'lucide';
+import { MorphIcon } from 'morphicons/react';
 import './Billing.css';
 
 const Billing = () => {
@@ -6,7 +7,7 @@ const Billing = () => {
         <div className="billing-container">
             <header className="page-header">
                 <div>
-                    <h1><CreditCard size={24} className="icon-blue" /> Facturación</h1>
+                    <h1><MorphIcon icon={CreditCard} size={24} className="icon-blue" /> Facturación</h1>
                     <p className="text-muted">Gestiona tu plan, método de pago e historial de facturas.</p>
                 </div>
             </header>

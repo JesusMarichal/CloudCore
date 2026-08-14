@@ -3,7 +3,8 @@ import {
     Github, KeyRound, Save, CheckCircle2, AlertCircle,
     ShieldCheck, Lock, Eye, EyeOff, QrCode, Shield,
     AlertTriangle, X, Check
-} from 'lucide-react';
+} from 'lucide';
+import { MorphIcon } from 'morphicons/react';
 import { API_URL } from '../../config';
 import { AuthService } from '../../services/auth.service';
 import { authFetch } from '../../services/apiFetch';
@@ -50,7 +51,7 @@ const GithubSection = () => {
     return (
         <div className="setting-card">
             <div className="setting-card-header">
-                <div className="setting-icon github"><Github size={24} /></div>
+                <div className="setting-icon github"><MorphIcon icon={Github} size={24} /></div>
                 <div className="setting-title">
                     <h3>GitHub Integration</h3>
                     <p>Conecta CloudCore con GitHub usando un Personal Access Token para desplegar repositorios automáticamente.</p>
@@ -60,7 +61,7 @@ const GithubSection = () => {
                 <div className="form-group">
                     <label>Personal Access Token</label>
                     <div className="input-with-icon">
-                        <KeyRound size={16} className="input-icon" />
+                        <MorphIcon icon={KeyRound} size={16} className="input-icon" />
                         <input type="password" placeholder="ghp_************************************"
                             value={token} onChange={e => setToken(e.target.value)} disabled={loading} />
                     </div>
@@ -71,13 +72,13 @@ const GithubSection = () => {
                 </div>
                 {status.type && (
                     <div className={`status-alert ${status.type}`}>
-                        {status.type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+                        <MorphIcon icon={status.type === 'success' ? CheckCircle2 : AlertCircle} size={16} />
                         <span>{status.msg}</span>
                     </div>
                 )}
                 <div className="setting-actions">
                     <button className="btn-save" onClick={handleSave} disabled={saving || loading}>
-                        {saving ? 'Guardando...' : <><Save size={16} /> Guardar</>}
+                        {saving ? 'Guardando...' : <><MorphIcon icon={Save} size={16} /> Guardar</>}
                     </button>
                 </div>
             </div>
@@ -127,7 +128,7 @@ const ChangePasswordSection = () => {
     return (
         <div className="setting-card">
             <div className="setting-card-header">
-                <div className="setting-icon sec-blue"><Lock size={22} /></div>
+                <div className="setting-icon sec-blue"><MorphIcon icon={Lock} size={22} /></div>
                 <div className="setting-title">
                     <h3>Cambiar Contraseña</h3>
                     <p>Actualiza tu contraseña periódicamente para mantener tu cuenta segura.</p>
@@ -141,7 +142,7 @@ const ChangePasswordSection = () => {
                              field === 'newPass'  ? 'Nueva contraseña' : 'Confirmar nueva contraseña'}
                         </label>
                         <div className="input-with-icon">
-                            <Lock size={16} className="input-icon" />
+                            <MorphIcon icon={Lock} size={16} className="input-icon" />
                             <input
                                 type={show[field] ? 'text' : 'password'}
                                 value={form[field]}
@@ -151,7 +152,7 @@ const ChangePasswordSection = () => {
                                 minLength={field === 'current' ? 1 : 8}
                             />
                             <button type="button" className="btn-eye" onClick={() => setShow({ ...show, [field]: !show[field] })}>
-                                {show[field] ? <EyeOff size={15} /> : <Eye size={15} />}
+                                <MorphIcon icon={show[field] ? EyeOff : Eye} size={15} spring="snappy" />
                             </button>
                         </div>
                         {field === 'newPass' && form.newPass && (
@@ -168,13 +169,13 @@ const ChangePasswordSection = () => {
                 ))}
                 {status.type && (
                     <div className={`status-alert ${status.type}`}>
-                        {status.type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+                        <MorphIcon icon={status.type === 'success' ? CheckCircle2 : AlertCircle} size={16} />
                         <span>{status.msg}</span>
                     </div>
                 )}
                 <div className="setting-actions">
                     <button className="btn-save" type="submit" disabled={loading}>
-                        {loading ? 'Actualizando...' : <><Save size={16} /> Actualizar Contraseña</>}
+                        {loading ? 'Actualizando...' : <><MorphIcon icon={Save} size={16} /> Actualizar Contraseña</>}
                     </button>
                 </div>
             </form>
@@ -270,13 +271,13 @@ const TwoFASection = () => {
         <div className="setting-card">
             <div className="setting-card-header">
                 <div className={`setting-icon ${enabled ? 'sec-green' : 'sec-gray'}`}>
-                    <ShieldCheck size={22} />
+                    <MorphIcon icon={ShieldCheck} size={22} />
                 </div>
                 <div className="setting-title" style={{ flex: 1 }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <h3>Autenticación de Dos Factores (2FA)</h3>
                         <span className={`twofa-badge ${enabled ? 'on' : 'off'}`}>
-                            {enabled ? <><Check size={12} /> Activo</> : 'Inactivo'}
+                            {enabled ? <><MorphIcon icon={Check} size={12} /> Activo</> : 'Inactivo'}
                         </span>
                     </div>
                     <p>Protege tu cuenta con Google Authenticator, Authy u otra app TOTP.</p>
@@ -286,7 +287,7 @@ const TwoFASection = () => {
             <div className="setting-form">
                 {status.type && (
                     <div className={`status-alert ${status.type}`}>
-                        {status.type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+                        <MorphIcon icon={status.type === 'success' ? CheckCircle2 : AlertCircle} size={16} />
                         <span>{status.msg}</span>
                     </div>
                 )}
@@ -295,11 +296,11 @@ const TwoFASection = () => {
                     <div className="setting-actions">
                         {!enabled ? (
                             <button className="btn-save" onClick={handleGenerate} disabled={saving}>
-                                {saving ? 'Generando...' : <><QrCode size={16} /> Activar 2FA</>}
+                                {saving ? 'Generando...' : <><MorphIcon icon={QrCode} size={16} /> Activar 2FA</>}
                             </button>
                         ) : (
                             <button className="btn-danger" onClick={() => { setStep('disable'); setStatus({ type: null, msg: '' }); }}>
-                                <X size={16} /> Desactivar 2FA
+                                <MorphIcon icon={X} size={16} /> Desactivar 2FA
                             </button>
                         )}
                     </div>
@@ -324,7 +325,7 @@ const TwoFASection = () => {
                                     Cancelar
                                 </button>
                                 <button type="submit" className="btn-save" disabled={saving || code.length !== 6}>
-                                    {saving ? 'Verificando...' : <><Check size={16} /> Confirmar y Activar</>}
+                                    {saving ? 'Verificando...' : <><MorphIcon icon={Check} size={16} /> Confirmar y Activar</>}
                                 </button>
                             </div>
                         </form>
@@ -335,7 +336,7 @@ const TwoFASection = () => {
                     <form onSubmit={handleDisable} className="twofa-setup">
                         <p className="twofa-step-label">Ingresa tu contraseña para desactivar 2FA</p>
                         <div className="input-with-icon" style={{ maxWidth: '340px' }}>
-                            <Lock size={16} className="input-icon" />
+                            <MorphIcon icon={Lock} size={16} className="input-icon" />
                             <input type="password" value={password}
                                 onChange={e => setPassword(e.target.value)}
                                 placeholder="Tu contraseña actual" required autoFocus />
@@ -346,7 +347,7 @@ const TwoFASection = () => {
                                 Cancelar
                             </button>
                             <button type="submit" className="btn-danger" disabled={saving || !password}>
-                                {saving ? 'Desactivando...' : <><X size={16} /> Desactivar</>}
+                                {saving ? 'Desactivando...' : <><MorphIcon icon={X} size={16} /> Desactivar</>}
                             </button>
                         </div>
                     </form>
@@ -360,15 +361,15 @@ const TwoFASection = () => {
 const SecurityTipsSection = () => (
     <div className="security-tips-card">
         <div className="security-tips-header">
-            <AlertTriangle size={18} style={{ color: '#d29922' }} />
+            <MorphIcon icon={AlertTriangle} size={18} style={{ color: '#d29922' }} />
             <span>Buenas prácticas de seguridad</span>
         </div>
         <ul className="security-tips-list">
-            <li><Shield size={13} /> Nunca compartas tus credenciales ni claves SSH con nadie.</li>
-            <li><Shield size={13} /> Usa contraseñas únicas de al menos 12 caracteres con mayúsculas, números y símbolos.</li>
-            <li><Shield size={13} /> Activa 2FA para proteger tu cuenta incluso si tu contraseña es comprometida.</li>
-            <li><Shield size={13} /> CloudCore nunca te pedirá tu contraseña por correo o chat.</li>
-            <li><Shield size={13} /> Revisa regularmente los servidores conectados y elimina accesos que ya no uses.</li>
+            <li><MorphIcon icon={Shield} size={13} /> Nunca compartas tus credenciales ni claves SSH con nadie.</li>
+            <li><MorphIcon icon={Shield} size={13} /> Usa contraseñas únicas de al menos 12 caracteres con mayúsculas, números y símbolos.</li>
+            <li><MorphIcon icon={Shield} size={13} /> Activa 2FA para proteger tu cuenta incluso si tu contraseña es comprometida.</li>
+            <li><MorphIcon icon={Shield} size={13} /> CloudCore nunca te pedirá tu contraseña por correo o chat.</li>
+            <li><MorphIcon icon={Shield} size={13} /> Revisa regularmente los servidores conectados y elimina accesos que ya no uses.</li>
         </ul>
     </div>
 );

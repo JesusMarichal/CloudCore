@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthService } from '../../services/auth.service';
-import { Mail, Lock, User, ArrowRight, Cloud, CheckCircle, Circle, ShieldCheck, Eye, EyeOff, Sun, Moon } from 'lucide-react';
+import { Mail, Lock, User, ArrowRight, Cloud, CheckCircle, Circle, ShieldCheck, Eye, EyeOff, Sun, Moon } from 'lucide';
+import { MorphIcon } from 'morphicons/react';
 import OTPInput from '../../components/OTPInput';
 import '../Login/Login.css';
 import './Register.css';
@@ -115,14 +116,12 @@ const Register: React.FC = () => {
                     title={isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
                     aria-label="Cambiar tema"
                 >
-                    <span key={isDark ? 'dark' : 'light'} className="theme-icon">
-                        {isDark ? <Sun size={18} /> : <Moon size={18} />}
-                    </span>
+                    <MorphIcon icon={isDark ? Sun : Moon} size={18} spring="snappy" className="theme-icon" />
                 </button>
 
                 {success ? (
                     <div className="reg-success">
-                        <CheckCircle size={44} className="reg-success-icon" />
+                        <MorphIcon icon={CheckCircle} size={44} className="reg-success-icon" />
                         <h2>¡Cuenta verificada!</h2>
                         <p>Redirigiendo al inicio de sesión...</p>
                     </div>
@@ -130,7 +129,7 @@ const Register: React.FC = () => {
                     <>
                         <div className="login-header">
                             <div className="auth-brand">
-                                <Cloud size={32} className="auth-brand-icon" />
+                                <MorphIcon icon={Cloud} size={32} className="auth-brand-icon" />
                                 <span className="auth-brand-name">CloudCore</span>
                             </div>
                             <div className="auth-divider" />
@@ -150,7 +149,7 @@ const Register: React.FC = () => {
                         {step === 'form' ? (
                             <form onSubmit={handleSubmit} className="reg-form">
                                 <div className="form-group">
-                                    <label><User size={15} /> Nombre Completo</label>
+                                    <label><MorphIcon icon={User} size={15} /> Nombre Completo</label>
                                     <input
                                         type="text"
                                         value={name}
@@ -161,7 +160,7 @@ const Register: React.FC = () => {
                                     />
                                 </div>
                                 <div className="form-group">
-                                    <label><Mail size={15} /> Correo Electrónico</label>
+                                    <label><MorphIcon icon={Mail} size={15} /> Correo Electrónico</label>
                                     <input
                                         type="email"
                                         value={email}
@@ -171,7 +170,7 @@ const Register: React.FC = () => {
                                     />
                                 </div>
                                 <div className="form-group pw-group">
-                                    <label><Lock size={15} /> Contraseña</label>
+                                    <label><MorphIcon icon={Lock} size={15} /> Contraseña</label>
                                     <div className="password-field-wrapper">
                                         <input
                                             type={showPassword ? 'text' : 'password'}
@@ -188,7 +187,7 @@ const Register: React.FC = () => {
                                             onClick={() => setShowPassword(v => !v)}
                                             aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
                                         >
-                                            {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+                                            <MorphIcon icon={showPassword ? EyeOff : Eye} size={17} spring="snappy" />
                                         </button>
                                     </div>
                                     {password && (
@@ -206,23 +205,23 @@ const Register: React.FC = () => {
                                             <div className="pw-requirements">
                                                 <ul>
                                                     <li className={pwChecks.length ? 'pw-req-met' : ''}>
-                                                        {pwChecks.length ? <CheckCircle size={13} /> : <Circle size={13} />}
+                                                        <MorphIcon icon={pwChecks.length ? CheckCircle : Circle} size={13} spring="snappy" />
                                                         <span>Mínimo 8 caracteres</span>
                                                     </li>
                                                     <li className={pwChecks.upper ? 'pw-req-met' : ''}>
-                                                        {pwChecks.upper ? <CheckCircle size={13} /> : <Circle size={13} />}
+                                                        <MorphIcon icon={pwChecks.upper ? CheckCircle : Circle} size={13} spring="snappy" />
                                                         <span>Una letra mayúscula</span>
                                                     </li>
                                                     <li className={pwChecks.lower ? 'pw-req-met' : ''}>
-                                                        {pwChecks.lower ? <CheckCircle size={13} /> : <Circle size={13} />}
+                                                        <MorphIcon icon={pwChecks.lower ? CheckCircle : Circle} size={13} spring="snappy" />
                                                         <span>Una letra minúscula</span>
                                                     </li>
                                                     <li className={pwChecks.number ? 'pw-req-met' : ''}>
-                                                        {pwChecks.number ? <CheckCircle size={13} /> : <Circle size={13} />}
+                                                        <MorphIcon icon={pwChecks.number ? CheckCircle : Circle} size={13} spring="snappy" />
                                                         <span>Un número</span>
                                                     </li>
                                                     <li className={pwChecks.special ? 'pw-req-met' : ''}>
-                                                        {pwChecks.special ? <CheckCircle size={13} /> : <Circle size={13} />}
+                                                        <MorphIcon icon={pwChecks.special ? CheckCircle : Circle} size={13} spring="snappy" />
                                                         <span>Un carácter especial</span>
                                                     </li>
                                                 </ul>
@@ -232,12 +231,12 @@ const Register: React.FC = () => {
                                 </div>
 
                                 <button type="submit" disabled={loading}>
-                                    {loading ? 'Enviando código...' : <><User size={17} /> Crear cuenta gratis</>}
+                                    {loading ? 'Enviando código...' : <><MorphIcon icon={User} size={17} /> Crear cuenta gratis</>}
                                 </button>
 
                                 <div className="login-footer">
                                     <button type="button" className="btn-link" onClick={() => navigate('/login')}>
-                                        ¿Ya tienes cuenta? Inicia sesión <ArrowRight size={14} />
+                                        ¿Ya tienes cuenta? Inicia sesión <MorphIcon icon={ArrowRight} size={14} />
                                     </button>
                                 </div>
 
@@ -249,13 +248,13 @@ const Register: React.FC = () => {
                             <form onSubmit={handleVerify}>
                                 <div className="totp-group">
                                     <p className="totp-hint">
-                                        <ShieldCheck size={14} /> Revisa tu bandeja de entrada (y spam, por si acaso)
+                                        <MorphIcon icon={ShieldCheck} size={14} /> Revisa tu bandeja de entrada (y spam, por si acaso)
                                     </p>
                                     <OTPInput value={code} onChange={setCode} />
                                 </div>
 
                                 <button type="submit" disabled={loading || code.length < 6}>
-                                    {loading ? 'Verificando...' : <><ShieldCheck size={17} /> Verificar y crear cuenta</>}
+                                    {loading ? 'Verificando...' : <><MorphIcon icon={ShieldCheck} size={17} /> Verificar y crear cuenta</>}
                                 </button>
 
                                 <div className="login-footer">

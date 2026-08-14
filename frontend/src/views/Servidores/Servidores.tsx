@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { RefreshCw, Play, Square, RotateCcw, Activity, Shield, Cpu, HardDrive, Thermometer, ChevronRight, X, Plus, KeyRound, Lock, Upload, Server } from 'lucide-react';
+import { RefreshCw, Play, Square, RotateCcw, Activity, Shield, Cpu, HardDrive, Thermometer, ChevronRight, X, Plus, KeyRound, Lock, Upload, Server } from 'lucide';
+import { MorphIcon } from 'morphicons/react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { serverService } from '../../services/server.service';
 import type { CreateServerData } from '../../services/server.service';
@@ -232,7 +233,7 @@ const Servidores: React.FC = () => {
         <div className="servidores-container">
             <div className="header-actions">
                 <div>
-                    <h1><Activity size={24} style={{ marginRight: '10px', verticalAlign: 'middle' }} /> Mis Servidores</h1>
+                    <h1><MorphIcon icon={Activity} size={24} style={{ marginRight: '10px', verticalAlign: 'middle' }} /> Mis Servidores</h1>
                     <p className="text-muted">Gestiona y monitorea tu infraestructura en tiempo real</p>
                 </div>
                 <button className="btn-primary" onClick={() => setShowForm(true)}>
@@ -247,10 +248,10 @@ const Servidores: React.FC = () => {
                             <tr>
                                 <th>Nombre / IP</th>
                                 <th>Estado</th>
-                                <th><Cpu size={14} /> CPU</th>
-                                <th><Activity size={14} /> RAM</th>
-                                <th><HardDrive size={14} /> Disco</th>
-                                <th><Thermometer size={14} /> Temp</th>
+                                <th><MorphIcon icon={Cpu} size={14} /> CPU</th>
+                                <th><MorphIcon icon={Activity} size={14} /> RAM</th>
+                                <th><MorphIcon icon={HardDrive} size={14} /> Disco</th>
+                                <th><MorphIcon icon={Thermometer} size={14} /> Temp</th>
                                 <th style={{ textAlign: 'right' }}>Acciones</th>
                             </tr>
                         </thead>
@@ -259,7 +260,7 @@ const Servidores: React.FC = () => {
                                 <tr key={server.id} className="server-row">
                                     <td data-label="Nombre / IP" onClick={() => handleManageServer(server)} style={{ cursor: 'pointer' }}>
                                         <div className="server-main-info">
-                                            <span className="server-name">{server.name} <ChevronRight size={12} className="chevron" /></span>
+                                            <span className="server-name">{server.name} <MorphIcon icon={ChevronRight} size={12} className="chevron" /></span>
                                             <code className="server-ip-mini">{server.ip}</code>
                                         </div>
                                     </td>
@@ -345,7 +346,7 @@ const Servidores: React.FC = () => {
                                                 }}
                                                 title="Refrescar métricas"
                                             >
-                                                <RefreshCw size={14} />
+                                                <MorphIcon icon={RefreshCw} size={14} />
                                             </button>
                                             <button className="btn-secondary btn-sm" onClick={() => handleManageServer(server)}>Gestionar</button>
                                         </div>
@@ -360,7 +361,7 @@ const Servidores: React.FC = () => {
                         <h3>No hay servidores conectados</h3>
                         <p>Agrega tu primer servidor VPS (AWS, Azure, DigitalOcean) para gestionar tu infraestructura de forma centralizada.</p>
                         <button className="btn-primary" onClick={() => setShowForm(true)}>
-                            <Plus size={16} /> Conectar mi primer Servidor
+                            <MorphIcon icon={Plus} size={16} /> Conectar mi primer Servidor
                         </button>
                     </div>
                 )}
@@ -372,11 +373,11 @@ const Servidores: React.FC = () => {
                     <div className="server-detail-card">
                         <div className="detail-header">
                             <div>
-                                <h2><Shield size={20} className="icon-blue" /> Gestión de: {selectedServer.name}</h2>
+                                <h2><MorphIcon icon={Shield} size={20} className="icon-blue" /> Gestión de: {selectedServer.name}</h2>
                                 <p className="text-muted">{selectedServer.ip}</p>
                             </div>
                             <button className="btn-close" onClick={() => setSelectedServer(null)}>
-                                <X size={20} />
+                                <MorphIcon icon={X} size={20} />
                             </button>
                         </div>
 
@@ -407,7 +408,7 @@ const Servidores: React.FC = () => {
                                     <div className="stats-grid">
                                         <div className="stat-card">
                                             <div className="stat-header">
-                                                <h4><Cpu size={16} /> Uso de CPU</h4>
+                                                <h4><MorphIcon icon={Cpu} size={16} /> Uso de CPU</h4>
                                                 <div className="stat-value-mini">{Number(selectedServer.cpuUsage || 0).toFixed(2)}%</div>
                                             </div>
                                             <div className="chart-container">
@@ -434,7 +435,7 @@ const Servidores: React.FC = () => {
                                         </div>
                                         <div className="stat-card">
                                             <div className="stat-header">
-                                                <h4><Activity size={16} /> Uso de RAM</h4>
+                                                <h4><MorphIcon icon={Activity} size={16} /> Uso de RAM</h4>
                                                 <div className="stat-value-mini">{Number(selectedServer.ramUsage || 0).toFixed(2)}%</div>
                                             </div>
                                             <div className="chart-container">
@@ -463,7 +464,7 @@ const Servidores: React.FC = () => {
                                     
                                     <div className="stats-row">
                                         <div className="stat-box">
-                                            <div className="stat-box-icon"><HardDrive size={20} className="icon-blue" /></div>
+                                            <div className="stat-box-icon"><MorphIcon icon={HardDrive} size={20} className="icon-blue" /></div>
                                             <div className="stat-box-content">
                                                 <span className="stat-label">Almacenamiento (Disco)</span>
                                                 <span className="stat-number">{Number(selectedServer.diskUsage || 0).toFixed(1)}%</span>
@@ -473,7 +474,7 @@ const Servidores: React.FC = () => {
                                             </div>
                                         </div>
                                         <div className="stat-box">
-                                            <div className="stat-box-icon"><Thermometer size={20} className={selectedServer.temp && selectedServer.temp > 70 ? 'icon-red' : 'icon-green'} style={{ color: selectedServer.temp && selectedServer.temp > 70 ? '#f85149' : '#3fb950' }} /></div>
+                                            <div className="stat-box-icon"><MorphIcon icon={Thermometer} size={20} className={selectedServer.temp && selectedServer.temp > 70 ? 'icon-red' : 'icon-green'} style={{ color: selectedServer.temp && selectedServer.temp > 70 ? '#f85149' : '#3fb950' }} /></div>
                                             <div className="stat-box-content">
                                                 <span className="stat-label">Temperatura del CPU</span>
                                                 <span className="stat-number">{selectedServer.temp ? `${Number(selectedServer.temp).toFixed(1)}°C` : 'N/A'}</span>
@@ -528,7 +529,7 @@ const Servidores: React.FC = () => {
                                                                     onClick={() => handleServiceAction(svc.name, 'start')}
                                                                     disabled={actionLoading === `${svc.name}-start`}
                                                                 >
-                                                                    <Play size={14} />
+                                                                    <MorphIcon icon={Play} size={14} />
                                                                 </button>
                                                             ) : (
                                                                 <button
@@ -536,7 +537,7 @@ const Servidores: React.FC = () => {
                                                                     onClick={() => handleServiceAction(svc.name, 'stop')}
                                                                     disabled={actionLoading === `${svc.name}-stop`}
                                                                 >
-                                                                    <Square size={14} />
+                                                                    <MorphIcon icon={Square} size={14} />
                                                                 </button>
                                                             )}
                                                             <button
@@ -544,7 +545,7 @@ const Servidores: React.FC = () => {
                                                                 onClick={() => handleServiceAction(svc.name, 'restart')}
                                                                 disabled={actionLoading === `${svc.name}-restart`}
                                                             >
-                                                                <RotateCcw size={14} />
+                                                                <MorphIcon icon={RotateCcw} size={14} />
                                                             </button>
                                                         </div>
                                                     </td>
@@ -651,7 +652,7 @@ const Servidores: React.FC = () => {
                         <div className="server-form-header">
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                 <div className="server-engine-icon" style={{ width: '32px', height: '32px', borderRadius: '4px' }}>
-                                    <Server size={16} />
+                                    <MorphIcon icon={Server} size={16} />
                                 </div>
                                 <div>
                                     <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: 'var(--text-main)' }}>Agregar Servidor</h3>
@@ -659,7 +660,7 @@ const Servidores: React.FC = () => {
                                 </div>
                             </div>
                             <button type="button" className="btn-close" onClick={() => setShowForm(false)}>
-                                <X size={16} />
+                                <MorphIcon icon={X} size={16} />
                             </button>
                         </div>
                         <form onSubmit={handleSubmit} className="server-form-body">
@@ -710,14 +711,14 @@ const Servidores: React.FC = () => {
                                             className={`auth-toggle-option ${formData.authType === 'key' ? 'active' : ''}`}
                                             onClick={() => setFormData({ ...formData, authType: 'key' })}
                                         >
-                                            <KeyRound size={14} />
+                                            <MorphIcon icon={KeyRound} size={14} />
                                             <span>Private Key</span>
                                         </div>
                                         <div
                                             className={`auth-toggle-option ${formData.authType === 'password' ? 'active' : ''}`}
                                             onClick={() => setFormData({ ...formData, authType: 'password' })}
                                         >
-                                            <Lock size={14} />
+                                            <MorphIcon icon={Lock} size={14} />
                                             <span>Password</span>
                                         </div>
                                     </div>
@@ -728,7 +729,7 @@ const Servidores: React.FC = () => {
                                         <div className="label-with-action">
                                             <label>Private Key</label>
                                             <label className="file-upload-link">
-                                                <Upload size={12} /> Cargar .pem
+                                                <MorphIcon icon={Upload} size={12} /> Cargar .pem
                                                 <input
                                                     type="file"
                                                     accept=".pem,.key,.txt,*"

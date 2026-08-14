@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { serverService } from '../../services/server.service';
 import type { CreateServerData } from '../../services/server.service';
 import { tokenStorage } from '../../services/tokenStorage';
-import { Database as DatabaseIcon, Plus, Play, Square, RotateCcw, Trash2, ExternalLink, Eye, EyeOff, X, HardDrive, Copy, Check, Link, Search, CheckCircle2 } from 'lucide-react';
+import { Database as DatabaseIcon, Plus, Play, Square, RotateCcw, Trash2, ExternalLink, Eye, EyeOff, X, HardDrive, Copy, Check, Link, Search, CheckCircle2 } from 'lucide';
+import { MorphIcon } from 'morphicons/react';
 import './Database.css';
 
 interface DatabaseInstance {
@@ -216,16 +217,16 @@ const DatabaseView = () => {
         <div className="database-container">
             <header className="page-header">
                 <div>
-                    <h1><DatabaseIcon size={24} className="icon-blue" /> Bases de Datos</h1>
+                    <h1><MorphIcon icon={DatabaseIcon} size={24} className="icon-blue" /> Bases de Datos</h1>
                     <p className="text-muted">Despliega y administra bases de datos MySQL y PostgreSQL en tus servidores.</p>
                 </div>
                 {servers.length > 0 && (
                     <div className="db-header-actions">
                         <button className="btn-secondary" onClick={handleScanExisting} disabled={scanning}>
-                            <Search size={16} /> {scanning ? 'Buscando...' : 'Buscar BD existentes'}
+                            <MorphIcon icon={Search} size={16} /> {scanning ? 'Buscando...' : 'Buscar BD existentes'}
                         </button>
                         <button className="btn-primary" onClick={() => setShowForm(true)}>
-                            <Plus size={16} /> Nueva Base de Datos
+                            <MorphIcon icon={Plus} size={16} /> Nueva Base de Datos
                         </button>
                     </div>
                 )}
@@ -248,14 +249,14 @@ const DatabaseView = () => {
                 ) : databases.length === 0 ? (
                     <div className="db-empty-state">
                         <div className="db-empty-icon">
-                            <DatabaseIcon size={48} />
+                            <MorphIcon icon={DatabaseIcon} size={48} />
                         </div>
                         <h3>No hay bases de datos desplegadas</h3>
                         <p className="text-muted">
                             Tienes {servers.length} servidor(es) listo(s). ¡Despliega tu primera base de datos con un clic!
                         </p>
                         <button className="btn-primary" onClick={() => setShowForm(true)}>
-                            <Plus size={16} /> Crear mi primera Base de Datos
+                            <MorphIcon icon={Plus} size={16} /> Crear mi primera Base de Datos
                         </button>
                     </div>
                 ) : (
@@ -276,7 +277,7 @@ const DatabaseView = () => {
                                                         {db.engine === 'mysql' ? 'MySQL' : 'PostgreSQL'}
                                                     </span>
                                                     <span>•</span>
-                                                    <HardDrive size={12} />
+                                                    <MorphIcon icon={HardDrive} size={12} />
                                                     <span>{db.serverName} ({db.serverIp})</span>
                                                 </div>
                                             </div>
@@ -293,7 +294,7 @@ const DatabaseView = () => {
                                                     disabled={actionLoading === `${db.id}-stop`}
                                                     title="Detener"
                                                 >
-                                                    <Square size={14} />
+                                                    <MorphIcon icon={Square} size={14} />
                                                 </button>
                                             ) : db.status === 'stopped' ? (
                                                 <button
@@ -302,7 +303,7 @@ const DatabaseView = () => {
                                                     disabled={actionLoading === `${db.id}-start`}
                                                     title="Iniciar"
                                                 >
-                                                    <Play size={14} />
+                                                    <MorphIcon icon={Play} size={14} />
                                                 </button>
                                             ) : null}
                                             <button
@@ -311,7 +312,7 @@ const DatabaseView = () => {
                                                 disabled={actionLoading?.startsWith(db.id) || false}
                                                 title="Reiniciar"
                                             >
-                                                <RotateCcw size={14} />
+                                                <MorphIcon icon={RotateCcw} size={14} />
                                             </button>
                                             <button
                                                 className="db-btn-action delete"
@@ -319,7 +320,7 @@ const DatabaseView = () => {
                                                 disabled={actionLoading?.startsWith(db.id) || false}
                                                 title="Eliminar"
                                             >
-                                                <Trash2 size={14} />
+                                                <MorphIcon icon={Trash2} size={14} />
                                             </button>
                                         </div>
                                     </div>
@@ -343,7 +344,7 @@ const DatabaseView = () => {
                                                     className="db-connect-btn"
                                                     onClick={() => { setConnectionModal(db); setCopied(false); setClosingConnModal(false); }}
                                                 >
-                                                    <Link size={14} />
+                                                    <MorphIcon icon={Link} size={14} />
                                                     Datos de Conexión
                                                 </button>
                                             </div>
@@ -364,7 +365,7 @@ const DatabaseView = () => {
                                                 rel="noopener noreferrer"
                                                 className="db-admin-link"
                                             >
-                                                <ExternalLink size={14} />
+                                                <MorphIcon icon={ExternalLink} size={14} />
                                                 Abrir phpMyAdmin
                                             </a>
                                         </div>
@@ -377,9 +378,9 @@ const DatabaseView = () => {
             ) : (
                 <div className="db-form-card">
                     <div className="db-form-header">
-                        <h2><DatabaseIcon size={20} className="icon-blue" /> Nueva Base de Datos</h2>
+                        <h2><MorphIcon icon={DatabaseIcon} size={20} className="icon-blue" /> Nueva Base de Datos</h2>
                         <button className="btn-close" onClick={() => { setShowForm(false); setDeployLogs(''); }}>
-                            <X size={20} />
+                            <MorphIcon icon={X} size={20} />
                         </button>
                     </div>
                     <form onSubmit={handleSubmit}>
@@ -480,7 +481,7 @@ const DatabaseView = () => {
                                             className="db-password-toggle"
                                             onClick={() => setShowPasswords(prev => ({ ...prev, form: !prev.form }))}
                                         >
-                                            {showPasswords['form'] ? <EyeOff size={16} /> : <Eye size={16} />}
+                                            <MorphIcon icon={showPasswords['form'] ? EyeOff : Eye} size={16} spring="snappy" />
                                         </button>
                                     </div>
                                 </div>
@@ -527,7 +528,7 @@ const DatabaseView = () => {
                                 )}
                             </h3>
                             {!deploying && (
-                                <button className="btn-close" onClick={() => { setShowForm(false); setDeployLogs(''); }}><X size={20} /></button>
+                                <button className="btn-close" onClick={() => { setShowForm(false); setDeployLogs(''); }}><MorphIcon icon={X} size={20} /></button>
                             )}
                         </div>
                         <div className="db-deploy-modal-body">
@@ -571,7 +572,7 @@ const DatabaseView = () => {
                                     <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-muted)' }}>{connectionModal.name} • {connectionModal.engine === 'mysql' ? 'MySQL' : 'PostgreSQL'}</p>
                                 </div>
                             </div>
-                            <button className="btn-close" onClick={closeConnectionModal}><X size={18} /></button>
+                            <button className="btn-close" onClick={closeConnectionModal}><MorphIcon icon={X} size={18} /></button>
                         </div>
                         <div className="db-conn-modal-body">
                             <div className="db-conn-grid">
@@ -610,7 +611,7 @@ const DatabaseView = () => {
                                             setTimeout(() => setCopied(false), 2500);
                                         }}
                                     >
-                                        {copied ? <><Check size={13} /> Copiado</> : <><Copy size={13} /> Copiar</>}
+                                        {copied ? <><MorphIcon icon={Check} size={13} /> Copiado</> : <><MorphIcon icon={Copy} size={13} /> Copiar</>}
                                     </button>
                                 </div>
                                 <pre className="db-connection-pre">{
@@ -631,12 +632,12 @@ const DatabaseView = () => {
             {toast && (
                 <div className={`modern-toast toast-${toast.type}`}>
                     <div className="toast-icon">
-                        {toast.type === 'success' && <div className="icon-success"><CheckCircle2 size={16} /></div>}
-                        {toast.type === 'error' && <div className="icon-error"><X size={16} /></div>}
+                        {toast.type === 'success' && <div className="icon-success"><MorphIcon icon={CheckCircle2} size={16} /></div>}
+                        {toast.type === 'error' && <div className="icon-error"><MorphIcon icon={X} size={16} /></div>}
                         {toast.type === 'info' && <div className="icon-info">i</div>}
                     </div>
                     <div className="toast-message">{toast.message}</div>
-                    <button className="toast-close" onClick={() => setToast(null)}><X size={14} /></button>
+                    <button className="toast-close" onClick={() => setToast(null)}><MorphIcon icon={X} size={14} /></button>
                 </div>
             )}
         </div>

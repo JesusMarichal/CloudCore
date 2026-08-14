@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Terminal as TerminalIcon, Server, Trash2, X, Plug, ChevronDown, Check } from 'lucide-react';
+import { Terminal as TerminalIcon, Server, Trash2, X, Plug, ChevronDown, Check } from 'lucide';
+import { MorphIcon } from 'morphicons/react';
 import { Terminal as XTerminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { serverService } from '../../services/server.service';
@@ -189,7 +190,7 @@ const Terminal = () => {
         <div className="terminal-view">
             <div className="terminal-header-top">
                 <div className="terminal-title">
-                    <TerminalIcon size={20} className="icon-blue" />
+                    <MorphIcon icon={TerminalIcon} size={20} className="icon-blue" />
                     <h1>Consola SSH</h1>
                     {status !== 'idle' && (
                         <span className={`status-badge ${statusLabel[status].cls}`}>
@@ -206,11 +207,11 @@ const Terminal = () => {
                             onClick={() => setServerMenuOpen(o => !o)}
                             disabled={status === 'connecting' || servers.length === 0}
                         >
-                            <Server size={14} className="icon-dim" />
+                            <MorphIcon icon={Server} size={14} className="icon-dim" />
                             <span className="server-selector-label">
                                 {selectedServer ? `${selectedServer.name} (${selectedServer.ip})` : 'No hay servidores'}
                             </span>
-                            <ChevronDown size={14} className={`server-selector-chevron ${serverMenuOpen ? 'open' : ''}`} />
+                            <MorphIcon icon={ChevronDown} size={14} className={`server-selector-chevron ${serverMenuOpen ? 'open' : ''}`} />
                         </button>
 
                         {serverMenuOpen && servers.length > 0 && (
@@ -225,7 +226,7 @@ const Terminal = () => {
                                         <span className={`server-dropdown-dot ${s.status}`} />
                                         <span className="server-dropdown-name">{s.name}</span>
                                         <span className="server-dropdown-ip">{s.ip}</span>
-                                        {s.id === selectedServerId && <Check size={14} className="server-dropdown-check" />}
+                                        {s.id === selectedServerId && <MorphIcon icon={Check} size={14} className="server-dropdown-check" />}
                                     </button>
                                 ))}
                             </div>
@@ -234,7 +235,7 @@ const Terminal = () => {
 
                     {status === 'connected' ? (
                         <button className="btn-disconnect" onClick={disconnect}>
-                            <X size={14} /> Desconectar
+                            <MorphIcon icon={X} size={14} /> Desconectar
                         </button>
                     ) : (
                         <button
@@ -242,12 +243,12 @@ const Terminal = () => {
                             onClick={connect}
                             disabled={!selectedServerId || status === 'connecting'}
                         >
-                            <Plug size={14} /> {status === 'connecting' ? 'Conectando al Servidor...' : status === 'disconnected' ? 'Reconectar' : 'Conectar'}
+                            <MorphIcon icon={Plug} size={14} /> {status === 'connecting' ? 'Conectando al Servidor...' : status === 'disconnected' ? 'Reconectar' : 'Conectar'}
                         </button>
                     )}
 
                     <button className="btn-clear" onClick={clear} title="Limpiar terminal">
-                        <Trash2 size={16} />
+                        <MorphIcon icon={Trash2} size={16} />
                     </button>
                 </div>
             </div>

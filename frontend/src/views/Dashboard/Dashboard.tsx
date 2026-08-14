@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide';
 import {
     Cloud,
     LayoutGrid,
@@ -24,7 +24,8 @@ import {
     XCircle,
     X,
     CreditCard
-} from 'lucide-react';
+} from 'lucide';
+import { MorphIcon } from 'morphicons/react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { serverService } from '../../services/server.service';
 import type { CreateServerData } from '../../services/server.service';
@@ -41,10 +42,10 @@ interface AppNotification {
 }
 
 const NOTIF_ICONS = {
-    info:    <Info size={14} style={{ color: '#58a6ff' }} />,
-    success: <CircleCheck size={14} style={{ color: '#3fb950' }} />,
-    warning: <AlertTriangle size={14} style={{ color: '#d29922' }} />,
-    error:   <XCircle size={14} style={{ color: '#f85149' }} />,
+    info:    <MorphIcon icon={Info} size={14} style={{ color: '#58a6ff' }} />,
+    success: <MorphIcon icon={CircleCheck} size={14} style={{ color: '#3fb950' }} />,
+    warning: <MorphIcon icon={AlertTriangle} size={14} style={{ color: '#d29922' }} />,
+    error:   <MorphIcon icon={XCircle} size={14} style={{ color: '#f85149' }} />,
 };
 
 const NOTIF_STORAGE_KEY = 'cc_notifications_v1';
@@ -258,44 +259,44 @@ const Dashboard = () => {
             <div className={`sidebar-overlay ${sidebarOpen ? 'active' : ''}`} onClick={() => setSidebarOpen(false)}></div>
             <aside className={`sidebar ${sidebarOpen ? 'mobile-open' : ''}`}>
                 <div className="sidebar-logo">
-                    <Cloud size={20} />
+                    <MorphIcon icon={Cloud} size={20} />
                     <span>CloudCore</span>
                 </div>
 
                 <nav className="nav-links">
                     <NavLink to="/dashboard" end className={({ isActive }) => isActive ? "nav-link active" : "nav-link"} onClick={() => setSidebarOpen(false)}>
-                        <LayoutGrid size={16} />
+                        <MorphIcon icon={LayoutGrid} size={16} />
                         <span>Resumen</span>
                     </NavLink>
                     <NavLink to="/dashboard/servers" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"} onClick={() => setSidebarOpen(false)}>
-                        <Server size={16} />
+                        <MorphIcon icon={Server} size={16} />
                         <span>Instancias</span>
                     </NavLink>
                     <NavLink to="/dashboard/websites" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"} onClick={() => setSidebarOpen(false)}>
-                        <Globe size={16} />
+                        <MorphIcon icon={Globe} size={16} />
                         <span>Sitios Webs</span>
                     </NavLink>
                     <NavLink to="/dashboard/databases" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"} onClick={() => setSidebarOpen(false)}>
-                        <Database size={16} />
+                        <MorphIcon icon={Database} size={16} />
                         <span>Bases de Datos</span>
                     </NavLink>
                     <NavLink to="/dashboard/terminal" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"} onClick={() => setSidebarOpen(false)}>
-                        <Terminal size={16} />
+                        <MorphIcon icon={Terminal} size={16} />
                         <span>Terminal SSH</span>
                     </NavLink>
                     {isClient && (
                         <NavLink to="/dashboard/billing" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"} onClick={() => setSidebarOpen(false)}>
-                            <CreditCard size={16} />
+                            <MorphIcon icon={CreditCard} size={16} />
                             <span>Facturación</span>
                         </NavLink>
                     )}
                     <NavLink to="/dashboard/settings" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"} onClick={() => setSidebarOpen(false)}>
-                        <Settings size={16} />
+                        <MorphIcon icon={Settings} size={16} />
                         <span>Ajustes</span>
                     </NavLink>
 
                     <button onClick={handleLogout} className="nav-link logout" style={{ background: 'none', border: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}>
-                        <LogOut size={16} />
+                        <MorphIcon icon={LogOut} size={16} />
                         <span>Cerrar sesión</span>
                     </button>
                 </nav>
@@ -305,7 +306,7 @@ const Dashboard = () => {
                 <header className="header">
                     <div className="header-left">
                         <button className="mobile-menu-toggle" onClick={() => setSidebarOpen(!sidebarOpen)}>
-                            <Menu size={20} />
+                            <MorphIcon icon={Menu} size={20} />
                         </button>
                         <h2>Panel de Control / {location.pathname.split('/').pop() || 'Resumen'}</h2>
                     </div>
@@ -319,7 +320,7 @@ const Dashboard = () => {
                                 onClick={() => setNotifOpen(o => !o)}
                                 title="Notificaciones"
                             >
-                                <Bell size={16} />
+                                <MorphIcon icon={Bell} size={16} />
                                 {unreadCount > 0 && (
                                     <span className="notif-badge">{unreadCount}</span>
                                 )}
@@ -331,14 +332,14 @@ const Dashboard = () => {
                                         <span className="notif-title">Notificaciones</span>
                                         {unreadCount > 0 && (
                                             <button className="notif-mark-read" onClick={markAllRead} title="Marcar todo como leído">
-                                                <CheckCheck size={13} /> Todo leído
+                                                <MorphIcon icon={CheckCheck} size={13} /> Todo leído
                                             </button>
                                         )}
                                     </div>
 
                                     {notifPermission !== 'granted' && (
                                         <div className="notif-permission-banner">
-                                            <Bell size={13} />
+                                            <MorphIcon icon={Bell} size={13} />
                                             <span>Activa las notificaciones del navegador</span>
                                             <button onClick={requestBrowserPermission}>
                                                 {notifPermission === 'denied' ? 'Bloqueado' : 'Permitir'}
@@ -349,7 +350,7 @@ const Dashboard = () => {
                                     <div className="notif-list">
                                         {notifications.length === 0 ? (
                                             <div className="notif-empty">
-                                                <Bell size={28} />
+                                                <MorphIcon icon={Bell} size={28} />
                                                 <p>Sin notificaciones</p>
                                             </div>
                                         ) : (
@@ -362,7 +363,7 @@ const Dashboard = () => {
                                                         <span className="notif-item-time">{formatRelativeTime(n.timestamp)}</span>
                                                     </div>
                                                     <button className="notif-dismiss" onClick={() => dismiss(n.id)} title="Descartar">
-                                                        <X size={12} />
+                                                        <MorphIcon icon={X} size={12} />
                                                     </button>
                                                 </div>
                                             ))
@@ -381,14 +382,14 @@ const Dashboard = () => {
                                 <div className="stat-card">
                                     <div className="stat-header">
                                         <span className="stat-title">Instancias</span>
-                                        <Server size={14} color="var(--gh-text-muted)" />
+                                        <MorphIcon icon={Server} size={14} color="var(--gh-text-muted)" />
                                     </div>
                                     <div className="stat-value">{stats.activeInstances}</div>
                                 </div>
                                 <div className="stat-card">
                                     <div className="stat-header">
                                         <span className="stat-title">Uso de CPU</span>
-                                        <Activity size={14} color="var(--gh-text-muted)" />
+                                        <MorphIcon icon={Activity} size={14} color="var(--gh-text-muted)" />
                                     </div>
                                     <div className="stat-value">{stats.cpuUsage.toFixed(2)}%</div>
                                 </div>
@@ -403,18 +404,18 @@ const Dashboard = () => {
 
                             <div className="table-controls">
                                 <div className="search-bar">
-                                    <Search size={14} color="var(--gh-text-muted)" />
+                                    <MorphIcon icon={Search} size={14} color="var(--gh-text-muted)" />
                                     <input type="text" placeholder="Buscar servidores..." />
                                 </div>
                                 <div className="control-group">
                                     <button className="btn-secondary">
-                                        Filtros <ChevronDown size={12} />
+                                        Filtros <MorphIcon icon={ChevronDown} size={12} />
                                     </button>
                                     <button className="btn-secondary">
-                                        Ordenar <ChevronDown size={12} />
+                                        Ordenar <MorphIcon icon={ChevronDown} size={12} />
                                     </button>
                                     <button className="btn-add-server" onClick={() => navigate('/dashboard/servers')}>
-                                        <Plus size={16} />
+                                        <MorphIcon icon={Plus} size={16} />
                                         <span>Agregar Servidor</span>
                                     </button>
                                 </div>
@@ -449,11 +450,12 @@ const Dashboard = () => {
                                                     <td data-label="Dirección IP" className="mono">{server.ip}</td>
                                                     <td data-label="Acciones" style={{ textAlign: 'right' }}>
                                                         {deletingServerId === server.id ? (
-                                                            <Loader2 size={16} style={{ color: 'var(--primary)', animation: 'spin 1s linear infinite' }} />
+                                                            <MorphIcon icon={Loader2} size={16} style={{ color: 'var(--primary)', animation: 'spin 1s linear infinite' }} />
                                                         ) : (
                                                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', alignItems: 'center' }}>
-                                                                <MoreHorizontal size={16} className="action-icon" style={{ cursor: 'pointer' }} onClick={() => navigate('/dashboard/servers')} />
-                                                                <Trash2
+                                                                <MorphIcon icon={MoreHorizontal} size={16} className="action-icon" style={{ cursor: 'pointer' }} onClick={() => navigate('/dashboard/servers')} />
+                                                                <MorphIcon
+                                                                    icon={Trash2}
                                                                     size={16}
                                                                     style={{ cursor: 'pointer', color: 'var(--gh-text-muted)', transition: 'color 0.2s' }}
                                                                     onClick={() => handleDeleteServer(server.id!, server.name)}
