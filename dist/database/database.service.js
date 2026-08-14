@@ -48,6 +48,8 @@ let DatabaseService = DatabaseService_1 = class DatabaseService {
             await this.pool.query('CREATE EXTENSION IF NOT EXISTS "pgcrypto"');
             await this.createUsersTable();
             await this.createServersTable();
+            await this.createPendingRegistrationsTable();
+            await this.createPasswordResetsTable();
             await this.applyMigrations();
         }
         catch (error) {
@@ -159,6 +161,45 @@ let DatabaseService = DatabaseService_1 = class DatabaseService {
         }
         catch (error) {
             this.logger.error('Error al crear la tabla "users":', error.message);
+        }
+    }
+    async createPendingRegistrationsTable() {
+        const query = `
+            CREATE TABLE IF NOT EXISTS pending_registrations (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                email VARCHAR(255) UNIQUE NOT NULL,
+                name VARCHAR(255) NOT NULL,
+                password TEXT NOT NULL,
+                code_hash TEXT NOT NULL,
+                attempts INT DEFAULT 0,
+                expires_at TIMESTAMP NOT NULL,
+                created_at TIMESTAMP DEFAULT NOW()
+            );
+        `;
+        try {
+            await this.pool.query(query);
+            this.logger.log('Tabla "pending_registrations" verificada/creada correctamente.');
+        }
+        catch (error) {
+            this.logger.error('Error al crear la tabla "pending_registrations":', error.message);
+        }
+    }
+    async createPasswordResetsTable() {
+        const query = `
+            CREATE TABLE IF NOT EXISTS password_resets (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                email VARCHAR(255) NOT NULL,
+                token_hash VARCHAR(64) UNIQUE NOT NULL,
+                expires_at TIMESTAMP NOT NULL,
+                created_at TIMESTAMP DEFAULT NOW()
+            );
+        `;
+        try {
+            await this.pool.query(query);
+            this.logger.log('Tabla "password_resets" verificada/creada correctamente.');
+        }
+        catch (error) {
+            this.logger.error('Error al crear la tabla "password_resets":', error.message);
         }
     }
     async createServersTable() {

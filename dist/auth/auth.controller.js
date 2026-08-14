@@ -18,6 +18,7 @@ const common_1 = require("@nestjs/common");
 const throttler_1 = require("@nestjs/throttler");
 const jwt_1 = require("@nestjs/jwt");
 const database_service_1 = require("../database/database.service");
+const mail_service_1 = require("../mail/mail.service");
 const bcrypt = require("bcrypt");
 const crypto = require("crypto");
 const public_decorator_1 = require("../common/auth/public.decorator");
@@ -61,10 +62,13 @@ function verifyTOTP(secret, token) {
 const MAX_ATTEMPTS = 5;
 const LOCK_MINUTES = 15;
 const PRE_2FA_EXPIRES_IN = '5m';
+const REGISTER_CODE_EXPIRES_MIN = 15;
+const RESET_TOKEN_EXPIRES_MIN = 5;
 let AuthController = AuthController_1 = class AuthController {
-    constructor(db, jwtService) {
+    constructor(db, jwtService, mail) {
         this.db = db;
         this.jwtService = jwtService;
+        this.mail = mail;
         this.logger = new common_1.Logger(AuthController_1.name);
     }
     signToken(user) {
@@ -164,15 +168,122 @@ let AuthController = AuthController_1 = class AuthController {
     async register(body) {
         const { name, email, password } = body;
         try {
-            const check = await this.db.query('SELECT id FROM users WHERE email=$1', [email]);
-            if (check.rows.length > 0)
+            const existing = await this.db.query('SELECT id FROM users WHERE LOWER(email)=LOWER($1)', [email]);
+            if (existing.rows.length > 0)
                 return { success: false, message: 'El correo ya está registrado' };
-            const hashed = await bcrypt.hash(password, 12);
-            const result = await this.db.query("INSERT INTO users (name, email, password, role) VALUES ($1, $2, $3, 'CLIENT') RETURNING id, name, email", [name, email, hashed]);
-            return { success: true, message: 'Cuenta creada con éxito', user: result.rows[0] };
+            const code = String(crypto.randomInt(0, 1_000_000)).padStart(6, '0');
+            const codeHash = await bcrypt.hash(code, 10);
+            const hashedPassword = await bcrypt.hash(password, 12);
+            const expiresAt = new Date(Date.now() + REGISTER_CODE_EXPIRES_MIN * 60 * 1000);
+            await this.db.query(`INSERT INTO pending_registrations (email, name, password, code_hash, attempts, expires_at)
+                 VALUES (LOWER($1), $2, $3, $4, 0, $5)
+                 ON CONFLICT (email) DO UPDATE
+                 SET name = EXCLUDED.name,
+                     password = EXCLUDED.password,
+                     code_hash = EXCLUDED.code_hash,
+                     attempts = 0,
+                     expires_at = EXCLUDED.expires_at,
+                     created_at = NOW()`, [email, name, hashedPassword, codeHash, expiresAt]);
+            await this.mail.sendVerificationCode(email, name, code);
+            return {
+                success: true,
+                requiresVerification: true,
+                message: 'Te enviamos un código de verificación a tu correo.',
+            };
         }
-        catch {
-            return { success: false, message: 'No se pudo crear la cuenta' };
+        catch (error) {
+            this.logger.error('Error en register: ' + error.message);
+            return { success: false, message: 'No se pudo procesar el registro. Intenta de nuevo.' };
+        }
+    }
+    async verifyRegister(body) {
+        const { email, code } = body;
+        try {
+            const result = await this.db.query('SELECT * FROM pending_registrations WHERE LOWER(email)=LOWER($1)', [email]);
+            const pending = result.rows[0];
+            if (!pending)
+                return { success: false, message: 'No hay un registro pendiente para este correo. Regístrate de nuevo.' };
+            if (new Date(pending.expires_at) < new Date()) {
+                await this.db.query('DELETE FROM pending_registrations WHERE LOWER(email)=LOWER($1)', [email]);
+                return { success: false, message: 'El código expiró. Regístrate de nuevo.' };
+            }
+            if (pending.attempts >= MAX_ATTEMPTS) {
+                await this.db.query('DELETE FROM pending_registrations WHERE LOWER(email)=LOWER($1)', [email]);
+                return { success: false, message: 'Demasiados intentos incorrectos. Regístrate de nuevo.' };
+            }
+            const isMatch = await bcrypt.compare(code, pending.code_hash);
+            if (!isMatch) {
+                await this.db.query('UPDATE pending_registrations SET attempts = attempts + 1 WHERE LOWER(email)=LOWER($1)', [email]);
+                const remaining = MAX_ATTEMPTS - (pending.attempts + 1);
+                return { success: false, message: `Código incorrecto. ${remaining} intento(s) restante(s).` };
+            }
+            const dup = await this.db.query('SELECT id FROM users WHERE LOWER(email)=LOWER($1)', [email]);
+            if (dup.rows.length > 0) {
+                await this.db.query('DELETE FROM pending_registrations WHERE LOWER(email)=LOWER($1)', [email]);
+                return { success: false, message: 'El correo ya está registrado' };
+            }
+            const insertResult = await this.db.query("INSERT INTO users (name, email, password, role) VALUES ($1, LOWER($2), $3, 'CLIENT') RETURNING id, name, email, role", [pending.name, email, pending.password]);
+            await this.db.query('DELETE FROM pending_registrations WHERE LOWER(email)=LOWER($1)', [email]);
+            const user = insertResult.rows[0];
+            const token = this.signToken(user);
+            return {
+                success: true,
+                message: 'Cuenta verificada y creada con éxito',
+                token,
+                user: { id: String(user.id), name: user.name, email: user.email, role: user.role || 'CLIENT' },
+            };
+        }
+        catch (error) {
+            this.logger.error('Error en verifyRegister: ' + error.message);
+            return { success: false, message: 'Error al verificar el código. Intenta de nuevo.' };
+        }
+    }
+    async forgotPassword(body) {
+        const { email } = body;
+        const genericResponse = {
+            success: true,
+            message: 'Si el correo está registrado, te enviamos un enlace para restablecer tu contraseña.',
+        };
+        try {
+            const result = await this.db.query('SELECT id, name, email FROM users WHERE LOWER(email)=LOWER($1)', [email]);
+            const user = result.rows[0];
+            if (user) {
+                const token = crypto.randomBytes(32).toString('hex');
+                const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+                const expiresAt = new Date(Date.now() + RESET_TOKEN_EXPIRES_MIN * 60 * 1000);
+                await this.db.query('DELETE FROM password_resets WHERE LOWER(email)=LOWER($1)', [email]);
+                await this.db.query('INSERT INTO password_resets (email, token_hash, expires_at) VALUES (LOWER($1), $2, $3)', [email, tokenHash, expiresAt]);
+                const origin = (process.env.FRONTEND_ORIGIN || 'http://localhost:5173').split(',')[0].trim();
+                const resetLink = `${origin}/reset-password?token=${token}`;
+                await this.mail.sendPasswordResetLink(user.email, user.name, resetLink);
+            }
+            return genericResponse;
+        }
+        catch (error) {
+            this.logger.error('Error en forgotPassword: ' + error.message);
+            return genericResponse;
+        }
+    }
+    async resetPassword(body) {
+        const { token, newPassword } = body;
+        try {
+            const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+            const result = await this.db.query('SELECT * FROM password_resets WHERE token_hash=$1', [tokenHash]);
+            const reset = result.rows[0];
+            if (!reset)
+                return { success: false, message: 'El enlace no es válido o ya fue utilizado.' };
+            if (new Date(reset.expires_at) < new Date()) {
+                await this.db.query('DELETE FROM password_resets WHERE token_hash=$1', [tokenHash]);
+                return { success: false, message: 'El enlace expiró. Solicita uno nuevo.' };
+            }
+            const hashed = await bcrypt.hash(newPassword, 12);
+            await this.db.query('UPDATE users SET password=$1 WHERE LOWER(email)=LOWER($2)', [hashed, reset.email]);
+            await this.db.query('DELETE FROM password_resets WHERE token_hash=$1', [tokenHash]);
+            return { success: true, message: 'Contraseña actualizada. Ya puedes iniciar sesión.' };
+        }
+        catch (error) {
+            this.logger.error('Error en resetPassword: ' + error.message);
+            return { success: false, message: 'No se pudo restablecer la contraseña. Intenta de nuevo.' };
         }
     }
     async changePassword(userId, body) {
@@ -283,6 +394,33 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "register", null);
 __decorate([
+    (0, public_decorator_1.Public)(),
+    (0, common_1.Post)('register/verify'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [auth_dto_1.VerifyRegisterDto]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "verifyRegister", null);
+__decorate([
+    (0, public_decorator_1.Public)(),
+    (0, common_1.Post)('forgot-password'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [auth_dto_1.ForgotPasswordDto]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "forgotPassword", null);
+__decorate([
+    (0, public_decorator_1.Public)(),
+    (0, common_1.Post)('reset-password'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [auth_dto_1.ResetPasswordDto]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "resetPassword", null);
+__decorate([
     (0, common_1.Post)('change-password'),
     __param(0, (0, current_user_decorator_1.CurrentUser)('sub')),
     __param(1, (0, common_1.Body)()),
@@ -325,6 +463,7 @@ exports.AuthController = AuthController = AuthController_1 = __decorate([
     (0, common_1.UseGuards)(throttler_1.ThrottlerGuard),
     (0, common_1.UsePipes)(new common_1.ValidationPipe({ whitelist: true, transform: true })),
     __metadata("design:paramtypes", [database_service_1.DatabaseService,
-        jwt_1.JwtService])
+        jwt_1.JwtService,
+        mail_service_1.MailService])
 ], AuthController);
 //# sourceMappingURL=auth.controller.js.map

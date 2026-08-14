@@ -16,6 +16,21 @@ export const AuthService = {
         return response.data;
     },
 
+    async verifyRegister(email: string, code: string) {
+        const response = await httpClient.post('/auth/register/verify', { email, code });
+        return response.data;
+    },
+
+    async forgotPassword(email: string) {
+        const response = await httpClient.post('/auth/forgot-password', { email });
+        return response.data;
+    },
+
+    async resetPassword(token: string, newPassword: string) {
+        const response = await httpClient.post('/auth/reset-password', { token, newPassword });
+        return response.data;
+    },
+
     async changePassword(currentPassword: string, newPassword: string) {
         const response = await httpClient.post('/auth/change-password', {
             currentPassword, newPassword

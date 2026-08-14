@@ -49,6 +49,7 @@
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
     "helmet": "^8.3.0",
+    "nodemailer": "^9.0.5",
     "pg": "^8.18.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
@@ -63,6 +64,7 @@
     "@nestjs/cli": "^11.0.16",
     "@nestjs/schematics": "^11.0.9",
     "@types/cors": "^2.8.19",
+    "@types/nodemailer": "^8.0.1",
     "@types/ws": "^8.18.1",
     "concurrently": "^9.2.1"
   }

@@ -32,6 +32,30 @@ export class RegisterDto {
     password: string;
 }
 
+export class VerifyRegisterDto {
+    @IsEmail()
+    email: string;
+
+    @IsString()
+    @Length(6, 6)
+    code: string;
+}
+
+export class ForgotPasswordDto {
+    @IsEmail()
+    email: string;
+}
+
+export class ResetPasswordDto {
+    @IsString()
+    @MinLength(1)
+    token: string;
+
+    @IsString()
+    @MinLength(8)
+    newPassword: string;
+}
+
 export class ChangePasswordDto {
     @IsString()
     @MinLength(1)

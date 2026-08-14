@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import Landing from './views/Landing/Landing';
 import Login from './views/Login/Login';
 import Register from './views/Register/Register';
+import ResetPassword from './views/ResetPassword/ResetPassword';
 import Dashboard from './views/Dashboard/Dashboard';
 import Servidores from './views/Servidores/Servidores';
 import Websites from './views/Websites/Websites';
@@ -20,6 +21,7 @@ function App() {
         <Route path="/home" element={<Landing />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route element={<ProtectedRoute />}>
           <Route path="/dashboard" element={<Dashboard />}>
             <Route path="servers" element={<Servidores />} />

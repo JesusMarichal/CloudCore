@@ -1,11 +1,13 @@
 import { JwtService } from '@nestjs/jwt';
 import { DatabaseService } from '../database/database.service';
-import { LoginDto, Verify2FALoginDto, RegisterDto, ChangePasswordDto, Enable2FADto, Disable2FADto } from './dto/auth.dto';
+import { MailService } from '../mail/mail.service';
+import { LoginDto, Verify2FALoginDto, RegisterDto, VerifyRegisterDto, ForgotPasswordDto, ResetPasswordDto, ChangePasswordDto, Enable2FADto, Disable2FADto } from './dto/auth.dto';
 export declare class AuthController {
     private readonly db;
     private readonly jwtService;
+    private readonly mail;
     private readonly logger;
-    constructor(db: DatabaseService, jwtService: JwtService);
+    constructor(db: DatabaseService, jwtService: JwtService, mail: MailService);
     private signToken;
     login(body: LoginDto): Promise<{
         success: boolean;
@@ -53,11 +55,35 @@ export declare class AuthController {
     register(body: RegisterDto): Promise<{
         success: boolean;
         message: string;
+        requiresVerification?: undefined;
+    } | {
+        success: boolean;
+        requiresVerification: boolean;
+        message: string;
+    }>;
+    verifyRegister(body: VerifyRegisterDto): Promise<{
+        success: boolean;
+        message: string;
+        token?: undefined;
         user?: undefined;
     } | {
         success: boolean;
         message: string;
-        user: any;
+        token: string;
+        user: {
+            id: string;
+            name: any;
+            email: any;
+            role: any;
+        };
+    }>;
+    forgotPassword(body: ForgotPasswordDto): Promise<{
+        success: boolean;
+        message: string;
+    }>;
+    resetPassword(body: ResetPasswordDto): Promise<{
+        success: boolean;
+        message: string;
     }>;
     changePassword(userId: string, body: ChangePasswordDto): Promise<{
         success: boolean;

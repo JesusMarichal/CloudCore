@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthService } from '../../services/auth.service';
 import { tokenStorage } from '../../services/tokenStorage';
-import { Mail, Lock, ArrowRight, Cloud, ShieldCheck, Sun, Moon } from 'lucide-react';
+import { Mail, Lock, ArrowRight, Cloud, ShieldCheck, MailCheck, Eye, EyeOff, Sun, Moon } from 'lucide-react';
 import OTPInput from '../../components/OTPInput';
 import './Login.css';
 
@@ -26,11 +26,14 @@ const Login: React.FC = () => {
     const [email, setEmail]       = useState('');
     const [password, setPassword] = useState('');
     const [totpCode, setTotpCode] = useState('');
-    const [step, setStep]         = useState<'credentials' | '2fa'>('credentials');
+    const [step, setStep]         = useState<'credentials' | '2fa' | 'forgot'>('credentials');
     const [preAuthToken, setPreAuthToken] = useState('');
     const [error, setError]       = useState<string | null>(null);
     const [loading, setLoading]   = useState(false);
     const [isDark, setIsDark]     = useState(false); // arranca en claro (blanco) por defecto
+    const [forgotEmail, setForgotEmail] = useState('');
+    const [forgotSent, setForgotSent]   = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
     const navigate = useNavigate();
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -68,6 +71,34 @@ const Login: React.FC = () => {
         }
     };
 
+    const handleForgotSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setError(null);
+        setLoading(true);
+        try {
+            const result = await AuthService.forgotPassword(forgotEmail);
+            if (result.success) {
+                setForgotSent(true);
+            } else {
+                setError(result.message || 'No se pudo procesar la solicitud');
+            }
+        } catch (err: any) {
+            const msg = err?.response?.data?.message
+                ?? (err?.code === 'ERR_NETWORK' ? 'No se pudo conectar al servidor.' : null)
+                ?? 'Error al procesar la solicitud';
+            setError(msg);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const backToCredentials = () => {
+        setStep('credentials');
+        setError(null);
+        setForgotEmail('');
+        setForgotSent(false);
+    };
+
     return (
         <div className={`login-container ${isDark ? 'theme-dark' : 'theme-light'}`}>
             <div className="background-animation">
@@ -99,79 +130,143 @@ const Login: React.FC = () => {
                             <p className="auth-subtitle">Bienvenido de nuevo</p>
                             <p className="auth-desc">Infraestructura SaaS de alto rendimiento</p>
                         </>
-                    ) : (
+                    ) : step === '2fa' ? (
                         <>
                             <p className="auth-subtitle">Verificación en dos pasos</p>
                             <p className="auth-desc">Ingresa el código de 6 dígitos de tu app autenticadora</p>
                         </>
+                    ) : (
+                        <>
+                            <p className="auth-subtitle">Recuperar contraseña</p>
+                            <p className="auth-desc">
+                                {forgotSent
+                                    ? 'Revisa tu bandeja de entrada'
+                                    : 'Te enviaremos un enlace para restablecerla'}
+                            </p>
+                        </>
                     )}
                 </div>
 
-                <form onSubmit={handleSubmit}>
-                    {step === 'credentials' ? (
-                        <>
+                {step === 'forgot' ? (
+                    forgotSent ? (
+                        <div className="reg-success">
+                            <MailCheck size={44} className="reg-success-icon" />
+                            <h2>Enlace enviado</h2>
+                            <p>Si el correo está registrado, te llegará un enlace válido por 5 minutos.</p>
+                            <div className="login-footer">
+                                <button type="button" className="btn-link" onClick={backToCredentials}>
+                                    ← Volver al inicio de sesión
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        <form onSubmit={handleForgotSubmit}>
                             <div className="form-group">
                                 <label><Mail size={15} /> Correo Electrónico</label>
-                                <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+                                <input type="email" value={forgotEmail} onChange={e => setForgotEmail(e.target.value)}
                                     placeholder="nombre@ejemplo.com" required autoFocus />
                             </div>
-                            <div className="form-group">
-                                <label><Lock size={15} /> Contraseña</label>
-                                <input type="password" value={password} onChange={e => setPassword(e.target.value)}
-                                    placeholder="••••••••" required />
-                            </div>
-                        </>
-                    ) : (
-                        <div className="totp-group">
-                            <p className="totp-hint">
-                                <ShieldCheck size={14} /> Código de tu app autenticadora
-                            </p>
-                            <OTPInput value={totpCode} onChange={setTotpCode} />
-                        </div>
-                    )}
 
-                    <button type="submit" disabled={loading || (step === '2fa' && totpCode.length < 6)}>
-                        {loading ? 'Verificando...' : step === 'credentials'
-                            ? 'Iniciar Sesión'
-                            : <><ShieldCheck size={17} /> Verificar</>
-                        }
-                    </button>
+                            <button type="submit" disabled={loading}>
+                                {loading ? 'Enviando...' : <><Mail size={17} /> Enviar enlace de recuperación</>}
+                            </button>
 
-                    {step === 'credentials' && (
-                        <>
-                            <div className="social-divider"><span>o continúa con</span></div>
-                            <div className="social-buttons">
-                                <button type="button" className="social-btn" onClick={() => { /* TODO: auth Google */ }}>
-                                    <GoogleIcon /> Google
-                                </button>
-                                <button type="button" className="social-btn" onClick={() => { /* TODO: auth GitHub */ }}>
-                                    <GithubIcon /> GitHub
+                            <div className="login-footer">
+                                <button type="button" className="btn-link" onClick={backToCredentials}>
+                                    ← Volver al inicio de sesión
                                 </button>
                             </div>
-                        </>
-                    )}
 
-                    {step === '2fa' && (
-                        <div className="login-footer">
-                            <button type="button" className="btn-link"
-                                onClick={() => { setStep('credentials'); setError(null); setTotpCode(''); }}>
-                                ← Volver al inicio de sesión
-                            </button>
-                        </div>
-                    )}
+                            {error && (
+                                <div className="message error-message">{error}</div>
+                            )}
+                        </form>
+                    )
+                ) : (
+                    <form onSubmit={handleSubmit}>
+                        {step === 'credentials' ? (
+                            <>
+                                <div className="form-group">
+                                    <label><Mail size={15} /> Correo Electrónico</label>
+                                    <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+                                        placeholder="nombre@ejemplo.com" required autoFocus />
+                                </div>
+                                <div className="form-group">
+                                    <label><Lock size={15} /> Contraseña</label>
+                                    <div className="password-field-wrapper">
+                                        <input type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)}
+                                            placeholder="••••••••" required />
+                                        <button
+                                            type="button"
+                                            className="pw-toggle-btn"
+                                            tabIndex={-1}
+                                            onClick={() => setShowPassword(v => !v)}
+                                            aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                                        >
+                                            {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+                                        </button>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        className="btn-link forgot-password-link"
+                                        onClick={() => { setStep('forgot'); setError(null); }}
+                                    >
+                                        ¿Olvidaste tu contraseña?
+                                    </button>
+                                </div>
+                            </>
+                        ) : (
+                            <div className="totp-group">
+                                <p className="totp-hint">
+                                    <ShieldCheck size={14} /> Código de tu app autenticadora
+                                </p>
+                                <OTPInput value={totpCode} onChange={setTotpCode} />
+                            </div>
+                        )}
 
-                    {step === 'credentials' && (
-                        <div className="login-footer">
-                            <button type="button" className="btn-link" onClick={() => navigate('/register')}>
-                                ¿No tienes cuenta? Regístrate gratis <ArrowRight size={14} />
-                            </button>
-                        </div>
-                    )}
+                        <button type="submit" disabled={loading || (step === '2fa' && totpCode.length < 6)}>
+                            {loading ? 'Verificando...' : step === 'credentials'
+                                ? 'Iniciar Sesión'
+                                : <><ShieldCheck size={17} /> Verificar</>
+                            }
+                        </button>
 
-                    {error && (
-                        <div className="message error-message">{error}</div>
-                    )}
-                </form>
+                        {step === 'credentials' && (
+                            <>
+                                <div className="social-divider"><span>o continúa con</span></div>
+                                <div className="social-buttons">
+                                    <button type="button" className="social-btn" onClick={() => { /* TODO: auth Google */ }}>
+                                        <GoogleIcon /> Google
+                                    </button>
+                                    <button type="button" className="social-btn" onClick={() => { /* TODO: auth GitHub */ }}>
+                                        <GithubIcon /> GitHub
+                                    </button>
+                                </div>
+                            </>
+                        )}
+
+                        {step === '2fa' && (
+                            <div className="login-footer">
+                                <button type="button" className="btn-link"
+                                    onClick={() => { setStep('credentials'); setError(null); setTotpCode(''); }}>
+                                    ← Volver al inicio de sesión
+                                </button>
+                            </div>
+                        )}
+
+                        {step === 'credentials' && (
+                            <div className="login-footer">
+                                <button type="button" className="btn-link" onClick={() => navigate('/register')}>
+                                    ¿No tienes cuenta? Regístrate gratis <ArrowRight size={14} />
+                                </button>
+                            </div>
+                        )}
+
+                        {error && (
+                            <div className="message error-message">{error}</div>
+                        )}
+                    </form>
+                )}
             </div>
         </div>
     );

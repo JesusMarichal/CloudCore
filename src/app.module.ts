@@ -15,6 +15,7 @@ import { GithubController } from './controllers/github.controller';
 import { SshTerminalGateway } from './terminal/ssh-terminal.gateway';
 import { JwtAuthGuard } from './common/auth/jwt-auth.guard';
 import { DeployModule } from './deploy/deploy.module';
+import { MailModule } from './mail/mail.module';
 
 @Module({
     imports: [
@@ -34,6 +35,7 @@ import { DeployModule } from './deploy/deploy.module';
         DatabaseModule,
         SshModule,
         DeployModule,
+        MailModule,
     ],
     controllers: [ServerController, AuthController, TerminalController, GithubController],
     providers: [

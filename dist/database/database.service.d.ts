@@ -6,6 +6,8 @@ export declare class DatabaseService implements OnModuleInit, OnModuleDestroy {
     onModuleInit(): Promise<void>;
     private applyMigrations;
     private createUsersTable;
+    private createPendingRegistrationsTable;
+    private createPasswordResetsTable;
     private createServersTable;
     query(text: string, params?: any[]): Promise<import("pg").QueryResult<any>>;
     onModuleDestroy(): Promise<void>;

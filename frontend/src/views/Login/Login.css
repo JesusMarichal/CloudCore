@@ -284,6 +284,49 @@
     transform: translateY(-1px);
 }
 
+/* ── Password show/hide toggle ── */
+.password-field-wrapper {
+    position: relative;
+}
+
+.password-field-wrapper input {
+    padding-right: 44px;
+}
+
+.login-container .pw-toggle-btn {
+    position: absolute;
+    right: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 34px;
+    height: 34px;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    border-radius: 6px;
+    box-shadow: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: color 0.2s ease, background 0.2s ease;
+}
+
+.login-container .pw-toggle-btn:hover {
+    transform: translateY(-50%);
+    filter: none;
+    box-shadow: none;
+    background: none;
+    color: var(--text-main);
+}
+
+.login-container .pw-toggle-btn:active {
+    transform: translateY(-50%) scale(0.9);
+}
+
 .login-container button {
     width: 100%;
     padding: 14px;
@@ -338,6 +381,47 @@
 .btn-link:hover {
     color: var(--primary) !important;
     transform: none !important;
+}
+
+.forgot-password-link {
+    display: block !important;
+    width: auto !important;
+    margin: 8px auto 0 0 !important;
+    font-size: 13px !important;
+}
+
+/* ── Success/confirmation box (used by Login's "forgot password sent" state) ── */
+.reg-success {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 0;
+    gap: 16px;
+    text-align: center;
+    animation: fadeInScale 0.4s ease-out;
+}
+
+.reg-success-icon {
+    color: #3fb950;
+    filter: drop-shadow(0 0 16px rgba(63, 185, 80, 0.5));
+    animation: successPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes successPop {
+    from { transform: scale(0); opacity: 0; }
+    to   { transform: scale(1); opacity: 1; }
+}
+
+.reg-success h2 {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--text-main);
+}
+
+.reg-success p {
+    font-size: 14px;
+    color: var(--text-muted);
 }
 
 .message {
