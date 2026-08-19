@@ -331,7 +331,6 @@ export const es = {
         tabStats: 'Estadísticas',
         newServer: 'Nuevo Servidor',
         emptyDesc: 'Agrega tu primer servidor VPS (AWS, Azure, DigitalOcean) para gestionar tu infraestructura de forma centralizada.',
-        connectFirst: 'Conectar mi primer Servidor',
         tabServices: 'Servicios del Sistema',
         tabInstaller: 'Instalador de Aplicaciones',
         startingInstall: 'Iniciando instalación de {name}...\n',

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { RefreshCw, Play, Square, RotateCcw, Activity, Shield, Cpu, HardDrive, Thermometer, ChevronRight, X, Plus, KeyRound, Lock, Upload, Server } from 'lucide';
+import { RefreshCw, Play, Square, RotateCcw, Activity, Shield, Cpu, HardDrive, Thermometer, ChevronRight, X, KeyRound, Lock, Upload, Server } from 'lucide';
 import { MorphIcon } from 'morphicons/react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { serverService } from '../../services/server.service';
@@ -362,9 +362,6 @@ const Servidores: React.FC = () => {
                         <div className="empty-icon">☁️</div>
                         <h3>{t('servers.empty')}</h3>
                         <p>{t('servers.emptyDesc')}</p>
-                        <button className="btn-primary" onClick={() => setShowForm(true)}>
-                            <MorphIcon icon={Plus} size={16} /> {t('servers.connectFirst')}
-                        </button>
                     </div>
                 )}
             </div>

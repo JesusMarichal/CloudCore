@@ -335,7 +335,6 @@ export const en: Dictionary = {
         tabStats: 'Statistics',
         newServer: 'New Server',
         emptyDesc: 'Add your first VPS (AWS, Azure, DigitalOcean) to manage your infrastructure from one place.',
-        connectFirst: 'Connect my first Server',
         tabServices: 'System Services',
         tabInstaller: 'Application Installer',
         startingInstall: 'Starting installation of {name}...\n',

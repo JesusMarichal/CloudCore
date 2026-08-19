@@ -106,7 +106,8 @@
     height: 46px;
     flex-shrink: 0;
     border-radius: 50%;
-    background: rgba(127, 127, 127, 0.1);
+    /* Sin fondo: se funde con la tarjeta, sea del color que sea */
+    background: transparent;
     object-fit: cover;
     animation: tourBob 3s ease-in-out infinite;
 }
@@ -227,8 +228,10 @@
     height: 56px;
     padding: 0;
     border-radius: 50%;
-    background: var(--card-bg, #161b22);
-    border: 1px solid var(--gh-border, #30363d);
+    /* Oscuro fijo en los dos temas: CoreBot es blanco y gris, y sobre un
+       fondo claro se difuminaba dentro del propio botón. */
+    background: #0d1117;
+    border: 1px solid #30363d;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
     cursor: pointer;
     display: inline-flex;
