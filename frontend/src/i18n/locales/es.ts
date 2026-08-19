@@ -146,7 +146,13 @@ export const es = {
 
     settings: {
         title: 'Ajustes',
-        subtitle: 'Gestiona integraciones, idioma y la seguridad de tu cuenta',
+        tabs: {
+            general: 'General',
+            security: 'Seguridad',
+            generalDesc: 'Idioma de la interfaz e integraciones con servicios externos',
+            securityDesc: 'Contraseña, verificación en dos pasos y buenas prácticas',
+        },
+
         github: {
             title: 'Integración con GitHub',
             desc: 'Conecta CloudCore con GitHub usando un Personal Access Token para desplegar repositorios automáticamente.',

@@ -445,3 +445,72 @@
     color: var(--primary);
     flex-shrink: 0;
 }
+
+/* ── Pestañas de Ajustes: General / Seguridad ────────────────────────────── */
+.settings-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 28px;
+    border-bottom: 1px solid var(--gh-border);
+}
+
+.settings-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    color: var(--text-muted);
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: color 0.18s ease, border-color 0.18s ease;
+}
+
+.settings-tab svg {
+    color: var(--text-dim);
+    transition: color 0.18s ease;
+}
+
+.settings-tab:hover {
+    color: var(--text-main);
+}
+
+.settings-tab:hover svg {
+    color: var(--primary);
+}
+
+.settings-tab.active {
+    color: var(--text-main);
+    border-bottom-color: var(--primary);
+}
+
+.settings-tab.active svg {
+    color: var(--primary);
+}
+
+/* Las tarjetas entran al cambiar de pestaña */
+.settings-content > * {
+    animation: settingsFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
+.settings-content > *:nth-child(2) { animation-delay: 0.06s; }
+.settings-content > *:nth-child(3) { animation-delay: 0.12s; }
+
+@keyframes settingsFadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 520px) {
+    .settings-tab {
+        flex: 1;
+        justify-content: center;
+        padding: 10px 8px;
+        font-size: 13px;
+    }
+}

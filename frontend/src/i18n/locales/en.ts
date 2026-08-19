@@ -150,7 +150,13 @@ export const en: Dictionary = {
 
     settings: {
         title: 'Settings',
-        subtitle: 'Manage integrations, language and your account security',
+        tabs: {
+            general: 'General',
+            security: 'Security',
+            generalDesc: 'Interface language and integrations with external services',
+            securityDesc: 'Password, two-step verification and best practices',
+        },
+
         github: {
             title: 'GitHub Integration',
             desc: 'Connect CloudCore to GitHub using a Personal Access Token to deploy repositories automatically.',

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import {
     Github, KeyRound, Save, CheckCircle2, AlertCircle,
     ShieldCheck, Lock, Eye, EyeOff, QrCode, Shield,
-    AlertTriangle, X, Check, Languages
+    AlertTriangle, X, Check, Languages, SlidersHorizontal
 } from 'lucide';
 import { MorphIcon } from 'morphicons/react';
 import { API_URL } from '../../config';
@@ -427,21 +427,53 @@ const SecurityTipsSection = ({ t }: { t: TranslateFn }) => (
 );
 
 // ── Page ──────────────────────────────────────────────────────────────────────
+type SettingsTab = 'general' | 'security';
+
+const TABS: { id: SettingsTab; labelKey: string; icon: typeof Shield }[] = [
+    { id: 'general', labelKey: 'settings.tabs.general', icon: SlidersHorizontal },
+    { id: 'security', labelKey: 'settings.tabs.security', icon: ShieldCheck },
+];
+
 const Settings = () => {
     const t = useT();
+    const [tab, setTab] = useState<SettingsTab>('general');
 
     return (
         <div className="settings-container">
             <div className="settings-header">
                 <h2>{t('settings.title')}</h2>
-                <p className="subtitle">{t('settings.subtitle')}</p>
+                <p className="subtitle">{t(`settings.tabs.${tab}Desc`)}</p>
             </div>
+
+            <div className="settings-tabs" role="tablist">
+                {TABS.map(({ id, labelKey, icon }) => (
+                    <button
+                        key={id}
+                        type="button"
+                        role="tab"
+                        aria-selected={tab === id}
+                        className={`settings-tab${tab === id ? ' active' : ''}`}
+                        onClick={() => setTab(id)}
+                    >
+                        <MorphIcon icon={icon} size={15} />
+                        {t(labelKey)}
+                    </button>
+                ))}
+            </div>
+
             <div className="settings-content">
-                <LanguageSection />
-                <GithubSection t={t} />
-                <ChangePasswordSection t={t} />
-                <TwoFASection t={t} />
-                <SecurityTipsSection t={t} />
+                {tab === 'general' ? (
+                    <>
+                        <LanguageSection />
+                        <GithubSection t={t} />
+                    </>
+                ) : (
+                    <>
+                        <ChangePasswordSection t={t} />
+                        <TwoFASection t={t} />
+                        <SecurityTipsSection t={t} />
+                    </>
+                )}
             </div>
         </div>
     );
