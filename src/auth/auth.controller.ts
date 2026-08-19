@@ -19,6 +19,7 @@ import {
     Enable2FADto,
     Disable2FADto,
     UpdateAvatarDto,
+    UpdateOnboardingDto,
 } from './dto/auth.dto';
 
 // ── TOTP (sin dependencias externas) ─────────────────────────────────────────
@@ -156,7 +157,7 @@ export class AuthController {
             return {
                 success: true,
                 token,
-                user: { id: String(user.id), name: user.name, email: user.email, role: user.role || 'CLIENT', avatar: user.avatar || null }
+                user: { id: String(user.id), name: user.name, email: user.email, role: user.role || 'CLIENT', avatar: user.avatar || null, onboardingDone: !!user.onboarding_done }
             };
         } catch (error) {
             this.logger.error('Error en login');
@@ -195,7 +196,7 @@ export class AuthController {
             return {
                 success: true,
                 token: fullToken,
-                user: { id: String(user.id), name: user.name, email: user.email, role: user.role || 'CLIENT', avatar: user.avatar || null }
+                user: { id: String(user.id), name: user.name, email: user.email, role: user.role || 'CLIENT', avatar: user.avatar || null, onboardingDone: !!user.onboarding_done }
             };
         } catch {
             return { success: false, message: 'Error al verificar' };
@@ -305,7 +306,7 @@ export class AuthController {
                 success: true,
                 message: 'Cuenta verificada y creada con éxito',
                 token,
-                user: { id: String(user.id), name: user.name, email: user.email, role: user.role || 'CLIENT', avatar: user.avatar || null },
+                user: { id: String(user.id), name: user.name, email: user.email, role: user.role || 'CLIENT', avatar: user.avatar || null, onboardingDone: false },
             };
         } catch (error) {
             this.logger.error('Error en verifyRegister: ' + error.message);
@@ -496,7 +497,7 @@ export class AuthController {
     async me(@CurrentUser('sub') userId: string) {
         try {
             const result = await this.db.query(
-                'SELECT id, name, email, role, avatar, created_at FROM users WHERE id=$1', [userId]
+                'SELECT id, name, email, role, avatar, onboarding_done, created_at FROM users WHERE id=$1', [userId]
             );
             const user = result.rows[0];
             if (!user) return { success: false, message: 'Usuario no encontrado' };
@@ -509,11 +510,28 @@ export class AuthController {
                     email: user.email,
                     role: user.role || 'CLIENT',
                     avatar: user.avatar || null,
+                    onboardingDone: !!user.onboarding_done,
                     createdAt: user.created_at,
                 },
             };
         } catch {
             return { success: false, message: 'Error al cargar el perfil' };
+        }
+    }
+
+    // ── Marcar la guía de CoreBot como vista ──────────────────────────────────
+    @Post('onboarding')
+    @HttpCode(HttpStatus.OK)
+    async updateOnboarding(@CurrentUser('sub') userId: string, @Body() body: UpdateOnboardingDto) {
+        try {
+            const result = await this.db.query(
+                'UPDATE users SET onboarding_done=$1 WHERE id=$2 RETURNING onboarding_done',
+                [body.done, userId]
+            );
+            if (result.rows.length === 0) return { success: false, message: 'Usuario no encontrado' };
+            return { success: true, onboardingDone: !!result.rows[0].onboarding_done };
+        } catch {
+            return { success: false, message: 'Error al guardar el progreso de la guía' };
         }
     }
 

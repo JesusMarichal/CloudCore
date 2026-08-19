@@ -134,11 +134,11 @@
 }
 
 .server-dropdown-item:hover {
-    background: rgba(88, 166, 255, 0.08);
+    background: rgba(0, 183, 181, 0.08);
 }
 
 .server-dropdown-item.active {
-    background: rgba(88, 166, 255, 0.12);
+    background: rgba(0, 183, 181, 0.12);
 }
 
 .server-dropdown-dot {
@@ -177,7 +177,7 @@
 }
 
 .server-dropdown-check {
-    color: #58a6ff;
+    color: #00B7B5;
     flex-shrink: 0;
 }
 
@@ -185,9 +185,9 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    background: rgba(88, 166, 255, 0.1);
-    border: 1px solid rgba(88, 166, 255, 0.3);
-    color: #58a6ff;
+    background: rgba(0, 183, 181, 0.1);
+    border: 1px solid rgba(0, 183, 181, 0.3);
+    color: #00B7B5;
     padding: 7px 14px;
     border-radius: 0;
     cursor: pointer;
@@ -197,7 +197,7 @@
 }
 
 .btn-connect:hover:not(:disabled) {
-    background: rgba(88, 166, 255, 0.2);
+    background: rgba(0, 183, 181, 0.2);
 }
 
 .btn-connect:disabled {

@@ -40,9 +40,6 @@ export const es = {
         toDarkMode: 'Cambiar a modo oscuro',
         stats: {
             instances: 'Instancias',
-            cpuUsage: 'Uso de CPU',
-            network: 'Red',
-            networkOptimized: 'Optimizada',
         },
         searchServers: 'Buscar servidores...',
         filters: 'Filtros',
@@ -52,7 +49,6 @@ export const es = {
             name: 'Nombre',
             status: 'Estado',
             ip: 'Dirección IP',
-            actions: 'Acciones',
             online: 'En línea',
             offline: 'Desconectado',
         },
@@ -62,6 +58,42 @@ export const es = {
         },
         deleteConfirm: '¿Estás seguro de eliminar el servidor "{name}"?\n\nEsto eliminará también todos los sitios web y bases de datos asociados.',
         deleteError: 'Error al eliminar el servidor.',
+    },
+
+    tour: {
+        next: 'Siguiente',
+        back: 'Atrás',
+        skip: 'Saltar',
+        finish: '¡Listo!',
+        replay: 'Ver la guía de CoreBot',
+        s1: {
+            title: '¡Hola, {name}! Soy CoreBot',
+            body: 'Voy a enseñarte lo único que necesitas saber para empezar: conectar un servidor y publicar tu primera página. Son dos minutos, y puedes saltarte esto cuando quieras.',
+        },
+        s2: {
+            title: 'Todo empieza por un servidor',
+            body: 'Aquí, en Instancias, viven tus máquinas. CloudCore no te alquila servidores: tú conectas el VPS que ya tengas — DigitalOcean, AWS, Hetzner, Vultr o cualquiera con acceso SSH.',
+        },
+        s3: {
+            title: 'Conecta tu primer VPS',
+            body: 'Con este botón agregas uno. Ten a mano la IP, el puerto SSH (normalmente el 22), el usuario (casi siempre root) y tu clave privada o contraseña. Al guardar, yo me encargo de instalar Nginx, Docker y PM2 por ti.',
+        },
+        s4: {
+            title: 'Antes de desplegar: tu GitHub',
+            body: 'En Ajustes pegas un Personal Access Token de GitHub. Sin él no puedo leer tus repositorios, así que hazlo antes de publicar nada. Necesita permiso de repo, y el enlace para crearlo está ahí mismo.',
+        },
+        s5: {
+            title: 'Aquí publicas tu página',
+            body: 'En Sitios Webs conviertes un repositorio en una web funcionando. Node.js, React, WordPress o HTML estático: el proceso es el mismo para todos.',
+        },
+        s6: {
+            title: 'Tu primer despliegue',
+            body: 'Eliges el servidor y el repositorio, y me dices tres cosas: cómo instalar (npm install), cómo arrancar (npm start) y en qué puerto escucha. Si pones un dominio, te saco el certificado SSL gratis con Let\'s Encrypt.',
+        },
+        s7: {
+            title: 'Eso es todo',
+            body: 'Ya sabes lo esencial: primero un servidor, luego tu GitHub, y después todas las webs que quieras. Me quedo abajo a la derecha — púlsame y repetimos esto cuando lo necesites.',
+        },
     },
 
     notifications: {

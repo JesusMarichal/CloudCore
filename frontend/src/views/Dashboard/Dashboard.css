@@ -8,6 +8,9 @@
     --dash-elevated: #161b22;
     --dash-hover: rgba(177, 186, 196, 0.12);
     --dash-hover-soft: rgba(177, 186, 196, 0.06);
+    /* Navegación: teñida con el azul de marca en vez de gris neutro */
+    --dash-nav-hover: rgba(0, 183, 181, 0.10);
+    --dash-nav-active: rgba(0, 183, 181, 0.14);
     --dash-row-hover: rgba(22, 27, 34, 0.8);
     --dash-avatar-bg: #30363d;
     --dash-shadow: rgba(0, 0, 0, 0.5);
@@ -32,7 +35,7 @@
     height: 100vh;
 }
 
-/* El logo es a la vez la marca y el botón de plegar (menú hamburguesa) */
+/* Solo la marca: el plegado lo controla la pestaña del borde */
 .sidebar-logo {
     display: flex;
     align-items: center;
@@ -42,18 +45,6 @@
     margin-bottom: 24px;
     font-size: 16px;
     font-weight: 600;
-    background: none;
-    border: none;
-    border-radius: 6px;
-    color: inherit;
-    font-family: inherit;
-    cursor: pointer;
-    text-align: left;
-    transition: background-color 0.2s;
-}
-
-.sidebar-logo:hover {
-    background-color: var(--dash-hover);
 }
 
 .sidebar-logo svg {
@@ -72,51 +63,79 @@
     flex: 1;
     white-space: nowrap;
     overflow: hidden;
-}
-
-.sidebar-burger {
-    flex-shrink: 0;
-    color: var(--gh-text-muted);
+    /* `display: none` no se puede animar: al plegar, el texto se desvanece y
+       encoge para que el movimiento acompañe al de la barra. */
+    max-width: 160px;
+    opacity: 1;
+    transition: opacity 0.16s ease, max-width 0.24s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .nav-links {
     display: flex;
     flex-direction: column;
     gap: 2px;
+    width: 100%;
 }
 
 .nav-link {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 8px 12px;
-    border-radius: 0;
+    gap: 10px;
+    padding: 9px 12px;
+    border-radius: 6px;
     color: var(--gh-text-default);
     text-decoration: none;
     font-size: 14px;
-    transition: background-color 0.2s;
+    position: relative;
+    overflow: hidden;
+    transition: background-color 0.18s ease, color 0.18s ease,
+                padding 0.24s cubic-bezier(0.4, 0, 0.2, 1), gap 0.24s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.nav-link span {
+    white-space: nowrap;
+    overflow: hidden;
+    max-width: 160px;
+    opacity: 1;
+    transition: opacity 0.16s ease, max-width 0.24s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Los iconos apagados se encienden en azul al pasar por encima o al estar activo */
+.nav-link svg {
+    color: var(--gh-text-muted);
+    transition: color 0.18s ease;
 }
 
 .nav-link:hover {
-    background-color: var(--dash-hover);
+    background-color: var(--dash-nav-hover);
+    color: var(--text-main);
+}
+
+.nav-link:hover svg {
+    color: var(--primary);
 }
 
 .nav-link.active {
-    background-color: var(--gh-canvas-subtle);
+    background-color: var(--dash-nav-active);
+    color: var(--text-main);
     font-weight: 600;
-    position: relative;
 }
 
+.nav-link.active svg {
+    color: var(--primary);
+}
+
+/* Marcador del enlace activo: color plano de marca, sin degradado.
+   Usa --primary para que se adapte al tema (#00B7B5 oscuro / #018790 claro). */
 .nav-link.active::before {
     content: "";
     position: absolute;
     left: 0;
-    top: 6px;
-    bottom: 6px;
-    width: 2px;
-    background-color: #f78166;
-    /* GitHub style orange active marker */
-    border-radius: 0;
+    top: 7px;
+    bottom: 7px;
+    width: 3px;
+    border-radius: 0 3px 3px 0;
+    background-color: var(--primary);
 }
 
 /* Main Content */
@@ -168,19 +187,25 @@
 
 .content-body {
     padding: 24px 32px;
-    max-width: 1200px;
+    /* Sin tope fijo: la vista ocupa el ancho disponible, así que al plegar la
+       barra lateral el contenido se estira en lugar de dejar hueco a la derecha.
+       Las vistas de formulario (Ajustes, Perfil) mantienen su propio tope. */
+    max-width: none;
     width: 100%;
 }
 
 /* Stats Section */
+/* Flex en vez de rejilla fija: las tarjetas se colocan según cuántas haya,
+   sin dejar huecos ni estirar una sola a todo el ancho. */
 .stats-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    display: flex;
+    flex-wrap: wrap;
     gap: 16px;
     margin-bottom: 24px;
 }
 
 .stat-card {
+    flex: 0 1 260px;
     background-color: var(--gh-bg);
     border: 1px solid var(--gh-border);
     border-radius: 0;
@@ -344,7 +369,7 @@
 }
 
 .status-badge.online::before {
-    background-color: #3fb1ff;
+    background-color: #00B7B5;
     box-shadow: 0 0 5px rgba(63, 177, 255, 0.5);
 }
 
@@ -447,8 +472,8 @@
         padding: 16px;
     }
 
-    .stats-grid {
-        grid-template-columns: 1fr;
+    .stat-card {
+        flex: 1 1 100%;
     }
 
     .table-controls {
@@ -579,7 +604,7 @@
     gap: 4px;
     background: none;
     border: none;
-    color: #58a6ff;
+    color: #00B7B5;
     font-size: 11px;
     cursor: pointer;
     padding: 0;
@@ -666,7 +691,7 @@
 }
 
 .notif-item.unread {
-    background: rgba(88, 166, 255, 0.04);
+    background: rgba(0, 183, 181, 0.04);
 }
 
 .notif-item.unread::before {
@@ -676,7 +701,7 @@
     top: 0;
     bottom: 0;
     width: 2px;
-    background: #58a6ff;
+    background: #00B7B5;
 }
 
 .notif-icon {
@@ -820,29 +845,31 @@
     /* Tokens propios del panel */
     --dash-sidebar-bg: #ffffff;
     --dash-input-bg: #ffffff;
-    /* Blancos: el lienzo del contenido ya es #f6f8fa, así que un botón de ese
+    /* Blancos: el lienzo del contenido ya es #F4F4F4, así que un botón de ese
        mismo tono se fundiría con el fondo. */
     --dash-btn-bg: #ffffff;
     --dash-btn-bg-hover: #f3f4f6;
     --dash-elevated: #ffffff;
     --dash-hover: rgba(31, 35, 40, 0.06);
     --dash-hover-soft: rgba(31, 35, 40, 0.04);
-    --dash-row-hover: #f6f8fa;
-    --dash-avatar-bg: #eaeef2;
+    --dash-nav-hover: rgba(1, 135, 144, 0.07);
+    --dash-nav-active: rgba(1, 135, 144, 0.10);
+    --dash-row-hover: #F4F4F4;
+    --dash-avatar-bg: #E8E8E8;
     --dash-shadow: rgba(140, 149, 159, 0.25);
 
     /* Variables globales de GitHub Dark → paleta clara */
     --gh-bg: #ffffff;
-    --gh-canvas-subtle: #f6f8fa;
+    --gh-canvas-subtle: #F4F4F4;
     --gh-border: #d0d7de;
     --gh-border-muted: #d8dee4;
     --gh-text-default: #1f2328;
     --gh-text-muted: #656d76;
-    --gh-text-link: #0969da;
+    --gh-text-link: #018790;
 
-    --primary: #0969da;
-    --primary-hover: #0550ae;
-    --primary-glow: rgba(9, 105, 218, 0.15);
+    --primary: #018790;
+    --primary-hover: #005461;
+    --primary-glow: rgba(1, 135, 144, 0.15);
 
     --bg-dark: #ffffff;
     --card-bg: #ffffff;
@@ -853,7 +880,7 @@
     --text-dim: #6e7781;
 
     --card-shadow: 0 8px 24px rgba(140, 149, 159, 0.2);
-    --glow-shadow: 0 0 20px rgba(9, 105, 218, 0.08);
+    --glow-shadow: 0 0 20px rgba(1, 135, 144, 0.08);
 
     background-color: #ffffff;
     color: var(--gh-text-default);
@@ -861,7 +888,7 @@
 
 /* Fondo sutil del área de contenido, como el lienzo claro del Login */
 .dashboard-layout.theme-light .main-content {
-    background-color: #f6f8fa;
+    background-color: #F4F4F4;
 }
 
 /* "Filtros" / "Ordenar": fondo blanco y texto negro.
@@ -897,7 +924,7 @@
 }
 
 .dashboard-layout.theme-light .nav-link.active {
-    background-color: #f6f8fa;
+    background-color: var(--dash-nav-active);
 }
 
 /* Tarjetas y contenedores sobre el lienzo gris → blancos con sombra suave */
@@ -910,7 +937,7 @@
 }
 
 .dashboard-layout.theme-light .server-table th {
-    background-color: #f6f8fa;
+    background-color: #F4F4F4;
 }
 
 .dashboard-layout.theme-light .search-bar,
@@ -922,7 +949,7 @@
 }
 
 .dashboard-layout.theme-light .input-with-icon input {
-    background: #f6f8fa;
+    background: #F4F4F4;
 }
 
 .dashboard-layout.theme-light .input-with-icon input:focus {
@@ -938,7 +965,7 @@
 }
 
 .dashboard-layout.theme-light .notif-item.unread {
-    background: rgba(9, 105, 218, 0.05);
+    background: rgba(1, 135, 144, 0.05);
 }
 
 .dashboard-layout.theme-light .notif-item.unread::before {
@@ -958,10 +985,20 @@
    Se limita a escritorio: en móvil la barra ya es un cajón deslizante y
    plegarla dejaría los iconos sin etiqueta sin motivo.
    ═══════════════════════════════════════════════════════════════════════════ */
-.sidebar,
+.sidebar {
+    /* `transform` va aquí porque esta regla se declara después del bloque móvil
+       y, con la misma especificidad, anularía la transición del cajón. */
+    transition: width 0.24s cubic-bezier(0.4, 0, 0.2, 1),
+                padding 0.24s cubic-bezier(0.4, 0, 0.2, 1),
+                transform 0.3s ease;
+}
+
 .main-content {
-    transition: width 0.22s cubic-bezier(0.4, 0, 0.2, 1),
-                margin-left 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: margin-left 0.24s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidebar-logo {
+    transition: padding 0.24s cubic-bezier(0.4, 0, 0.2, 1), gap 0.24s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 @media (min-width: 769px) {
@@ -972,39 +1009,82 @@
     .dashboard-layout.sidebar-collapsed .sidebar {
         padding-left: 8px;
         padding-right: 8px;
-        align-items: center;
     }
 
-    /* Solo queda el favicon, centrado y clicable para volver a abrir */
+    /* Solo queda el favicon: el relleno lo deja centrado sin cambiar la
+       alineación, que no se puede animar y provocaba el salto. */
     .dashboard-layout.sidebar-collapsed .sidebar-logo {
-        justify-content: center;
         gap: 0;
-        padding: 8px 0;
-    }
-
-    .dashboard-layout.sidebar-collapsed .sidebar-brand-name,
-    .dashboard-layout.sidebar-collapsed .sidebar-burger {
-        display: none;
-    }
-
-    .dashboard-layout.sidebar-collapsed .nav-links {
-        width: 100%;
+        padding: 8px 15px;
     }
 
     .dashboard-layout.sidebar-collapsed .nav-link {
-        justify-content: center;
-        padding: 10px 0;
+        padding: 10px 18px;
         gap: 0;
     }
 
+    .dashboard-layout.sidebar-collapsed .sidebar-brand-name,
     .dashboard-layout.sidebar-collapsed .nav-link span {
-        display: none;
+        max-width: 0;
+        opacity: 0;
     }
 
-    /* El marcador naranja del enlace activo estorba sin etiqueta */
+    /* Plegada no hay marcador: con solo iconos queda mejor que la sección
+       activa se distinga por el fondo teñido y el icono en color. */
     .dashboard-layout.sidebar-collapsed .nav-link.active::before {
-        left: 0;
-        right: auto;
-        width: 2px;
+        display: none;
+    }
+}
+
+/* Bases de Datos traía un tope de 1000px propio: se alinea con el resto para
+   que también aproveche el espacio al plegar la barra lateral. */
+.dashboard-layout .database-container {
+    max-width: none;
+}
+
+/* ── Pestaña de plegar/desplegar, siempre en el mismo punto del borde ── */
+.sidebar-toggle-tab {
+    position: absolute;
+    /* Centrada en el alto de la barra, como una pestaña para tirar de ella */
+    top: 50%;
+    transform: translateY(-50%);
+    right: -12px;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--dash-elevated);
+    border: 1px solid var(--gh-border);
+    border-radius: 50%;
+    color: var(--gh-text-muted);
+    cursor: pointer;
+    z-index: 3;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.22);
+    transition: all 0.2s ease;
+    animation: sidebarExpandIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes sidebarExpandIn {
+    from { opacity: 0; transform: translateY(-50%) scale(0.6); }
+    to   { opacity: 1; transform: translateY(-50%) scale(1); }
+}
+
+.sidebar-toggle-tab:hover {
+    color: #fff;
+    background: var(--primary);
+    border-color: var(--primary);
+    transform: translateY(-50%) scale(1.12);
+}
+
+.sidebar-toggle-tab:active {
+    transform: translateY(-50%) scale(0.9);
+}
+
+/* En móvil la barra es un cajón: no hay estado plegado que abrir */
+@media (max-width: 768px) {
+    .sidebar-toggle-tab {
+        display: none;
     }
 }

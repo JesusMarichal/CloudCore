@@ -126,7 +126,7 @@ let AuthController = AuthController_1 = class AuthController {
             return {
                 success: true,
                 token,
-                user: { id: String(user.id), name: user.name, email: user.email, role: user.role || 'CLIENT', avatar: user.avatar || null }
+                user: { id: String(user.id), name: user.name, email: user.email, role: user.role || 'CLIENT', avatar: user.avatar || null, onboardingDone: !!user.onboarding_done }
             };
         }
         catch (error) {
@@ -158,7 +158,7 @@ let AuthController = AuthController_1 = class AuthController {
             return {
                 success: true,
                 token: fullToken,
-                user: { id: String(user.id), name: user.name, email: user.email, role: user.role || 'CLIENT', avatar: user.avatar || null }
+                user: { id: String(user.id), name: user.name, email: user.email, role: user.role || 'CLIENT', avatar: user.avatar || null, onboardingDone: !!user.onboarding_done }
             };
         }
         catch {
@@ -231,7 +231,7 @@ let AuthController = AuthController_1 = class AuthController {
                 success: true,
                 message: 'Cuenta verificada y creada con éxito',
                 token,
-                user: { id: String(user.id), name: user.name, email: user.email, role: user.role || 'CLIENT', avatar: user.avatar || null },
+                user: { id: String(user.id), name: user.name, email: user.email, role: user.role || 'CLIENT', avatar: user.avatar || null, onboardingDone: false },
             };
         }
         catch (error) {
@@ -368,7 +368,7 @@ let AuthController = AuthController_1 = class AuthController {
     }
     async me(userId) {
         try {
-            const result = await this.db.query('SELECT id, name, email, role, avatar, created_at FROM users WHERE id=$1', [userId]);
+            const result = await this.db.query('SELECT id, name, email, role, avatar, onboarding_done, created_at FROM users WHERE id=$1', [userId]);
             const user = result.rows[0];
             if (!user)
                 return { success: false, message: 'Usuario no encontrado' };
@@ -380,12 +380,24 @@ let AuthController = AuthController_1 = class AuthController {
                     email: user.email,
                     role: user.role || 'CLIENT',
                     avatar: user.avatar || null,
+                    onboardingDone: !!user.onboarding_done,
                     createdAt: user.created_at,
                 },
             };
         }
         catch {
             return { success: false, message: 'Error al cargar el perfil' };
+        }
+    }
+    async updateOnboarding(userId, body) {
+        try {
+            const result = await this.db.query('UPDATE users SET onboarding_done=$1 WHERE id=$2 RETURNING onboarding_done', [body.done, userId]);
+            if (result.rows.length === 0)
+                return { success: false, message: 'Usuario no encontrado' };
+            return { success: true, onboardingDone: !!result.rows[0].onboarding_done };
+        }
+        catch {
+            return { success: false, message: 'Error al guardar el progreso de la guía' };
         }
     }
     async updateAvatar(userId, body) {
@@ -511,6 +523,15 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "me", null);
+__decorate([
+    (0, common_1.Post)('onboarding'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    __param(0, (0, current_user_decorator_1.CurrentUser)('sub')),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, auth_dto_1.UpdateOnboardingDto]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "updateOnboarding", null);
 __decorate([
     (0, common_1.Post)('avatar'),
     (0, common_1.HttpCode)(common_1.HttpStatus.OK),

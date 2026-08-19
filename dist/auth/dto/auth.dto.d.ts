@@ -12,6 +12,9 @@ export declare class RegisterDto {
     password: string;
     avatar?: string;
 }
+export declare class UpdateOnboardingDto {
+    done: boolean;
+}
 export declare class UpdateAvatarDto {
     avatar: string;
 }

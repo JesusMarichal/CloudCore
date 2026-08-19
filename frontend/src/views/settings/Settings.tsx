@@ -151,7 +151,7 @@ const ChangePasswordSection = ({ t }: { t: TranslateFn }) => {
     const str = strength(form.newPass);
     const strLabel = ['', t('settings.password.strength.weak'), t('settings.password.strength.fair'),
                       t('settings.password.strength.good'), t('settings.password.strength.strong')][str];
-    const strColor = ['', '#f85149', '#d29922', '#3fb950', '#58a6ff'][str];
+    const strColor = ['', '#f85149', '#d29922', '#3fb950', '#00B7B5'][str];
 
     const fieldLabel = (field: 'current' | 'newPass' | 'confirm') =>
         field === 'current' ? t('settings.password.current')

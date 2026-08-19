@@ -5,6 +5,8 @@ export interface StoredUser {
     role?: 'ADMIN' | 'CLIENT';
     /** ID del avatar del pack predeterminado (ej. 'av-pe-1'). Nunca una imagen. */
     avatar?: string | null;
+    /** true cuando el usuario ya terminó (o saltó) la guía de CoreBot. */
+    onboardingDone?: boolean;
 }
 
 const TOKEN_KEY = 'cc_auth_token';

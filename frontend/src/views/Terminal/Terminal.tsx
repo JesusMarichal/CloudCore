@@ -58,13 +58,16 @@ const Terminal = () => {
             theme: {
                 background: '#0d1117',
                 foreground: '#e6edf3',
-                cursor: '#58a6ff',
+                cursor: '#00B7B5',
                 cursorAccent: '#0d1117',
-                selectionBackground: 'rgba(88, 166, 255, 0.25)',
+                selectionBackground: 'rgba(0, 183, 181, 0.25)',
                 black: '#484f58',
                 red: '#ff7b72',
                 green: '#3fb950',
                 yellow: '#d29922',
+                /* La paleta ANSI no se marquea: 'blue' y 'cyan' deben seguir
+                   siendo distinguibles para que la salida de los programas
+                   se vea con sus colores reales. */
                 blue: '#58a6ff',
                 magenta: '#bc8cff',
                 cyan: '#39c5cf',

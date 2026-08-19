@@ -1,7 +1,7 @@
 import { JwtService } from '@nestjs/jwt';
 import { DatabaseService } from '../database/database.service';
 import { MailService } from '../mail/mail.service';
-import { LoginDto, Verify2FALoginDto, RegisterDto, VerifyRegisterDto, ForgotPasswordDto, ResetPasswordDto, ChangePasswordDto, Enable2FADto, Disable2FADto, UpdateAvatarDto } from './dto/auth.dto';
+import { LoginDto, Verify2FALoginDto, RegisterDto, VerifyRegisterDto, ForgotPasswordDto, ResetPasswordDto, ChangePasswordDto, Enable2FADto, Disable2FADto, UpdateAvatarDto, UpdateOnboardingDto } from './dto/auth.dto';
 export declare class AuthController {
     private readonly db;
     private readonly jwtService;
@@ -32,6 +32,7 @@ export declare class AuthController {
             email: any;
             role: any;
             avatar: any;
+            onboardingDone: boolean;
         };
         message?: undefined;
         require2FA?: undefined;
@@ -51,6 +52,7 @@ export declare class AuthController {
             email: any;
             role: any;
             avatar: any;
+            onboardingDone: boolean;
         };
         message?: undefined;
     }>;
@@ -78,6 +80,7 @@ export declare class AuthController {
             email: any;
             role: any;
             avatar: any;
+            onboardingDone: boolean;
         };
     }>;
     forgotPassword(body: ForgotPasswordDto): Promise<{
@@ -127,8 +130,18 @@ export declare class AuthController {
             email: any;
             role: any;
             avatar: any;
+            onboardingDone: boolean;
             createdAt: any;
         };
+        message?: undefined;
+    }>;
+    updateOnboarding(userId: string, body: UpdateOnboardingDto): Promise<{
+        success: boolean;
+        message: string;
+        onboardingDone?: undefined;
+    } | {
+        success: boolean;
+        onboardingDone: boolean;
         message?: undefined;
     }>;
     updateAvatar(userId: string, body: UpdateAvatarDto): Promise<{

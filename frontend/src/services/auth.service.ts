@@ -63,6 +63,12 @@ export const AuthService = {
         return response.data;
     },
 
+    /** Marca la guía de CoreBot como vista (o la reabre poniendo done=false). */
+    async setOnboardingDone(done: boolean) {
+        const response = await httpClient.post('/auth/onboarding', { done });
+        return response.data;
+    },
+
     /** Guarda solo el ID del avatar elegido del pack predeterminado. */
     async updateAvatar(avatar: string) {
         const response = await httpClient.post('/auth/avatar', { avatar });

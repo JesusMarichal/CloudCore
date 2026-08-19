@@ -1,20 +1,34 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
 
 :root {
-    /* Brand Colors - Exact GitHub Dark */
+    /* ── Paleta de marca CloudCore ──────────────────────────────────────────
+       Los cuatro colores oficiales. --brand-300 y --brand-100 son un aclarado
+       y un oscurecido de la propia paleta: los estados hover necesitan un
+       escalón por encima o por debajo del color base. */
+    --brand-900: #005461;   /* teal profundo  */
+    --brand-700: #018790;   /* teal medio     */
+    --brand-500: #00B7B5;   /* teal vivo      */
+    --brand-050: #F4F4F4;   /* neutro claro   */
+    --brand-300: #33C6C4;   /* derivado: hover sobre fondo oscuro */
+    --brand-100: #E8E8E8;   /* derivado: hover sobre fondo claro  */
+
+    --brand-glow: rgba(0, 183, 181, 0.35);
+
+    /* Superficies base (GitHub Dark) */
     --gh-bg: #0d1117;
     --gh-canvas-subtle: #161b22;
     --gh-border: #30363d;
     --gh-border-muted: #21262d;
     --gh-text-default: #c9d1d9;
     --gh-text-muted: #8b949e;
-    --gh-text-link: #58a6ff;
+    --gh-text-link: #00B7B5;
 
-    /* Semantic Colors */
-    --primary: #58a6ff;
-    --primary-hover: #79c0ff;
-    --primary-glow: rgba(88, 166, 255, 0.15);
+    /* Acento principal = marca */
+    --primary: var(--brand-500);
+    --primary-hover: var(--brand-300);
+    --primary-glow: rgba(0, 183, 181, 0.15);
 
+    /* Verde reservado para el significado "correcto/en línea", no para marca */
     --success: #238636;
     --success-hover: #2ea043;
     --success-glow: rgba(35, 134, 54, 0.4);
@@ -33,12 +47,12 @@
     --text-dim: #7d8590;
 
     /* Layout Constants */
-    --sidebar-width: 260px;
+    --sidebar-width: 212px;
     --header-height: 60px;
 
     /* Effects */
     --card-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-    --glow-shadow: 0 0 20px rgba(88, 166, 255, 0.1);
+    --glow-shadow: 0 0 20px rgba(0, 183, 181, 0.1);
 }
 
 * {
@@ -88,7 +102,7 @@ html[data-cc-theme="light"] body {
 }
 
 html[data-cc-theme="light"] ::-webkit-scrollbar-track {
-    background: #f6f8fa;
+    background: #F4F4F4;
 }
 
 html[data-cc-theme="light"] ::-webkit-scrollbar-thumb {

@@ -302,7 +302,7 @@
 }
 
 .btn-action:hover {
-    background: rgba(88, 166, 255, 0.08);
+    background: rgba(0, 183, 181, 0.08);
     color: var(--primary);
 }
 
@@ -488,8 +488,8 @@
 .ws-form-icon {
     width: 30px;
     height: 30px;
-    background: rgba(88, 166, 255, 0.1);
-    border: 1px solid rgba(88, 166, 255, 0.2);
+    background: rgba(0, 183, 181, 0.1);
+    border: 1px solid rgba(0, 183, 181, 0.2);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -608,7 +608,7 @@
 .form-group textarea:focus {
     outline: none;
     border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.15);
+    box-shadow: 0 0 0 3px rgba(0, 183, 181, 0.15);
 }
 
 .form-group input::placeholder,
@@ -637,8 +637,8 @@
 }
 
 .form-group-checkbox:hover {
-    background: rgba(88, 166, 255, 0.04);
-    border-color: rgba(88, 166, 255, 0.3);
+    background: rgba(0, 183, 181, 0.04);
+    border-color: rgba(0, 183, 181, 0.3);
 }
 
 .form-group-checkbox input {
@@ -756,7 +756,7 @@
 .env-row input:focus {
     outline: none;
     border-color: var(--primary);
-    box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.15);
+    box-shadow: 0 0 0 2px rgba(0, 183, 181, 0.15);
 }
 
 .btn-delete-env {
@@ -800,7 +800,7 @@
 .btn-add-env:hover {
     border-color: var(--primary);
     color: var(--primary);
-    background: rgba(88, 166, 255, 0.04);
+    background: rgba(0, 183, 181, 0.04);
 }
 
 /* Deploy Progress Modal */
@@ -910,7 +910,7 @@
 .db-spinner {
     width: 14px;
     height: 14px;
-    border: 2px solid rgba(88, 166, 255, 0.2);
+    border: 2px solid rgba(0, 183, 181, 0.2);
     border-top-color: var(--primary);
     border-radius: 50%;
     animation: spinAnim 0.8s linear infinite;
@@ -1123,7 +1123,7 @@
 
 .logs-refresh-btn:hover {
     color: var(--primary);
-    border-color: rgba(88, 166, 255, 0.4);
+    border-color: rgba(0, 183, 181, 0.4);
 }
 
 .logs-close-btn:hover {
@@ -1161,7 +1161,7 @@
 
 .logs-tab.active {
     color: var(--text-main);
-    border-bottom-color: #f78166;
+    border-bottom-color: var(--primary);
 }
 
 .logs-tab-dot {

@@ -44,9 +44,6 @@ export const en: Dictionary = {
         toDarkMode: 'Switch to dark mode',
         stats: {
             instances: 'Instances',
-            cpuUsage: 'CPU Usage',
-            network: 'Network',
-            networkOptimized: 'Optimized',
         },
         searchServers: 'Search servers...',
         filters: 'Filters',
@@ -56,7 +53,6 @@ export const en: Dictionary = {
             name: 'Name',
             status: 'Status',
             ip: 'IP Address',
-            actions: 'Actions',
             online: 'Online',
             offline: 'Offline',
         },
@@ -66,6 +62,42 @@ export const en: Dictionary = {
         },
         deleteConfirm: 'Are you sure you want to delete the server "{name}"?\n\nThis will also delete every website and database associated with it.',
         deleteError: 'Error deleting the server.',
+    },
+
+    tour: {
+        next: 'Next',
+        back: 'Back',
+        skip: 'Skip',
+        finish: 'Done!',
+        replay: 'Replay the CoreBot guide',
+        s1: {
+            title: 'Hi {name}, I am CoreBot',
+            body: 'Let me show you the only thing you need to get started: connecting a server and publishing your first page. It takes two minutes, and you can skip it whenever you like.',
+        },
+        s2: {
+            title: 'It all starts with a server',
+            body: 'This is Instances, where your machines live. CloudCore does not rent you servers: you connect the VPS you already have — DigitalOcean, AWS, Hetzner, Vultr or any box with SSH access.',
+        },
+        s3: {
+            title: 'Connect your first VPS',
+            body: 'This button adds one. Have ready the IP, the SSH port (usually 22), the user (almost always root) and your private key or password. Once you save, I take care of installing Nginx, Docker and PM2 for you.',
+        },
+        s4: {
+            title: 'Before deploying: your GitHub',
+            body: 'In Settings you paste a GitHub Personal Access Token. Without it I cannot read your repositories, so do this before publishing anything. It needs the repo scope, and the link to create one is right there.',
+        },
+        s5: {
+            title: 'This is where your page goes live',
+            body: 'In Websites you turn a repository into a running site. Node.js, React, WordPress or static HTML — the process is the same for all of them.',
+        },
+        s6: {
+            title: 'Your first deployment',
+            body: 'Pick the server and the repository, then tell me three things: how to install (npm install), how to start (npm start) and which port it listens on. Add a domain and I will issue a free SSL certificate with Let\'s Encrypt.',
+        },
+        s7: {
+            title: 'That is all',
+            body: 'You know the essentials now: a server first, then your GitHub, and after that as many sites as you want. I will be down in the bottom-right corner — tap me and we can go through this again.',
+        },
     },
 
     notifications: {

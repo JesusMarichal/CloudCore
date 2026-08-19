@@ -1,4 +1,4 @@
-import { IsEmail, IsOptional, IsString, Length, Matches, MinLength } from 'class-validator';
+import { IsBoolean, IsEmail, IsOptional, IsString, Length, Matches, MinLength } from 'class-validator';
 
 // Solo se acepta el ID de un avatar del pack predeterminado (ej. 'av-07'),
 // nunca una imagen ni una URL arbitraria.
@@ -39,6 +39,11 @@ export class RegisterDto {
     @IsString()
     @Matches(AVATAR_ID, { message: 'Avatar no válido' })
     avatar?: string;
+}
+
+export class UpdateOnboardingDto {
+    @IsBoolean()
+    done: boolean;
 }
 
 export class UpdateAvatarDto {

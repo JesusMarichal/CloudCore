@@ -485,7 +485,7 @@ echo "=== ${t('websites.logs.diagDone')} ==="`;
                     <p className="text-muted">{t('websites.subtitle')}</p>
                 </div>
                 {servers.length > 0 && (
-                    <button className="btn-primary" onClick={() => setShowForm(true)}>
+                    <button className="btn-primary" data-tour="deploy-project" onClick={() => setShowForm(true)}>
                         <MorphIcon icon={Plus} size={16} /> {t('websites.deployProject')}
                     </button>
                 )}

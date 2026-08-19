@@ -103,6 +103,12 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
                                      WHERE table_name='users' AND column_name='avatar') THEN
                             ALTER TABLE users ADD COLUMN avatar VARCHAR(64);
                         END IF;
+                        -- Guia de CoreBot: se marca cuando el usuario la termina
+                        -- o la salta, para no repetirsela en cada inicio de sesion.
+                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                                     WHERE table_name='users' AND column_name='onboarding_done') THEN
+                            ALTER TABLE users ADD COLUMN onboarding_done BOOLEAN DEFAULT false;
+                        END IF;
                     END IF;
                     IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='pending_registrations') THEN
                         IF NOT EXISTS (SELECT 1 FROM information_schema.columns
@@ -172,6 +178,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
                 github_token VARCHAR(255),
                 role VARCHAR(20) DEFAULT 'CLIENT',
                 avatar VARCHAR(64),
+                onboarding_done BOOLEAN DEFAULT false,
                 created_at TIMESTAMP DEFAULT NOW()
             );
         `;

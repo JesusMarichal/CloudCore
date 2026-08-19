@@ -1,17 +1,15 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Loader2 } from 'lucide';
 import {
     LayoutGrid,
     Server,
     Terminal,
     Settings,
-    Activity,
-    MoreHorizontal,
     Search,
     ChevronDown,
+    ChevronRight,
+    ChevronLeft,
     Globe,
     Database,
-    Trash2,
     Menu,
     Bell,
     CheckCheck,
@@ -30,6 +28,9 @@ import { serverService } from '../../services/server.service';
 import type { CreateServerData } from '../../services/server.service';
 import { tokenStorage } from '../../services/tokenStorage';
 import { getAvatarUrl } from '../../data/avatars';
+import { AuthService } from '../../services/auth.service';
+import CoreBotTour from '../../components/CoreBotTour';
+import corebotHead from '../../assets/corebot-head.png';
 import { useT } from '../../i18n';
 import type { TranslateFn } from '../../i18n';
 import './Dashboard.css';
@@ -44,7 +45,7 @@ interface AppNotification {
 }
 
 const NOTIF_ICONS = {
-    info:    <MorphIcon icon={Info} size={14} style={{ color: '#58a6ff' }} />,
+    info:    <MorphIcon icon={Info} size={14} style={{ color: '#00B7B5' }} />,
     success: <MorphIcon icon={CircleCheck} size={14} style={{ color: '#3fb950' }} />,
     warning: <MorphIcon icon={AlertTriangle} size={14} style={{ color: '#d29922' }} />,
     error:   <MorphIcon icon={XCircle} size={14} style={{ color: '#f85149' }} />,
@@ -127,20 +128,38 @@ const Dashboard = () => {
         .join('') || '?';
     const avatarUrl = getAvatarUrl(currentUser?.avatar);
 
+    const [tourOpen, setTourOpen] = useState(false);
     const [theme, setTheme] = useState<'light' | 'dark'>(loadStoredTheme);
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [collapsed, setCollapsed] = useState<boolean>(loadStoredCollapsed);
     const [servers, setServers] = useState<CreateServerData[]>([]);
-    const [deletingServerId, setDeletingServerId] = useState<string | null>(null);
-    const [stats, setStats] = useState({
-        activeInstances: 0,
-        cpuUsage: 0,
-        networkStatus: 'Normal'
-    });
+    const [stats, setStats] = useState({ activeInstances: 0 });
 
     useEffect(() => {
         localStorage.setItem(SIDEBAR_STORAGE_KEY, collapsed ? '1' : '0');
     }, [collapsed]);
+
+    // La guía de CoreBot sale sola la primera vez que entras. El estado vive en
+    // la cuenta, así que no reaparece aunque cambies de navegador.
+    useEffect(() => {
+        if (!tokenStorage.getToken()) return;
+        let cancelled = false;
+        AuthService.me()
+            .then(d => {
+                if (cancelled || !d.success || !d.user) return;
+                tokenStorage.updateUser({ onboardingDone: d.user.onboardingDone });
+                if (!d.user.onboardingDone) setTourOpen(true);
+            })
+            .catch(() => { /* sin conexión: la guía esperará al próximo intento */ });
+        return () => { cancelled = true; };
+    }, []);
+
+    const closeTour = useCallback(() => {
+        setTourOpen(false);
+        // Tanto terminarla como saltarla cuentan: no se vuelve a mostrar sola.
+        tokenStorage.updateUser({ onboardingDone: true });
+        AuthService.setOnboardingDone(true).catch(() => { /* se reintenta al recargar */ });
+    }, []);
 
     useEffect(() => {
         localStorage.setItem(THEME_STORAGE_KEY, theme);
@@ -237,16 +256,7 @@ const Dashboard = () => {
             const data = await serverService.list();
             setServers(data);
 
-            const active = data.filter((s: any) => s.status === 'online').length;
-            const avgCpu = data.length > 0
-                ? Number((data.reduce((acc: number, s: any) => acc + (Number(s.cpuUsage) || 0), 0) / data.length).toFixed(2))
-                : 0;
-
-            setStats({
-                activeInstances: active,
-                cpuUsage: avgCpu,
-                networkStatus: 'Normal'
-            });
+            setStats({ activeInstances: data.filter((s: any) => s.status === 'online').length });
         } catch (error) {
             console.error('Error cargando datos en dashboard:', error);
         }
@@ -285,48 +295,26 @@ const Dashboard = () => {
         return () => clearInterval(id);
     }, []);
 
-    const handleDeleteServer = async (serverId: string, serverName: string) => {
-        if (!window.confirm(t('dashboard.deleteConfirm', { name: serverName }))) return;
-        setDeletingServerId(serverId);
-        try {
-            await serverService.deleteServer(serverId);
-            await loadData();
-        } catch (error) {
-            console.error('Error eliminando servidor:', error);
-            alert(t('dashboard.deleteError'));
-        } finally {
-            setDeletingServerId(null);
-        }
-    };
-
 
     return (
         <div className={`dashboard-layout theme-${theme}${collapsed ? ' sidebar-collapsed' : ''}`}>
             <div className={`sidebar-overlay ${sidebarOpen ? 'active' : ''}`} onClick={() => setSidebarOpen(false)}></div>
             <aside className={`sidebar ${sidebarOpen ? 'mobile-open' : ''}`}>
-                <button
-                    type="button"
-                    className="sidebar-logo"
-                    onClick={() => setCollapsed(c => !c)}
-                    title={collapsed ? t('dashboard.expandSidebar') : t('dashboard.collapseSidebar')}
-                    aria-label={collapsed ? t('dashboard.expandSidebar') : t('dashboard.collapseSidebar')}
-                    aria-expanded={!collapsed}
-                >
+                <div className="sidebar-logo">
                     <img src="/favicon.png" alt="" className="sidebar-favicon" />
                     <span className="sidebar-brand-name">CloudCore</span>
-                    <MorphIcon icon={Menu} size={16} className="sidebar-burger" spring="snappy" />
-                </button>
+                </div>
 
                 <nav className="nav-links">
                     <NavLink to="/dashboard" end className={({ isActive }) => isActive ? "nav-link active" : "nav-link"} onClick={() => setSidebarOpen(false)} title={t('nav.overview')}>
                         <MorphIcon icon={LayoutGrid} size={16} />
                         <span>{t('nav.overview')}</span>
                     </NavLink>
-                    <NavLink to="/dashboard/servers" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"} onClick={() => setSidebarOpen(false)} title={t('nav.servers')}>
+                    <NavLink to="/dashboard/servers" data-tour="nav-servers" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"} onClick={() => setSidebarOpen(false)} title={t('nav.servers')}>
                         <MorphIcon icon={Server} size={16} />
                         <span>{t('nav.servers')}</span>
                     </NavLink>
-                    <NavLink to="/dashboard/websites" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"} onClick={() => setSidebarOpen(false)} title={t('nav.websites')}>
+                    <NavLink to="/dashboard/websites" data-tour="nav-websites" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"} onClick={() => setSidebarOpen(false)} title={t('nav.websites')}>
                         <MorphIcon icon={Globe} size={16} />
                         <span>{t('nav.websites')}</span>
                     </NavLink>
@@ -344,11 +332,24 @@ const Dashboard = () => {
                             <span>{t('nav.billing')}</span>
                         </NavLink>
                     )}
-                    <NavLink to="/dashboard/settings" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"} onClick={() => setSidebarOpen(false)} title={t('nav.settings')}>
+                    <NavLink to="/dashboard/settings" data-tour="nav-settings" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"} onClick={() => setSidebarOpen(false)} title={t('nav.settings')}>
                         <MorphIcon icon={Settings} size={16} />
                         <span>{t('nav.settings')}</span>
                     </NavLink>
                 </nav>
+
+                {/* Único control de plegado, siempre en el mismo punto del borde:
+                    la flecha apunta hacia donde se va a mover la barra. */}
+                <button
+                    type="button"
+                    className="sidebar-toggle-tab"
+                    onClick={() => setCollapsed(c => !c)}
+                    title={collapsed ? t('dashboard.expandSidebar') : t('dashboard.collapseSidebar')}
+                    aria-label={collapsed ? t('dashboard.expandSidebar') : t('dashboard.collapseSidebar')}
+                    aria-expanded={!collapsed}
+                >
+                    <MorphIcon icon={collapsed ? ChevronRight : ChevronLeft} size={13} spring="snappy" />
+                </button>
             </aside>
 
             <main className="main-content">
@@ -450,20 +451,6 @@ const Dashboard = () => {
                                     </div>
                                     <div className="stat-value">{stats.activeInstances}</div>
                                 </div>
-                                <div className="stat-card">
-                                    <div className="stat-header">
-                                        <span className="stat-title">{t('dashboard.stats.cpuUsage')}</span>
-                                        <MorphIcon icon={Activity} size={14} color="var(--gh-text-muted)" />
-                                    </div>
-                                    <div className="stat-value">{stats.cpuUsage.toFixed(2)}%</div>
-                                </div>
-                                <div className="stat-card">
-                                    <div className="stat-header">
-                                        <span className="stat-title">{t('dashboard.stats.network')}</span>
-                                        <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#3fb1ff', boxShadow: '0 0 5px #3fb1ff' }}></div>
-                                    </div>
-                                    <div className="stat-value" style={{ fontSize: '14px', color: '#3fb1ff' }}>{t('dashboard.stats.networkOptimized')}</div>
-                                </div>
                             </section>
 
                             <div className="table-controls">
@@ -492,13 +479,12 @@ const Dashboard = () => {
                                             <th>{t('dashboard.table.name')}</th>
                                             <th>{t('dashboard.table.status')}</th>
                                             <th>{t('dashboard.table.ip')}</th>
-                                            <th style={{ textAlign: 'right' }}>{t('dashboard.table.actions')}</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {servers.length > 0 ? (
                                             servers.map((server, i) => (
-                                                <tr key={i} style={{ opacity: deletingServerId === server.id ? 0.5 : 1, transition: 'opacity 0.3s' }}>
+                                                <tr key={i}>
                                                     <td data-label={t('dashboard.table.name')}>
                                                         <a href="#" className="server-name">{server.name}</a>
                                                     </td>
@@ -508,28 +494,11 @@ const Dashboard = () => {
                                                         </span>
                                                     </td>
                                                     <td data-label={t('dashboard.table.ip')} className="mono">{server.ip}</td>
-                                                    <td data-label={t('dashboard.table.actions')} style={{ textAlign: 'right' }}>
-                                                        {deletingServerId === server.id ? (
-                                                            <MorphIcon icon={Loader2} size={16} style={{ color: 'var(--primary)', animation: 'spin 1s linear infinite' }} />
-                                                        ) : (
-                                                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', alignItems: 'center' }}>
-                                                                <MorphIcon icon={MoreHorizontal} size={16} className="action-icon" style={{ cursor: 'pointer' }} onClick={() => navigate('/dashboard/servers')} />
-                                                                <MorphIcon
-                                                                    icon={Trash2}
-                                                                    size={16}
-                                                                    style={{ cursor: 'pointer', color: 'var(--gh-text-muted)', transition: 'color 0.2s' }}
-                                                                    onClick={() => handleDeleteServer(server.id!, server.name)}
-                                                                    onMouseEnter={e => (e.currentTarget.style.color = '#f85149')}
-                                                                    onMouseLeave={e => (e.currentTarget.style.color = 'var(--gh-text-muted)')}
-                                                                />
-                                                            </div>
-                                                        )}
-                                                    </td>
                                                 </tr>
                                             ))
                                         ) : (
                                             <tr>
-                                                <td colSpan={4}>
+                                                <td colSpan={3}>
                                                     <div className="empty-state">
                                                         <h4>{t('dashboard.empty.title')}</h4>
                                                         <p>{t('dashboard.empty.desc')}</p>
@@ -546,6 +515,19 @@ const Dashboard = () => {
                     <Outlet context={{ pushNotification }} />
                 </div>
             </main>
+
+            {tourOpen
+                ? <CoreBotTour onClose={closeTour} />
+                : (
+                    <button
+                        className="corebot-fab"
+                        onClick={() => setTourOpen(true)}
+                        title={t('tour.replay')}
+                        aria-label={t('tour.replay')}
+                    >
+                        <img src={corebotHead} alt="CoreBot" />
+                    </button>
+                )}
         </div>
     );
 };

@@ -7,7 +7,7 @@
     min-height: 100vh;
     background-color: #ffffff;
     background-image:
-        radial-gradient(circle at 10% 0%, rgba(37, 99, 235, 0.04) 0%, transparent 45%),
+        radial-gradient(circle at 10% 0%, rgba(1, 135, 144, 0.04) 0%, transparent 45%),
         radial-gradient(circle at 90% 100%, rgba(22, 163, 74, 0.04) 0%, transparent 45%),
         radial-gradient(circle at 50% 50%, rgba(248, 250, 252, 0.8) 0%, rgba(255, 255, 255, 1) 100%);
     position: relative;
@@ -34,7 +34,7 @@
 .landing-root.dark-theme {
     background-color: #0d1117;
     background-image:
-        radial-gradient(circle at 0% 0%, rgba(88, 166, 255, 0.08) 0%, transparent 50%),
+        radial-gradient(circle at 0% 0%, rgba(0, 183, 181, 0.08) 0%, transparent 50%),
         radial-gradient(circle at 100% 100%, rgba(35, 134, 54, 0.05) 0%, transparent 50%),
         radial-gradient(circle at 50% 50%, rgba(13, 17, 23, 1) 0%, rgba(1, 4, 9, 1) 100%);
     color: #c9d1d9;
@@ -92,7 +92,7 @@
     animation-delay: -14s;
 }
 
-.landing-root.dark-theme .landing-shape.shape-1 { background: rgba(88, 166, 255, 0.12); }
+.landing-root.dark-theme .landing-shape.shape-1 { background: rgba(0, 183, 181, 0.12); }
 .landing-root.dark-theme .landing-shape.shape-2 { background: rgba(46, 160, 67, 0.10); }
 .landing-root.dark-theme .landing-shape.shape-3 { background: rgba(163, 113, 247, 0.08); }
 .landing-root.dark-theme .landing-shape.shape-4 { background: rgba(240, 136, 62, 0.06); }
@@ -149,8 +149,8 @@
 
 .landing-root.dark-theme .landing-logo { color: #f0f6fc; }
 
-.landing-logo svg { color: #2563eb; }
-.landing-root.dark-theme .landing-logo svg { color: #58a6ff; }
+.landing-logo svg { color: #018790; }
+.landing-root.dark-theme .landing-logo svg { color: #00B7B5; }
 
 .landing-nav-links {
     display: flex;
@@ -354,14 +354,14 @@
 .landing-root.dark-theme .hero-title { color: #f0f6fc; }
 
 .hero-gradient {
-    background: linear-gradient(135deg, #2563eb 0%, #16a34a 60%, #9333ea 100%);
+    background: linear-gradient(135deg, #018790 0%, #16a34a 60%, #9333ea 100%);
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
 }
 
 .landing-root.dark-theme .hero-gradient {
-    background: linear-gradient(135deg, #58a6ff 0%, #3fb950 60%, #a371f7 100%);
+    background: linear-gradient(135deg, #00B7B5 0%, #3fb950 60%, #a371f7 100%);
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -651,11 +651,11 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 1.2px;
-    color: #2563eb;
+    color: #018790;
     margin-bottom: 16px;
 }
 
-.landing-root.dark-theme .section-label { color: #58a6ff; }
+.landing-root.dark-theme .section-label { color: #00B7B5; }
 
 .section-title {
     font-size: clamp(1.8rem, 3.5vw, 2.5rem);
@@ -720,7 +720,7 @@
     bottom: 22px;
     width: 3px;
     border-radius: 3px;
-    background: linear-gradient(180deg, #2563eb, #16a34a);
+    background: linear-gradient(180deg, #018790, #16a34a);
     opacity: 0;
     transform: scaleY(0.4);
     transform-origin: center;
@@ -733,7 +733,7 @@
 }
 
 .landing-root.dark-theme .deep-card::before {
-    background: linear-gradient(180deg, #58a6ff, #3fb950);
+    background: linear-gradient(180deg, #00B7B5, #3fb950);
 }
 
 .deep-card:hover {
@@ -848,11 +848,11 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #2563eb;
+    color: #018790;
 }
 
 .landing-root.dark-theme .step-badge {
-    color: #58a6ff;
+    color: #00B7B5;
 }
 
 .step-check {
@@ -903,12 +903,12 @@
     font-size: 1.5rem;
     font-weight: 800;
     font-family: 'JetBrains Mono', monospace;
-    color: #2563eb;
+    color: #018790;
     letter-spacing: -1px;
     line-height: 1;
 }
 
-.landing-root.dark-theme .step-number { color: #58a6ff; }
+.landing-root.dark-theme .step-number { color: #00B7B5; }
 
 .step-card h3 {
     font-size: 17px;
@@ -1094,7 +1094,7 @@
 
     .nav-link-mobile-cta {
         display: block;
-        color: #2563eb !important;
+        color: #018790 !important;
         border-bottom: none !important;
     }
 

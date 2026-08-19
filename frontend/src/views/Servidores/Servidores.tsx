@@ -238,7 +238,7 @@ const Servidores: React.FC = () => {
                     <h1><MorphIcon icon={Activity} size={24} style={{ marginRight: '10px', verticalAlign: 'middle' }} /> {t('servers.title')}</h1>
                     <p className="text-muted">{t('servers.subtitle')}</p>
                 </div>
-                <button className="btn-primary" onClick={() => setShowForm(true)}>
+                <button className="btn-primary" data-tour="add-server" onClick={() => setShowForm(true)}>
                     <span>+</span> {t('servers.newServer')}
                 </button>
             </div>
@@ -418,8 +418,8 @@ const Servidores: React.FC = () => {
                                                     <AreaChart data={metricsHistory[selectedServer.id!] || []}>
                                                         <defs>
                                                             <linearGradient id="colorCpu" x1="0" y1="0" x2="0" y2="1">
-                                                                <stop offset="5%" stopColor="#58a6ff" stopOpacity={0.3}/>
-                                                                <stop offset="95%" stopColor="#58a6ff" stopOpacity={0}/>
+                                                                <stop offset="5%" stopColor="#00B7B5" stopOpacity={0.3}/>
+                                                                <stop offset="95%" stopColor="#00B7B5" stopOpacity={0}/>
                                                             </linearGradient>
                                                         </defs>
                                                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
@@ -427,10 +427,10 @@ const Servidores: React.FC = () => {
                                                         <YAxis stroke="var(--text-muted)" fontSize={10} tickFormatter={(v) => `${v}%`} domain={[0, 100]} width={35} />
                                                         <Tooltip 
                                                             contentStyle={{ background: '#161b22', border: '1px solid var(--gh-border)', borderRadius: '8px', fontSize: '12px', boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}
-                                                            itemStyle={{ color: '#58a6ff', fontWeight: 600 }}
+                                                            itemStyle={{ color: '#00B7B5', fontWeight: 600 }}
                                                             labelStyle={{ color: 'var(--text-muted)', marginBottom: '4px' }}
                                                         />
-                                                        <Area type="monotone" dataKey="cpu" name="CPU" stroke="#58a6ff" strokeWidth={3} fillOpacity={1} fill="url(#colorCpu)" isAnimationActive={false} />
+                                                        <Area type="monotone" dataKey="cpu" name="CPU" stroke="#00B7B5" strokeWidth={3} fillOpacity={1} fill="url(#colorCpu)" isAnimationActive={false} />
                                                     </AreaChart>
                                                 </ResponsiveContainer>
                                             </div>

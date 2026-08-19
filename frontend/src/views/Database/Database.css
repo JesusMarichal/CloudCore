@@ -85,13 +85,13 @@
 .db-engine-icon.mysql {
     background: rgba(0, 120, 212, 0.1);
     border: 1px solid rgba(0, 120, 212, 0.2);
-    color: #4db8ff;
+    color: #00B7B5;
 }
 
 .db-engine-icon.postgres {
     background: rgba(59, 130, 246, 0.1);
     border: 1px solid rgba(59, 130, 246, 0.2);
-    color: #60a5fa;
+    color: #018790;
 }
 
 .db-card-title h3 {
@@ -120,12 +120,12 @@
 }
 
 .db-card-subtitle .db-engine-tag.mysql {
-    color: #4db8ff;
+    color: #00B7B5;
     border: 1px solid rgba(0, 120, 212, 0.2);
 }
 
 .db-card-subtitle .db-engine-tag.postgres {
-    color: #60a5fa;
+    color: #018790;
     border: 1px solid rgba(59, 130, 246, 0.2);
 }
 
@@ -213,8 +213,8 @@
     align-items: center;
     gap: 8px;
     padding: 8px 16px;
-    background: linear-gradient(135deg, rgba(88, 166, 255, 0.12) 0%, rgba(88, 166, 255, 0.05) 100%);
-    border: 1px solid rgba(88, 166, 255, 0.25);
+    background: linear-gradient(135deg, rgba(0, 183, 181, 0.12) 0%, rgba(0, 183, 181, 0.05) 100%);
+    border: 1px solid rgba(0, 183, 181, 0.25);
     color: var(--primary);
     font-size: 13px;
     font-weight: 600;
@@ -225,10 +225,10 @@
 }
 
 .db-admin-link:hover {
-    background: linear-gradient(135deg, rgba(88, 166, 255, 0.2) 0%, rgba(88, 166, 255, 0.1) 100%);
+    background: linear-gradient(135deg, rgba(0, 183, 181, 0.2) 0%, rgba(0, 183, 181, 0.1) 100%);
     border-color: var(--primary);
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(88, 166, 255, 0.2);
+    box-shadow: 0 4px 12px rgba(0, 183, 181, 0.2);
 }
 
 .db-admin-link svg {
@@ -294,8 +294,8 @@
 
 .db-engine-option.selected {
     border-color: var(--primary);
-    background: rgba(88, 166, 255, 0.06);
-    box-shadow: 0 0 0 1px var(--primary), 0 4px 12px rgba(88, 166, 255, 0.15);
+    background: rgba(0, 183, 181, 0.06);
+    box-shadow: 0 0 0 1px var(--primary), 0 4px 12px rgba(0, 183, 181, 0.15);
 }
 
 .db-engine-option .engine-name {
@@ -397,7 +397,7 @@
 .db-btn-action.restart:hover {
     color: var(--primary);
     border-color: var(--primary);
-    background: rgba(88, 166, 255, 0.1);
+    background: rgba(0, 183, 181, 0.1);
 }
 
 .db-btn-action.delete:hover {
@@ -452,7 +452,7 @@
     font-size: 48px;
     color: var(--primary);
     margin-bottom: 20px;
-    filter: drop-shadow(0 0 15px rgba(88, 166, 255, 0.2));
+    filter: drop-shadow(0 0 15px rgba(0, 183, 181, 0.2));
     animation: dbFloat 3s ease-in-out infinite;
 }
 
@@ -526,7 +526,7 @@
 .db-copy-btn:hover {
     border-color: var(--primary);
     color: var(--primary);
-    background: rgba(88, 166, 255, 0.05);
+    background: rgba(0, 183, 181, 0.05);
 }
 
 /* phpMyAdmin card footer */
@@ -730,7 +730,7 @@
 .db-connect-btn:hover {
     background: rgba(56, 139, 253, 0.18);
     border-color: var(--primary);
-    color: #58a6ff;
+    color: #00B7B5;
     transform: translateY(-1px);
 }
 
