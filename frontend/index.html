@@ -32,14 +32,19 @@
   <!-- ── Security (meta-level) ── -->
   <meta name="referrer" content="strict-origin-when-cross-origin" />
   <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+  <!-- Paddle.js se descarga de cdn.paddle.com y el checkout se pinta en un
+       iframe de buy.paddle.com / create-checkout.paddle.com (y sus variantes
+       sandbox-*). Sin esas entradas initializePaddle() falla con
+       "Failed to load Paddle.js" y el overlay no llega a abrirse. -->
   <meta http-equiv="Content-Security-Policy"
         content="
           default-src 'self';
-          script-src  'self' 'unsafe-inline' 'unsafe-eval';
+          script-src  'self' 'unsafe-inline' 'unsafe-eval' https://*.paddle.com;
           style-src   'self' 'unsafe-inline' https://fonts.googleapis.com;
           font-src    'self' https://fonts.gstatic.com;
           img-src     'self' data: https: http://localhost:*;
           connect-src 'self' http: https: ws: wss:;
+          frame-src   https://*.paddle.com;
           frame-ancestors 'none';
         " />
 

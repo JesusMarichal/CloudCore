@@ -1,0 +1,125 @@
+/* Avisos flotantes. Van fijos sobre la pagina, no dentro del formulario. */
+
+.toast-stack {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    /* El contenedor no intercepta clics; cada aviso sí. */
+    pointer-events: none;
+}
+
+.toast {
+    position: relative;
+    pointer-events: auto;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    width: min(360px, calc(100vw - 40px));
+    padding: 13px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--gh-border);
+    background: #1c2128;
+    color: var(--gh-text-default);
+    font-size: 13.5px;
+    line-height: 1.5;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
+    overflow: hidden;
+    animation: toast-in 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes toast-in {
+    from { opacity: 0; transform: translateX(20px) scale(0.97); }
+    to   { opacity: 1; transform: none; }
+}
+
+.toast-icon {
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+.toast-text {
+    flex: 1;
+    min-width: 0;
+    word-break: break-word;
+}
+
+.toast-close {
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    border-radius: 5px;
+    box-shadow: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: color 0.15s ease, background 0.15s ease;
+}
+
+.toast-close:hover {
+    color: var(--text-main);
+    background: rgba(127, 127, 127, 0.12);
+    transform: none;
+    filter: none;
+    box-shadow: none;
+}
+
+/* Barra de progreso: se agota en los mismos 5s que el temporizador. */
+.toast-progress {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    height: 2px;
+    width: 100%;
+    transform-origin: left;
+    animation: toast-drain 5s linear forwards;
+}
+
+@keyframes toast-drain {
+    from { transform: scaleX(1); }
+    to   { transform: scaleX(0); }
+}
+
+/* ── Variantes ────────────────────────────────────────────────────────── */
+
+.toast--error .toast-icon     { color: #ff7b72; }
+.toast--error .toast-progress { background: #f85149; }
+.toast--error                 { border-left: 3px solid #f85149; }
+
+.toast--success .toast-icon     { color: #56d364; }
+.toast--success .toast-progress { background: #2ea043; }
+.toast--success                 { border-left: 3px solid #2ea043; }
+
+.toast--info .toast-icon     { color: var(--primary); }
+.toast--info .toast-progress { background: var(--primary); }
+.toast--info                 { border-left: 3px solid var(--primary); }
+
+/* Los avisos son oscuros siempre: van sobre la pagina, no dentro de la
+   tarjeta, asi que no dependen del tema claro/oscuro del formulario. */
+
+@media (prefers-reduced-motion: reduce) {
+    .toast { animation: none; }
+    .toast-progress { animation-duration: 5s; }
+}
+
+@media (max-width: 520px) {
+    .toast-stack {
+        top: 12px;
+        right: 12px;
+        left: 12px;
+    }
+
+    .toast {
+        width: auto;
+    }
+}

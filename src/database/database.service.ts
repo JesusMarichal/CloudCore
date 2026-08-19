@@ -45,6 +45,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
             await this.createServersTable();
             await this.createPendingRegistrationsTable();
             await this.createPasswordResetsTable();
+            await this.createBillingTables();
             await this.applyMigrations();
         } catch (error) {
             this.logger.error(`ERROR DE CONEXIÓN: ${error.message}`);
@@ -54,6 +55,82 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
         }
     }
 
+
+
+    /**
+     * Tablas del espejo de facturación de Paddle.
+     *
+     * Se alimentan solo desde webhooks verificados (ver src/billing). La app
+     * lee de aquí para decidir accesos; a la API de Paddle solo se va para
+     * escribir (cancelar, cambiar de plan, abrir el portal).
+     */
+    private async createBillingTables() {
+        const query = `
+            CREATE TABLE IF NOT EXISTS customers (
+                customer_id VARCHAR(255) PRIMARY KEY,
+                email VARCHAR(255) NOT NULL DEFAULT '',
+                created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+            );
+            CREATE INDEX IF NOT EXISTS customers_email_idx ON customers (LOWER(email));
+
+            CREATE TABLE IF NOT EXISTS subscriptions (
+                subscription_id VARCHAR(255) PRIMARY KEY,
+                customer_id VARCHAR(255) NOT NULL REFERENCES customers(customer_id),
+                status VARCHAR(50) NOT NULL,
+                price_id VARCHAR(255) NOT NULL,
+                product_id VARCHAR(255) NOT NULL,
+                scheduled_change_action VARCHAR(50),
+                scheduled_change_at TIMESTAMP,
+                created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+            );
+            CREATE INDEX IF NOT EXISTS subscriptions_customer_id_idx ON subscriptions (customer_id);
+            CREATE INDEX IF NOT EXISTS subscriptions_status_idx ON subscriptions (status);
+
+            -- Sin FK a customers/subscriptions a propósito: los webhooks llegan
+            -- desordenados y una transacción puede adelantar a su suscripción.
+            CREATE TABLE IF NOT EXISTS transactions (
+                transaction_id VARCHAR(255) PRIMARY KEY,
+                customer_id VARCHAR(255),
+                subscription_id VARCHAR(255),
+                status VARCHAR(50) NOT NULL,
+                amount VARCHAR(50),
+                currency_code VARCHAR(10),
+                billed_at TIMESTAMP,
+                created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+            );
+            CREATE INDEX IF NOT EXISTS transactions_customer_id_idx ON transactions (customer_id);
+
+            -- Fecha del proximo cobro: es la "fecha de corte" que ve el usuario.
+            ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS next_billed_at TIMESTAMP;
+
+            -- Datos NO sensibles del metodo de pago, tal y como los manda Paddle
+            -- en transaction.completed. Nunca se guarda el numero completo ni el
+            -- CVC: Paddle no los expone y no deben pasar por aqui.
+            ALTER TABLE transactions ADD COLUMN IF NOT EXISTS payment_type VARCHAR(30);
+            ALTER TABLE transactions ADD COLUMN IF NOT EXISTS card_brand VARCHAR(30);
+            ALTER TABLE transactions ADD COLUMN IF NOT EXISTS card_last4 VARCHAR(4);
+            ALTER TABLE transactions ADD COLUMN IF NOT EXISTS card_expiry_month SMALLINT;
+            ALTER TABLE transactions ADD COLUMN IF NOT EXISTS card_expiry_year SMALLINT;
+
+            -- Registro de eventos ya procesados: las entregas son at-least-once
+            -- y Paddle reenvía el mismo event_id en cada reintento.
+            CREATE TABLE IF NOT EXISTS paddle_webhook_events (
+                event_id VARCHAR(255) PRIMARY KEY,
+                event_type VARCHAR(100) NOT NULL,
+                occurred_at TIMESTAMP,
+                processed_at TIMESTAMP NOT NULL DEFAULT NOW()
+            );
+        `;
+        try {
+            await this.pool.query(query);
+            this.logger.log('Tablas de facturación (Paddle) verificadas/creadas correctamente.');
+        } catch (error) {
+            this.logger.error('Error al crear las tablas de facturación:', error.message);
+        }
+    }
 
     private async applyMigrations() {
         try {

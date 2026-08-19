@@ -655,3 +655,49 @@
         margin-bottom: 30px;
     }
 }
+
+/* ── Volver al inicio ──────────────────────────────────────────────────
+   Vive fuera de la tarjeta: se posiciona contra .login-container (que ya es
+   position: relative), en la esquina superior izquierda de la pagina. */
+.login-container .back-home {
+    position: absolute;
+    top: 24px;
+    left: 24px;
+    width: 38px;
+    height: 38px;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    /* Flecha suelta: sin caja, sin borde y sin fondo. */
+    background: none;
+    border: none;
+    box-shadow: none;
+    color: var(--text-muted);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 2;
+    transition: color 0.2s ease, transform 0.2s ease;
+}
+
+.login-container .back-home:hover {
+    /* El unico feedback es el color y un empujon hacia la izquierda. */
+    background: none;
+    border: none;
+    box-shadow: none;
+    filter: none;
+    color: var(--text-main);
+    transform: translateX(-3px);
+}
+
+.login-container .back-home:active {
+    transform: translateX(-3px) scale(0.9);
+}
+
+.login-container .back-home:focus-visible {
+    /* Sin borde permanente, pero accesible con teclado. */
+    outline: 2px solid var(--primary);
+    outline-offset: 4px;
+    border-radius: 6px;
+}

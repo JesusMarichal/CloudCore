@@ -1,0 +1,84 @@
+/* /welcome reutiliza .login-container, .login-card y .reg-success — las mismas
+   clases y animaciones que la pantalla de registro completado.
+
+   Va SIEMPRE en tema claro, a juego con la pasarela de pago. Ojo: el bloque
+   .theme-light de Login.css solo redefine --primary, --text-main, --text-muted,
+   --gh-border y --gh-text-muted. NO toca --gh-text-default ni --text-dim, que
+   siguen valiendo gris claro y serían ilegibles sobre blanco, así que aquí los
+   colores se ponen explícitos. */
+
+.welcome-container .reg-success {
+    /* Un poco más de aire que en registro: aquí hay lista y botón. */
+    gap: 14px;
+    padding: 16px 0 8px;
+}
+
+/* El verde del icono se oscurece para que se lea sobre fondo claro. */
+.welcome-container .reg-success-icon {
+    color: #1a7f37;
+    filter: drop-shadow(0 0 14px rgba(26, 127, 55, 0.25));
+}
+
+.welcome-next {
+    list-style: none;
+    width: 100%;
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 8px;
+    padding: 16px;
+    background: #f6f8fa;
+    border: 1px solid var(--gh-border);
+    border-radius: 10px;
+}
+
+.welcome-container .welcome-next li {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    color: #424a53;
+    font-size: 13.5px;
+    line-height: 1.5;
+}
+
+.welcome-next-icon {
+    color: var(--primary);
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.welcome-cta {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    margin-top: 4px;
+    padding: 13px 24px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, var(--brand-700) 0%, var(--brand-500) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #fff;
+    font-size: 15px;
+    font-weight: 700;
+    text-decoration: none;
+    box-shadow: 0 4px 12px rgba(1, 135, 144, 0.25);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.welcome-cta:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(1, 135, 144, 0.32);
+    filter: brightness(1.05);
+}
+
+.welcome-container .welcome-note {
+    font-size: 12px;
+    color: #6e7781;
+    line-height: 1.5;
+}
+
+/* La tarjeta de bienvenida lleva más contenido que la de registro. */
+.welcome-container .login-card {
+    max-width: 460px;
+}

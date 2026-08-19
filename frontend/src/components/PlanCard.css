@@ -1,0 +1,247 @@
+/* Diseño único de los planes, usado por /pricing y por Facturación.
+   La variante .compact es la densa, para dentro del panel. */
+
+/* ── Selector mensual / anual ─────────────────────────────────────────── */
+
+.freq-toggle {
+    display: inline-flex;
+    padding: 4px;
+    gap: 4px;
+    background: var(--card-bg);
+    border: 1px solid var(--gh-border);
+    border-radius: 999px;
+}
+
+.freq-toggle button {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 18px;
+    border: none;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--text-muted);
+    font: inherit;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.freq-toggle button:hover {
+    color: var(--text-main);
+}
+
+.freq-toggle button.active {
+    background: var(--primary);
+    color: #04211f;
+}
+
+.freq-toggle-badge {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.18);
+}
+
+.freq-toggle button:not(.active) .freq-toggle-badge {
+    background: var(--primary-glow);
+    color: var(--primary);
+}
+
+/* ── Tarjeta de plan ──────────────────────────────────────────────────── */
+
+.plan-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    padding: 28px 24px;
+    background: var(--card-bg);
+    border: 1px solid var(--gh-border);
+    border-radius: 14px;
+    transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.plan-card.compact {
+    padding: 20px 18px;
+    border-radius: 12px;
+}
+
+.plan-card.featured {
+    border-color: var(--primary);
+    box-shadow: var(--glow-shadow);
+}
+
+/* El plan contratado manda sobre el "recomendado". */
+.plan-card.current {
+    border-color: var(--primary);
+    background: linear-gradient(180deg, var(--primary-glow) 0%, var(--card-bg) 60%);
+    box-shadow: var(--glow-shadow);
+}
+
+.plan-badge {
+    position: absolute;
+    top: -11px;
+    left: 20px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: var(--primary);
+    color: #04211f;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+}
+
+.plan-badge--current {
+    background: var(--text-main);
+    color: var(--gh-bg);
+}
+
+.plan-name {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-main);
+}
+
+.plan-card.compact .plan-name {
+    font-size: 1rem;
+}
+
+.plan-desc {
+    color: var(--text-muted);
+    line-height: 1.55;
+    margin: 6px 0 20px;
+    min-height: 44px;
+}
+
+.plan-amount {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    min-height: 42px;
+    margin-top: 10px;
+}
+
+.plan-card.compact .plan-amount {
+    min-height: 34px;
+    margin-top: 8px;
+}
+
+.plan-amount-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--text-main);
+    letter-spacing: -1px;
+}
+
+.plan-card.compact .plan-amount-value {
+    font-size: 1.5rem;
+}
+
+.plan-amount-period {
+    color: var(--text-muted);
+    font-size: 13px;
+}
+
+/* Placeholder mientras Paddle responde: nunca se enseña un precio inventado. */
+.plan-amount-skeleton {
+    display: inline-block;
+    width: 92px;
+    height: 30px;
+    border-radius: 6px;
+    background: var(--gh-border-muted);
+    animation: plan-pulse 1.2s ease-in-out infinite;
+}
+
+.plan-card.compact .plan-amount-skeleton {
+    width: 72px;
+    height: 24px;
+}
+
+@keyframes plan-pulse {
+    0%, 100% { opacity: 0.45; }
+    50%      { opacity: 0.85; }
+}
+
+.plan-trial {
+    color: var(--primary);
+    font-size: 12.5px;
+    font-weight: 500;
+    margin: 10px 0 20px;
+}
+
+.plan-card.compact .plan-trial {
+    margin: 8px 0 16px;
+    font-size: 12px;
+}
+
+.plan-features {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 26px;
+    flex: 1;
+}
+
+.plan-card.compact .plan-features {
+    gap: 7px;
+    margin-bottom: 20px;
+    font-size: 13px;
+}
+
+.plan-features li {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    color: var(--gh-text-default);
+    line-height: 1.45;
+}
+
+.plan-check {
+    color: var(--primary);
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.plan-cta {
+    width: 100%;
+    padding: 11px 16px;
+    border: 1px solid var(--gh-border);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-main);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+}
+
+.plan-card.compact .plan-cta {
+    padding: 9px 14px;
+    font-size: 13px;
+}
+
+.plan-cta:hover:not(:disabled) {
+    border-color: var(--primary);
+    background: var(--primary-glow);
+}
+
+.plan-card.featured:not(.current) .plan-cta {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #04211f;
+}
+
+.plan-card.featured:not(.current) .plan-cta:hover:not(:disabled) {
+    background: var(--primary-hover);
+    border-color: var(--primary-hover);
+}
+
+.plan-cta:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}

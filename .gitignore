@@ -1,0 +1,5 @@
+# Variables de entorno: solo se versiona la plantilla .env.example
+.env
+.env.local
+.env.*.local
+!.env.example

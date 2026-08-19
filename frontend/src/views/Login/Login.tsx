@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { AuthService } from '../../services/auth.service';
 import { tokenStorage } from '../../services/tokenStorage';
-import { Mail, Lock, ArrowRight, Cloud, ShieldCheck, MailCheck, Eye, EyeOff, Sun, Moon } from 'lucide';
+import { Mail, Lock, ArrowRight, ArrowLeft, Cloud, ShieldCheck, MailCheck, Eye, EyeOff, Sun, Moon } from 'lucide';
 import { MorphIcon } from 'morphicons/react';
 import OTPInput from '../../components/OTPInput';
 import { useT } from '../../i18n';
+import { Alert } from '../../components/Alert';
+import { describeAuthError } from '../../services/authError';
+import { useToast } from '../../components/toast-context';
 import './Login.css';
 
 // Brand logos as inline SVG (no external assets, work in light & dark)
@@ -26,6 +29,7 @@ const GithubIcon = () => (
 
 const Login: React.FC = () => {
     const t = useT();
+    const showToast = useToast();
     const [email, setEmail]       = useState('');
     const [password, setPassword] = useState('');
     const [totpCode, setTotpCode] = useState('');
@@ -38,6 +42,10 @@ const Login: React.FC = () => {
     const [forgotSent, setForgotSent]   = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     const navigate = useNavigate();
+    const location = useLocation();
+    // Si llegamos aqui desde una pantalla que exige sesion (p. ej. comprar un
+    // plan), se vuelve alli despues de entrar en vez de ir al dashboard.
+    const redirectTo = (location.state as { from?: string } | null)?.from ?? '/dashboard';
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -51,7 +59,7 @@ const Login: React.FC = () => {
                     setStep('2fa');
                 } else if (result.success) {
                     tokenStorage.setSession(result.token, result.user);
-                    navigate('/dashboard');
+                    navigate(redirectTo);
                 } else {
                     setError(result.message || t('login.badCredentials'));
                 }
@@ -59,16 +67,16 @@ const Login: React.FC = () => {
                 const result = await AuthService.verify2FALogin(preAuthToken, totpCode);
                 if (result.success) {
                     tokenStorage.setSession(result.token, result.user);
-                    navigate('/dashboard');
+                    navigate(redirectTo);
                 } else {
                     setError(result.message || t('login.badCode'));
                 }
             }
-        } catch (err: any) {
-            const msg = err?.response?.data?.message
-                ?? (err?.code === 'ERR_NETWORK' ? t('auth.networkError') : null)
-                ?? t('auth.genericError');
-            setError(msg);
+        } catch (err: unknown) {
+            // Lo accionable se queda en el formulario; lo demás sale flotando.
+            const described = describeAuthError(err, t);
+            if (described.kind === 'validation') setError(described.text);
+            else showToast(described.text);
         } finally {
             setLoading(false);
         }
@@ -85,11 +93,11 @@ const Login: React.FC = () => {
             } else {
                 setError(result.message || t('login.resetRequestError'));
             }
-        } catch (err: any) {
-            const msg = err?.response?.data?.message
-                ?? (err?.code === 'ERR_NETWORK' ? t('auth.networkErrorShort') : null)
-                ?? t('auth.genericError');
-            setError(msg);
+        } catch (err: unknown) {
+            // Lo accionable se queda en el formulario; lo demás sale flotando.
+            const described = describeAuthError(err, t);
+            if (described.kind === 'validation') setError(described.text);
+            else showToast(described.text);
         } finally {
             setLoading(false);
         }
@@ -108,6 +116,16 @@ const Login: React.FC = () => {
                 <div className="shape shape-1" /><div className="shape shape-2" />
                 <div className="shape shape-3" /><div className="shape shape-4" />
             </div>
+
+            <button
+                type="button"
+                className="back-home"
+                onClick={() => navigate('/home')}
+                title={t('login.backHome')}
+                aria-label={t('login.backHome')}
+            >
+                <MorphIcon icon={ArrowLeft} size={18} spring="snappy" />
+            </button>
 
             <div className="login-card">
                 <button
@@ -177,7 +195,7 @@ const Login: React.FC = () => {
                             </div>
 
                             {error && (
-                                <div className="message error-message">{error}</div>
+                                <Alert>{error}</Alert>
                             )}
                         </form>
                     )
@@ -262,7 +280,7 @@ const Login: React.FC = () => {
                         )}
 
                         {error && (
-                            <div className="message error-message">{error}</div>
+                            <Alert>{error}</Alert>
                         )}
                     </form>
                 )}

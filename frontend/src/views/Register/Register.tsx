@@ -7,11 +7,15 @@ import OTPInput from '../../components/OTPInput';
 import AvatarPicker from '../../components/AvatarPicker';
 import { DEFAULT_AVATAR_ID, getAvatarUrl } from '../../data/avatars';
 import { useT } from '../../i18n';
+import { Alert } from '../../components/Alert';
+import { describeAuthError } from '../../services/authError';
+import { useToast } from '../../components/toast-context';
 import '../Login/Login.css';
 import './Register.css';
 
 const Register: React.FC = () => {
     const t = useT();
+    const showToast = useToast();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [name, setName] = useState('');
@@ -61,11 +65,11 @@ const Register: React.FC = () => {
             } else {
                 setError(result.message || t('register.registerError'));
             }
-        } catch (err: any) {
-            const msg = err?.response?.data?.message
-                ?? (err?.code === 'ERR_NETWORK' ? t('auth.networkErrorShort') : null)
-                ?? t('register.registerProcessError');
-            setError(msg);
+        } catch (err: unknown) {
+            // Lo accionable se queda en el formulario; lo demás sale flotando.
+            const described = describeAuthError(err, t);
+            if (described.kind === 'validation') setError(described.text);
+            else showToast(described.text);
         } finally {
             setLoading(false);
         }
@@ -102,11 +106,11 @@ const Register: React.FC = () => {
             } else {
                 setError(result.message || t('login.badCode'));
             }
-        } catch (err: any) {
-            const msg = err?.response?.data?.message
-                ?? (err?.code === 'ERR_NETWORK' ? t('auth.networkErrorShort') : null)
-                ?? t('register.verifyError');
-            setError(msg);
+        } catch (err: unknown) {
+            // Lo accionable se queda en el formulario; lo demás sale flotando.
+            const described = describeAuthError(err, t);
+            if (described.kind === 'validation') setError(described.text);
+            else showToast(described.text);
         } finally {
             setLoading(false);
         }
@@ -259,7 +263,7 @@ const Register: React.FC = () => {
                                 </div>
 
                                 {error && (
-                                    <div className="message error-message">{error}</div>
+                                    <Alert>{error}</Alert>
                                 )}
                             </form>
                         ) : step === 'avatar' ? (
@@ -289,7 +293,7 @@ const Register: React.FC = () => {
                                 </div>
 
                                 {error && (
-                                    <div className="message error-message">{error}</div>
+                                    <Alert>{error}</Alert>
                                 )}
                             </form>
                         ) : (
@@ -327,7 +331,7 @@ const Register: React.FC = () => {
                                 </div>
 
                                 {error && (
-                                    <div className="message error-message">{error}</div>
+                                    <Alert>{error}</Alert>
                                 )}
                             </form>
                         )}

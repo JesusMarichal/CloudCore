@@ -12,6 +12,7 @@ import { DatabaseModule } from './database/database.module';
 import { TerminalService } from './terminal/terminal.service';
 import { TerminalController } from './terminal/terminal.controller';
 import { GithubController } from './controllers/github.controller';
+import { BillingModule } from './billing/billing.module';
 import { SshTerminalGateway } from './terminal/ssh-terminal.gateway';
 import { JwtAuthGuard } from './common/auth/jwt-auth.guard';
 import { DeployModule } from './deploy/deploy.module';
@@ -36,6 +37,7 @@ import { MailModule } from './mail/mail.module';
         SshModule,
         DeployModule,
         MailModule,
+        BillingModule,
     ],
     controllers: [ServerController, AuthController, TerminalController, GithubController],
     providers: [

@@ -1,0 +1,78 @@
+/* Alertas en línea al estilo Laravel: banda de color, fondo teñido e icono. */
+
+.alert {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-top: 20px;
+    padding: 12px 14px;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    border-left-width: 3px;
+    font-size: 13.5px;
+    line-height: 1.5;
+    text-align: left;
+    animation: alert-in 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes alert-in {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: none; }
+}
+
+.alert-icon {
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+.alert-text {
+    flex: 1;
+    min-width: 0;
+    word-break: break-word;
+}
+
+/* ── Variantes ────────────────────────────────────────────────────────── */
+
+.alert--error {
+    color: #ff7b72;
+    background: rgba(248, 81, 73, 0.09);
+    border-color: rgba(248, 81, 73, 0.22);
+    border-left-color: #f85149;
+}
+
+.alert--success {
+    color: #56d364;
+    background: rgba(46, 160, 67, 0.09);
+    border-color: rgba(46, 160, 67, 0.22);
+    border-left-color: #2ea043;
+}
+
+.alert--info {
+    color: var(--primary);
+    background: var(--primary-glow);
+    border-color: rgba(0, 183, 181, 0.22);
+    border-left-color: var(--primary);
+}
+
+/* ── Tema claro (las pantallas de auth lo permiten) ───────────────────── */
+
+.login-container.theme-light .alert--error {
+    color: #b42318;
+    background: #fef3f2;
+    border-color: #fecdca;
+    border-left-color: #d92d20;
+}
+
+.login-container.theme-light .alert--success {
+    color: #067647;
+    background: #ecfdf3;
+    border-color: #abefc6;
+    border-left-color: #079455;
+}
+
+.login-container.theme-light .alert--info {
+    color: #005461;
+    background: #ecfeff;
+    border-color: #a5f0f5;
+    border-left-color: #018790;
+}

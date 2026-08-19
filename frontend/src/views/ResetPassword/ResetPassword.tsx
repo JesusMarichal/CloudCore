@@ -4,11 +4,15 @@ import { AuthService } from '../../services/auth.service';
 import { Lock, KeyRound, CheckCircle, Circle, Eye, EyeOff, Sun, Moon, ArrowRight } from 'lucide';
 import { MorphIcon } from 'morphicons/react';
 import { useT } from '../../i18n';
+import { Alert } from '../../components/Alert';
+import { describeAuthError } from '../../services/authError';
+import { useToast } from '../../components/toast-context';
 import '../Login/Login.css';
 import './ResetPassword.css';
 
 const ResetPassword: React.FC = () => {
     const t = useT();
+    const showToast = useToast();
     const [searchParams] = useSearchParams();
     const token = searchParams.get('token') || '';
 
@@ -56,11 +60,11 @@ const ResetPassword: React.FC = () => {
             } else {
                 setError(result.message || t('resetPassword.error'));
             }
-        } catch (err: any) {
-            const msg = err?.response?.data?.message
-                ?? (err?.code === 'ERR_NETWORK' ? t('auth.networkErrorShort') : null)
-                ?? t('auth.genericError');
-            setError(msg);
+        } catch (err: unknown) {
+            // Lo accionable se queda en el formulario; lo demás sale flotando.
+            const described = describeAuthError(err, t);
+            if (described.kind === 'validation') setError(described.text);
+            else showToast(described.text);
         } finally {
             setLoading(false);
         }
@@ -210,7 +214,7 @@ const ResetPassword: React.FC = () => {
                             </div>
 
                             {error && (
-                                <div className="message error-message">{error}</div>
+                                <Alert>{error}</Alert>
                             )}
                         </form>
                     </>

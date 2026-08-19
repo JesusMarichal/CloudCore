@@ -4,6 +4,7 @@ export declare class DatabaseService implements OnModuleInit, OnModuleDestroy {
     private readonly logger;
     constructor();
     onModuleInit(): Promise<void>;
+    private createBillingTables;
     private applyMigrations;
     private createUsersTable;
     private createPendingRegistrationsTable;

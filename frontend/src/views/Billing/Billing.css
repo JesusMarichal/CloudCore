@@ -24,27 +24,229 @@
     color: var(--text-muted);
 }
 
-.billing-empty-state {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 80px 40px;
-    text-align: center;
+/* ── Panel del plan activo ────────────────────────────────────────────── */
+
+.billing-panel {
+    padding: 24px;
     background: var(--card-bg);
     border: 1px solid var(--gh-border);
     border-radius: 12px;
+    margin-bottom: 36px;
 }
 
-.billing-empty-state h3 {
-    font-size: 1.4rem;
+.billing-panel--empty {
+    text-align: center;
+    padding: 44px 24px;
+}
+
+.billing-panel--empty h3 {
+    font-size: 1.15rem;
     font-weight: 700;
-    margin-bottom: 12px;
+    color: var(--text-main);
+    margin-bottom: 8px;
+}
+
+.billing-panel--empty p {
+    color: var(--text-muted);
+    max-width: 460px;
+    margin: 0 auto;
+    line-height: 1.6;
+}
+
+.billing-panel-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--gh-border-muted);
+}
+
+.billing-label {
+    display: block;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--text-dim);
+}
+
+.billing-plan-name {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: var(--text-main);
+    margin-top: 4px;
+}
+
+.billing-cycle {
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--text-muted);
+}
+
+.billing-status {
+    padding: 4px 11px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    background: var(--gh-border-muted);
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+.billing-status--active,
+.billing-status--trialing {
+    background: var(--primary-glow);
+    color: var(--primary);
+}
+
+.billing-status--past_due,
+.billing-status--cancel-scheduled,
+.billing-status--pause-scheduled {
+    background: rgba(210, 153, 34, 0.15);
+    color: #d29922;
+}
+
+.billing-status--canceled,
+.billing-status--paused {
+    background: var(--error-bg);
+    color: var(--error);
+}
+
+/* ── Fecha de corte y método de pago ──────────────────────────────────── */
+
+.billing-facts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 20px;
+    padding: 20px 0;
+}
+
+.billing-fact {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.billing-fact-icon {
+    color: var(--primary);
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.billing-fact-value {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 4px;
+    color: var(--text-main);
+    font-weight: 500;
+}
+
+.billing-card-dots {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    letter-spacing: 1px;
+    color: var(--gh-text-default);
+}
+
+.billing-card-exp {
+    font-size: 12px;
+    color: var(--text-muted);
+    padding: 1px 7px;
+    border: 1px solid var(--gh-border);
+    border-radius: 5px;
+}
+
+/* ── Avisos ───────────────────────────────────────────────────────────── */
+
+.billing-scheduled,
+.billing-warning {
+    padding: 10px 14px;
+    border-radius: 8px;
+    margin-bottom: 18px;
+    line-height: 1.5;
+}
+
+.billing-scheduled {
+    background: rgba(210, 153, 34, 0.1);
+    color: #d29922;
+}
+
+.billing-warning {
+    background: var(--error-bg);
+    color: var(--error);
+}
+
+.billing-error {
+    margin-bottom: 16px;
+    padding: 12px 16px;
+    border-radius: 8px;
+    background: var(--error-bg);
+    color: var(--error);
+    word-break: break-word;
+}
+
+/* ── Acciones ─────────────────────────────────────────────────────────── */
+
+.billing-actions {
+    padding-top: 20px;
+    border-top: 1px solid var(--gh-border-muted);
+}
+
+.billing-cta {
+    display: inline-block;
+    padding: 10px 20px;
+    border: 1px solid var(--primary);
+    border-radius: 8px;
+    background: var(--primary);
+    color: #04211f;
+    font: inherit;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 0.15s ease, opacity 0.15s ease;
+}
+
+.billing-cta:hover:not(:disabled) {
+    background: var(--primary-hover);
+    border-color: var(--primary-hover);
+}
+
+.billing-cta:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.billing-hint {
+    margin-top: 12px;
+    font-size: 12.5px;
+    color: var(--text-dim);
+    line-height: 1.5;
+}
+
+/* ── Planes ───────────────────────────────────────────────────────────── */
+
+.billing-plans-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 22px;
+}
+
+.billing-plans-head h2 {
+    font-size: 1.05rem;
+    font-weight: 600;
     color: var(--text-main);
 }
 
-.billing-empty-state p {
-    color: var(--text-muted);
-    max-width: 460px;
-    line-height: 1.6;
+.billing-plans-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 16px;
+    align-items: stretch;
 }
