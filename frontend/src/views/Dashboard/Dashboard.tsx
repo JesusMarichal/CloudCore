@@ -1,15 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Loader2 } from 'lucide';
 import {
-    Cloud,
     LayoutGrid,
     Server,
     Terminal,
     Settings,
-    LogOut,
     Activity,
     MoreHorizontal,
-    Plus,
     Search,
     ChevronDown,
     Globe,
@@ -23,13 +20,18 @@ import {
     CircleCheck,
     XCircle,
     X,
-    CreditCard
+    CreditCard,
+    Sun,
+    Moon
 } from 'lucide';
 import { MorphIcon } from 'morphicons/react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { serverService } from '../../services/server.service';
 import type { CreateServerData } from '../../services/server.service';
 import { tokenStorage } from '../../services/tokenStorage';
+import { getAvatarUrl } from '../../data/avatars';
+import { useT } from '../../i18n';
+import type { TranslateFn } from '../../i18n';
 import './Dashboard.css';
 
 interface AppNotification {
@@ -48,6 +50,28 @@ const NOTIF_ICONS = {
     error:   <MorphIcon icon={XCircle} size={14} style={{ color: '#f85149' }} />,
 };
 
+const THEME_STORAGE_KEY = 'cc_dashboard_theme';
+const SIDEBAR_STORAGE_KEY = 'cc_sidebar_collapsed';
+
+const loadStoredCollapsed = (): boolean =>
+    localStorage.getItem(SIDEBAR_STORAGE_KEY) === '1';
+
+// Igual que en el Login: arranca en claro (blanco) salvo que el usuario
+// haya elegido el modo oscuro antes.
+const loadStoredTheme = (): 'light' | 'dark' =>
+    localStorage.getItem(THEME_STORAGE_KEY) === 'dark' ? 'dark' : 'light';
+
+const SECTION_KEYS: Record<string, string> = {
+    dashboard: 'nav.overview',
+    servers: 'nav.servers',
+    websites: 'nav.websites',
+    databases: 'nav.databases',
+    terminal: 'nav.terminal',
+    billing: 'nav.billing',
+    settings: 'nav.settings',
+    profile: 'nav.profile',
+};
+
 const NOTIF_STORAGE_KEY = 'cc_notifications_v1';
 const MAX_NOTIFICATIONS = 50;
 
@@ -63,33 +87,49 @@ const loadStoredNotifications = (): AppNotification[] => {
     }
 };
 
-const formatRelativeTime = (ts: number): string => {
+const formatRelativeTime = (ts: number, t: TranslateFn): string => {
     const diff = Math.max(0, Date.now() - ts);
     const sec = Math.floor(diff / 1000);
-    if (sec < 60) return 'Ahora';
+    if (sec < 60) return t('notifications.time.now');
     const min = Math.floor(sec / 60);
-    if (min < 60) return `Hace ${min} min`;
+    if (min < 60) return t('notifications.time.minutes', { count: min });
     const hr = Math.floor(min / 60);
-    if (hr < 24) return `Hace ${hr} h`;
+    if (hr < 24) return t('notifications.time.hours', { count: hr });
     const days = Math.floor(hr / 24);
-    return `Hace ${days} d`;
+    return t('notifications.time.days', { count: days });
 };
 
 const Dashboard = () => {
     const location = useLocation();
     const navigate = useNavigate();
+    const t = useT();
 
-    const currentUser = tokenStorage.getUser();
+    const [currentUser, setCurrentUser] = useState(() => tokenStorage.getUser());
+
+    // El perfil avisa cuando cambia la foto para refrescar el encabezado.
+    useEffect(() => {
+        const sync = () => setCurrentUser(tokenStorage.getUser());
+        window.addEventListener('cc-user-updated', sync);
+        window.addEventListener('storage', sync);
+        return () => {
+            window.removeEventListener('cc-user-updated', sync);
+            window.removeEventListener('storage', sync);
+        };
+    }, []);
+
     const isClient = currentUser?.role !== 'ADMIN';
-    const displayName = currentUser?.name || currentUser?.email || 'Usuario';
+    const displayName = currentUser?.name || currentUser?.email || t('common.user');
     const avatarInitials = displayName
         .split(' ')
         .filter(Boolean)
         .slice(0, 2)
         .map(part => part[0]?.toUpperCase())
         .join('') || '?';
+    const avatarUrl = getAvatarUrl(currentUser?.avatar);
 
+    const [theme, setTheme] = useState<'light' | 'dark'>(loadStoredTheme);
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [collapsed, setCollapsed] = useState<boolean>(loadStoredCollapsed);
     const [servers, setServers] = useState<CreateServerData[]>([]);
     const [deletingServerId, setDeletingServerId] = useState<string | null>(null);
     const [stats, setStats] = useState({
@@ -97,6 +137,17 @@ const Dashboard = () => {
         cpuUsage: 0,
         networkStatus: 'Normal'
     });
+
+    useEffect(() => {
+        localStorage.setItem(SIDEBAR_STORAGE_KEY, collapsed ? '1' : '0');
+    }, [collapsed]);
+
+    useEffect(() => {
+        localStorage.setItem(THEME_STORAGE_KEY, theme);
+        // Permite que el <body> y la barra de scroll acompañen al tema.
+        document.documentElement.setAttribute('data-cc-theme', theme);
+        return () => document.documentElement.removeAttribute('data-cc-theme');
+    }, [theme]);
 
     const [notifications, setNotifications] = useState<AppNotification[]>(() => loadStoredNotifications());
     const [notifOpen, setNotifOpen] = useState(false);
@@ -234,20 +285,15 @@ const Dashboard = () => {
         return () => clearInterval(id);
     }, []);
 
-    const handleLogout = () => {
-        tokenStorage.clearSession();
-        navigate('/login');
-    };
-
     const handleDeleteServer = async (serverId: string, serverName: string) => {
-        if (!window.confirm(`¿Estás seguro de eliminar el servidor "${serverName}"?\n\nEsto eliminará también todos los sitios web y bases de datos asociados.`)) return;
+        if (!window.confirm(t('dashboard.deleteConfirm', { name: serverName }))) return;
         setDeletingServerId(serverId);
         try {
             await serverService.deleteServer(serverId);
             await loadData();
         } catch (error) {
             console.error('Error eliminando servidor:', error);
-            alert('Error al eliminar el servidor.');
+            alert(t('dashboard.deleteError'));
         } finally {
             setDeletingServerId(null);
         }
@@ -255,50 +301,53 @@ const Dashboard = () => {
 
 
     return (
-        <div className="dashboard-layout">
+        <div className={`dashboard-layout theme-${theme}${collapsed ? ' sidebar-collapsed' : ''}`}>
             <div className={`sidebar-overlay ${sidebarOpen ? 'active' : ''}`} onClick={() => setSidebarOpen(false)}></div>
             <aside className={`sidebar ${sidebarOpen ? 'mobile-open' : ''}`}>
-                <div className="sidebar-logo">
-                    <MorphIcon icon={Cloud} size={20} />
-                    <span>CloudCore</span>
-                </div>
+                <button
+                    type="button"
+                    className="sidebar-logo"
+                    onClick={() => setCollapsed(c => !c)}
+                    title={collapsed ? t('dashboard.expandSidebar') : t('dashboard.collapseSidebar')}
+                    aria-label={collapsed ? t('dashboard.expandSidebar') : t('dashboard.collapseSidebar')}
+                    aria-expanded={!collapsed}
+                >
+                    <img src="/favicon.png" alt="" className="sidebar-favicon" />
+                    <span className="sidebar-brand-name">CloudCore</span>
+                    <MorphIcon icon={Menu} size={16} className="sidebar-burger" spring="snappy" />
+                </button>
 
                 <nav className="nav-links">
-                    <NavLink to="/dashboard" end className={({ isActive }) => isActive ? "nav-link active" : "nav-link"} onClick={() => setSidebarOpen(false)}>
+                    <NavLink to="/dashboard" end className={({ isActive }) => isActive ? "nav-link active" : "nav-link"} onClick={() => setSidebarOpen(false)} title={t('nav.overview')}>
                         <MorphIcon icon={LayoutGrid} size={16} />
-                        <span>Resumen</span>
+                        <span>{t('nav.overview')}</span>
                     </NavLink>
-                    <NavLink to="/dashboard/servers" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"} onClick={() => setSidebarOpen(false)}>
+                    <NavLink to="/dashboard/servers" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"} onClick={() => setSidebarOpen(false)} title={t('nav.servers')}>
                         <MorphIcon icon={Server} size={16} />
-                        <span>Instancias</span>
+                        <span>{t('nav.servers')}</span>
                     </NavLink>
-                    <NavLink to="/dashboard/websites" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"} onClick={() => setSidebarOpen(false)}>
+                    <NavLink to="/dashboard/websites" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"} onClick={() => setSidebarOpen(false)} title={t('nav.websites')}>
                         <MorphIcon icon={Globe} size={16} />
-                        <span>Sitios Webs</span>
+                        <span>{t('nav.websites')}</span>
                     </NavLink>
-                    <NavLink to="/dashboard/databases" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"} onClick={() => setSidebarOpen(false)}>
+                    <NavLink to="/dashboard/databases" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"} onClick={() => setSidebarOpen(false)} title={t('nav.databases')}>
                         <MorphIcon icon={Database} size={16} />
-                        <span>Bases de Datos</span>
+                        <span>{t('nav.databases')}</span>
                     </NavLink>
-                    <NavLink to="/dashboard/terminal" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"} onClick={() => setSidebarOpen(false)}>
+                    <NavLink to="/dashboard/terminal" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"} onClick={() => setSidebarOpen(false)} title={t('nav.terminal')}>
                         <MorphIcon icon={Terminal} size={16} />
-                        <span>Terminal SSH</span>
+                        <span>{t('nav.terminal')}</span>
                     </NavLink>
                     {isClient && (
-                        <NavLink to="/dashboard/billing" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"} onClick={() => setSidebarOpen(false)}>
+                        <NavLink to="/dashboard/billing" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"} onClick={() => setSidebarOpen(false)} title={t('nav.billing')}>
                             <MorphIcon icon={CreditCard} size={16} />
-                            <span>Facturación</span>
+                            <span>{t('nav.billing')}</span>
                         </NavLink>
                     )}
-                    <NavLink to="/dashboard/settings" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"} onClick={() => setSidebarOpen(false)}>
+                    <NavLink to="/dashboard/settings" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"} onClick={() => setSidebarOpen(false)} title={t('nav.settings')}>
                         <MorphIcon icon={Settings} size={16} />
-                        <span>Ajustes</span>
+                        <span>{t('nav.settings')}</span>
                     </NavLink>
-
-                    <button onClick={handleLogout} className="nav-link logout" style={{ background: 'none', border: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}>
-                        <MorphIcon icon={LogOut} size={16} />
-                        <span>Cerrar sesión</span>
-                    </button>
                 </nav>
             </aside>
 
@@ -308,17 +357,32 @@ const Dashboard = () => {
                         <button className="mobile-menu-toggle" onClick={() => setSidebarOpen(!sidebarOpen)}>
                             <MorphIcon icon={Menu} size={20} />
                         </button>
-                        <h2>Panel de Control / {location.pathname.split('/').pop() || 'Resumen'}</h2>
+                        <h2>{t('dashboard.breadcrumb', {
+                            section: t(SECTION_KEYS[location.pathname.split('/').filter(Boolean).pop() || 'dashboard'] ?? 'nav.overview'),
+                        })}</h2>
                     </div>
                     <div className="user-info">
-                        <div className="avatar">{avatarInitials}</div>
-                        <span style={{ fontSize: '12px', fontWeight: 500 }}>{displayName}</span>
+                        <button
+                            className="theme-switch"
+                            onClick={() => setTheme(t => (t === 'dark' ? 'light' : 'dark'))}
+                            title={theme === 'dark' ? t('dashboard.toLightMode') : t('dashboard.toDarkMode')}
+                            aria-label={t('dashboard.toggleTheme')}
+                        >
+                            <MorphIcon icon={theme === 'dark' ? Sun : Moon} size={16} spring="snappy" />
+                        </button>
+
+                        <button className="user-chip" onClick={() => navigate('/dashboard/profile')} title={t('dashboard.viewProfile')}>
+                            {avatarUrl
+                                ? <img className="avatar avatar-img" src={avatarUrl} alt={t('profile.avatar.alt')} />
+                                : <span className="avatar">{avatarInitials}</span>}
+                            <span className="user-name" style={{ fontSize: '12px', fontWeight: 500 }}>{displayName}</span>
+                        </button>
 
                         <div className="notif-wrapper" ref={notifRef}>
                             <button
                                 className="notif-bell"
                                 onClick={() => setNotifOpen(o => !o)}
-                                title="Notificaciones"
+                                title={t('notifications.title')}
                             >
                                 <MorphIcon icon={Bell} size={16} />
                                 {unreadCount > 0 && (
@@ -329,10 +393,10 @@ const Dashboard = () => {
                             {notifOpen && (
                                 <div className="notif-panel">
                                     <div className="notif-header">
-                                        <span className="notif-title">Notificaciones</span>
+                                        <span className="notif-title">{t('notifications.title')}</span>
                                         {unreadCount > 0 && (
-                                            <button className="notif-mark-read" onClick={markAllRead} title="Marcar todo como leído">
-                                                <MorphIcon icon={CheckCheck} size={13} /> Todo leído
+                                            <button className="notif-mark-read" onClick={markAllRead} title={t('notifications.markAllReadTitle')}>
+                                                <MorphIcon icon={CheckCheck} size={13} /> {t('notifications.markAllRead')}
                                             </button>
                                         )}
                                     </div>
@@ -340,9 +404,9 @@ const Dashboard = () => {
                                     {notifPermission !== 'granted' && (
                                         <div className="notif-permission-banner">
                                             <MorphIcon icon={Bell} size={13} />
-                                            <span>Activa las notificaciones del navegador</span>
+                                            <span>{t('notifications.enableBrowser')}</span>
                                             <button onClick={requestBrowserPermission}>
-                                                {notifPermission === 'denied' ? 'Bloqueado' : 'Permitir'}
+                                                {notifPermission === 'denied' ? t('notifications.blocked') : t('notifications.allow')}
                                             </button>
                                         </div>
                                     )}
@@ -351,7 +415,7 @@ const Dashboard = () => {
                                         {notifications.length === 0 ? (
                                             <div className="notif-empty">
                                                 <MorphIcon icon={Bell} size={28} />
-                                                <p>Sin notificaciones</p>
+                                                <p>{t('notifications.empty')}</p>
                                             </div>
                                         ) : (
                                             notifications.map(n => (
@@ -360,9 +424,9 @@ const Dashboard = () => {
                                                     <div className="notif-body">
                                                         <p className="notif-item-title">{n.title}</p>
                                                         <p className="notif-item-msg">{n.message}</p>
-                                                        <span className="notif-item-time">{formatRelativeTime(n.timestamp)}</span>
+                                                        <span className="notif-item-time">{formatRelativeTime(n.timestamp, t)}</span>
                                                     </div>
-                                                    <button className="notif-dismiss" onClick={() => dismiss(n.id)} title="Descartar">
+                                                    <button className="notif-dismiss" onClick={() => dismiss(n.id)} title={t('notifications.dismiss')}>
                                                         <MorphIcon icon={X} size={12} />
                                                     </button>
                                                 </div>
@@ -381,74 +445,70 @@ const Dashboard = () => {
                             <section className="stats-grid">
                                 <div className="stat-card">
                                     <div className="stat-header">
-                                        <span className="stat-title">Instancias</span>
+                                        <span className="stat-title">{t('dashboard.stats.instances')}</span>
                                         <MorphIcon icon={Server} size={14} color="var(--gh-text-muted)" />
                                     </div>
                                     <div className="stat-value">{stats.activeInstances}</div>
                                 </div>
                                 <div className="stat-card">
                                     <div className="stat-header">
-                                        <span className="stat-title">Uso de CPU</span>
+                                        <span className="stat-title">{t('dashboard.stats.cpuUsage')}</span>
                                         <MorphIcon icon={Activity} size={14} color="var(--gh-text-muted)" />
                                     </div>
                                     <div className="stat-value">{stats.cpuUsage.toFixed(2)}%</div>
                                 </div>
                                 <div className="stat-card">
                                     <div className="stat-header">
-                                        <span className="stat-title">Red</span>
+                                        <span className="stat-title">{t('dashboard.stats.network')}</span>
                                         <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#3fb1ff', boxShadow: '0 0 5px #3fb1ff' }}></div>
                                     </div>
-                                    <div className="stat-value" style={{ fontSize: '14px', color: '#3fb1ff' }}>Optimizada</div>
+                                    <div className="stat-value" style={{ fontSize: '14px', color: '#3fb1ff' }}>{t('dashboard.stats.networkOptimized')}</div>
                                 </div>
                             </section>
 
                             <div className="table-controls">
                                 <div className="search-bar">
                                     <MorphIcon icon={Search} size={14} color="var(--gh-text-muted)" />
-                                    <input type="text" placeholder="Buscar servidores..." />
+                                    <input type="text" placeholder={t('dashboard.searchServers')} />
                                 </div>
                                 <div className="control-group">
                                     <button className="btn-secondary">
-                                        Filtros <MorphIcon icon={ChevronDown} size={12} />
+                                        {t('dashboard.filters')} <MorphIcon icon={ChevronDown} size={12} />
                                     </button>
                                     <button className="btn-secondary">
-                                        Ordenar <MorphIcon icon={ChevronDown} size={12} />
-                                    </button>
-                                    <button className="btn-add-server" onClick={() => navigate('/dashboard/servers')}>
-                                        <MorphIcon icon={Plus} size={16} />
-                                        <span>Agregar Servidor</span>
+                                        {t('dashboard.sort')} <MorphIcon icon={ChevronDown} size={12} />
                                     </button>
                                 </div>
                             </div>
 
                             <div className="server-container">
                                 <div className="table-header">
-                                    <h3>Listado de Servidores</h3>
-                                    <span style={{ fontSize: '12px', color: 'var(--gh-text-muted)' }}>{servers.length} resultados</span>
+                                    <h3>{t('dashboard.serverList')}</h3>
+                                    <span style={{ fontSize: '12px', color: 'var(--gh-text-muted)' }}>{t('common.results', { count: servers.length })}</span>
                                 </div>
                                 <table className="server-table">
                                     <thead>
                                         <tr>
-                                            <th>Nombre</th>
-                                            <th>Status</th>
-                                            <th>Dirección IP</th>
-                                            <th style={{ textAlign: 'right' }}>Acciones</th>
+                                            <th>{t('dashboard.table.name')}</th>
+                                            <th>{t('dashboard.table.status')}</th>
+                                            <th>{t('dashboard.table.ip')}</th>
+                                            <th style={{ textAlign: 'right' }}>{t('dashboard.table.actions')}</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {servers.length > 0 ? (
                                             servers.map((server, i) => (
                                                 <tr key={i} style={{ opacity: deletingServerId === server.id ? 0.5 : 1, transition: 'opacity 0.3s' }}>
-                                                    <td data-label="Nombre">
+                                                    <td data-label={t('dashboard.table.name')}>
                                                         <a href="#" className="server-name">{server.name}</a>
                                                     </td>
-                                                    <td data-label="Status">
+                                                    <td data-label={t('dashboard.table.status')}>
                                                         <span className={`status-badge ${server.status}`}>
-                                                            {server.status === 'online' ? 'Online' : 'Offline'}
+                                                            {server.status === 'online' ? t('dashboard.table.online') : t('dashboard.table.offline')}
                                                         </span>
                                                     </td>
-                                                    <td data-label="Dirección IP" className="mono">{server.ip}</td>
-                                                    <td data-label="Acciones" style={{ textAlign: 'right' }}>
+                                                    <td data-label={t('dashboard.table.ip')} className="mono">{server.ip}</td>
+                                                    <td data-label={t('dashboard.table.actions')} style={{ textAlign: 'right' }}>
                                                         {deletingServerId === server.id ? (
                                                             <MorphIcon icon={Loader2} size={16} style={{ color: 'var(--primary)', animation: 'spin 1s linear infinite' }} />
                                                         ) : (
@@ -471,8 +531,8 @@ const Dashboard = () => {
                                             <tr>
                                                 <td colSpan={4}>
                                                     <div className="empty-state">
-                                                        <h4>No hay servidores desplegados</h4>
-                                                        <p>Empieza a construir tu infraestructura hoy mismo.</p>
+                                                        <h4>{t('dashboard.empty.title')}</h4>
+                                                        <p>{t('dashboard.empty.desc')}</p>
                                                     </div>
                                                 </td>
                                             </tr>

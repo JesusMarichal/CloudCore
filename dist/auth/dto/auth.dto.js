@@ -9,8 +9,9 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.Disable2FADto = exports.Enable2FADto = exports.ChangePasswordDto = exports.ResetPasswordDto = exports.ForgotPasswordDto = exports.VerifyRegisterDto = exports.RegisterDto = exports.Verify2FALoginDto = exports.LoginDto = void 0;
+exports.Disable2FADto = exports.Enable2FADto = exports.ChangePasswordDto = exports.ResetPasswordDto = exports.ForgotPasswordDto = exports.VerifyRegisterDto = exports.UpdateAvatarDto = exports.RegisterDto = exports.Verify2FALoginDto = exports.LoginDto = void 0;
 const class_validator_1 = require("class-validator");
+const AVATAR_ID = /^av-[a-z0-9-]{1,32}$/;
 class LoginDto {
 }
 exports.LoginDto = LoginDto;
@@ -53,6 +54,20 @@ __decorate([
     (0, class_validator_1.MinLength)(8),
     __metadata("design:type", String)
 ], RegisterDto.prototype, "password", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.Matches)(AVATAR_ID, { message: 'Avatar no válido' }),
+    __metadata("design:type", String)
+], RegisterDto.prototype, "avatar", void 0);
+class UpdateAvatarDto {
+}
+exports.UpdateAvatarDto = UpdateAvatarDto;
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.Matches)(AVATAR_ID, { message: 'Avatar no válido' }),
+    __metadata("design:type", String)
+], UpdateAvatarDto.prototype, "avatar", void 0);
 class VerifyRegisterDto {
 }
 exports.VerifyRegisterDto = VerifyRegisterDto;

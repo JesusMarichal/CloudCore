@@ -1,0 +1,126 @@
+/* Selector de foto de perfil — pack de imágenes predeterminadas.
+   Usa las variables de tema (--text-main, --gh-border, ...) para verse bien
+   tanto en las tarjetas de autenticación como dentro del dashboard. */
+
+.avatar-picker {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+}
+
+/* ── Pestañas de packs ── */
+.avatar-packs {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.avatar-picker .avatar-pack-tab {
+    width: auto !important;
+    margin: 0 !important;
+    padding: 6px 12px !important;
+    background: transparent !important;
+    border: 1px solid var(--gh-border) !important;
+    border-radius: 999px !important;
+    box-shadow: none !important;
+    color: var(--text-muted) !important;
+    font-size: 12.5px !important;
+    font-weight: 600 !important;
+    cursor: pointer;
+    transition: all 0.2s ease !important;
+}
+
+.avatar-picker .avatar-pack-tab:hover {
+    transform: none !important;
+    filter: none !important;
+    color: var(--text-main) !important;
+    border-color: var(--gh-text-muted) !important;
+}
+
+.avatar-picker .avatar-pack-tab.active {
+    background: var(--primary) !important;
+    border-color: var(--primary) !important;
+    color: #fff !important;
+}
+
+.avatar-pack-desc {
+    font-size: 12.5px;
+    color: var(--text-muted);
+    margin: 0;
+}
+
+/* ── Cuadrícula de avatares ── */
+.avatar-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+}
+
+.avatar-picker.compact .avatar-grid {
+    grid-template-columns: repeat(8, 1fr);
+    gap: 10px;
+}
+
+.avatar-picker .avatar-option {
+    position: relative;
+    width: 100% !important;
+    aspect-ratio: 1;
+    margin: 0 !important;
+    padding: 3px !important;
+    background: transparent !important;
+    border: 2px solid transparent !important;
+    border-radius: 50% !important;
+    box-shadow: none !important;
+    cursor: pointer;
+    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), border-color 0.2s ease !important;
+    animation: avatarPop 0.35s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
+@keyframes avatarPop {
+    from { opacity: 0; transform: scale(0.8); }
+    to   { opacity: 1; transform: scale(1); }
+}
+
+.avatar-picker .avatar-option:hover {
+    transform: translateY(-3px) scale(1.05) !important;
+    filter: none !important;
+    border-color: var(--gh-text-muted) !important;
+}
+
+.avatar-picker .avatar-option.selected {
+    border-color: var(--primary) !important;
+    box-shadow: 0 0 0 4px var(--primary-glow) !important;
+}
+
+.avatar-picker .avatar-option img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    display: block;
+    background: rgba(127, 127, 127, 0.12);
+    object-fit: cover;
+}
+
+.avatar-check {
+    position: absolute;
+    right: -2px;
+    bottom: -2px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+    animation: avatarPop 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@media (max-width: 640px) {
+    .avatar-grid,
+    .avatar-picker.compact .avatar-grid {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}

@@ -5,6 +5,7 @@ import { tokenStorage } from '../../services/tokenStorage';
 import { Mail, Lock, ArrowRight, Cloud, ShieldCheck, MailCheck, Eye, EyeOff, Sun, Moon } from 'lucide';
 import { MorphIcon } from 'morphicons/react';
 import OTPInput from '../../components/OTPInput';
+import { useT } from '../../i18n';
 import './Login.css';
 
 // Brand logos as inline SVG (no external assets, work in light & dark)
@@ -24,6 +25,7 @@ const GithubIcon = () => (
 );
 
 const Login: React.FC = () => {
+    const t = useT();
     const [email, setEmail]       = useState('');
     const [password, setPassword] = useState('');
     const [totpCode, setTotpCode] = useState('');
@@ -51,7 +53,7 @@ const Login: React.FC = () => {
                     tokenStorage.setSession(result.token, result.user);
                     navigate('/dashboard');
                 } else {
-                    setError(result.message || 'Credenciales incorrectas');
+                    setError(result.message || t('login.badCredentials'));
                 }
             } else {
                 const result = await AuthService.verify2FALogin(preAuthToken, totpCode);
@@ -59,13 +61,13 @@ const Login: React.FC = () => {
                     tokenStorage.setSession(result.token, result.user);
                     navigate('/dashboard');
                 } else {
-                    setError(result.message || 'Código incorrecto');
+                    setError(result.message || t('login.badCode'));
                 }
             }
         } catch (err: any) {
             const msg = err?.response?.data?.message
-                ?? (err?.code === 'ERR_NETWORK' ? 'No se pudo conectar al servidor. Verifica que esté en ejecución.' : null)
-                ?? 'Error al procesar la solicitud';
+                ?? (err?.code === 'ERR_NETWORK' ? t('auth.networkError') : null)
+                ?? t('auth.genericError');
             setError(msg);
         } finally {
             setLoading(false);
@@ -81,12 +83,12 @@ const Login: React.FC = () => {
             if (result.success) {
                 setForgotSent(true);
             } else {
-                setError(result.message || 'No se pudo procesar la solicitud');
+                setError(result.message || t('login.resetRequestError'));
             }
         } catch (err: any) {
             const msg = err?.response?.data?.message
-                ?? (err?.code === 'ERR_NETWORK' ? 'No se pudo conectar al servidor.' : null)
-                ?? 'Error al procesar la solicitud';
+                ?? (err?.code === 'ERR_NETWORK' ? t('auth.networkErrorShort') : null)
+                ?? t('auth.genericError');
             setError(msg);
         } finally {
             setLoading(false);
@@ -112,8 +114,8 @@ const Login: React.FC = () => {
                     type="button"
                     className="theme-toggle"
                     onClick={() => setIsDark(v => !v)}
-                    title={isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
-                    aria-label="Cambiar tema"
+                    title={isDark ? t('dashboard.toLightMode') : t('dashboard.toDarkMode')}
+                    aria-label={t('dashboard.toggleTheme')}
                 >
                     <MorphIcon icon={isDark ? Sun : Moon} size={18} spring="snappy" className="theme-icon" />
                 </button>
@@ -126,21 +128,19 @@ const Login: React.FC = () => {
                     <div className="auth-divider" />
                     {step === 'credentials' ? (
                         <>
-                            <p className="auth-subtitle">Bienvenido de nuevo</p>
-                            <p className="auth-desc">Infraestructura SaaS de alto rendimiento</p>
+                            <p className="auth-subtitle">{t('login.welcome')}</p>
+                            <p className="auth-desc">{t('auth.brandTagline')}</p>
                         </>
                     ) : step === '2fa' ? (
                         <>
-                            <p className="auth-subtitle">Verificación en dos pasos</p>
-                            <p className="auth-desc">Ingresa el código de 6 dígitos de tu app autenticadora</p>
+                            <p className="auth-subtitle">{t('login.twofaTitle')}</p>
+                            <p className="auth-desc">{t('login.twofaDesc')}</p>
                         </>
                     ) : (
                         <>
-                            <p className="auth-subtitle">Recuperar contraseña</p>
+                            <p className="auth-subtitle">{t('login.forgotTitle')}</p>
                             <p className="auth-desc">
-                                {forgotSent
-                                    ? 'Revisa tu bandeja de entrada'
-                                    : 'Te enviaremos un enlace para restablecerla'}
+                                {forgotSent ? t('login.forgotDescSent') : t('login.forgotDesc')}
                             </p>
                         </>
                     )}
@@ -150,29 +150,29 @@ const Login: React.FC = () => {
                     forgotSent ? (
                         <div className="reg-success">
                             <MorphIcon icon={MailCheck} size={44} className="reg-success-icon" />
-                            <h2>Enlace enviado</h2>
-                            <p>Si el correo está registrado, te llegará un enlace válido por 5 minutos.</p>
+                            <h2>{t('login.resetSentTitle')}</h2>
+                            <p>{t('login.resetSentDesc')}</p>
                             <div className="login-footer">
                                 <button type="button" className="btn-link" onClick={backToCredentials}>
-                                    ← Volver al inicio de sesión
+                                    {t('auth.backToLogin')}
                                 </button>
                             </div>
                         </div>
                     ) : (
                         <form onSubmit={handleForgotSubmit}>
                             <div className="form-group">
-                                <label><MorphIcon icon={Mail} size={15} /> Correo Electrónico</label>
+                                <label><MorphIcon icon={Mail} size={15} /> {t('auth.email')}</label>
                                 <input type="email" value={forgotEmail} onChange={e => setForgotEmail(e.target.value)}
-                                    placeholder="nombre@ejemplo.com" required autoFocus />
+                                    placeholder={t('auth.emailPlaceholder')} required autoFocus />
                             </div>
 
                             <button type="submit" disabled={loading}>
-                                {loading ? 'Enviando...' : <><MorphIcon icon={Mail} size={17} /> Enviar enlace de recuperación</>}
+                                {loading ? t('login.sending') : <><MorphIcon icon={Mail} size={17} /> {t('login.sendResetLink')}</>}
                             </button>
 
                             <div className="login-footer">
                                 <button type="button" className="btn-link" onClick={backToCredentials}>
-                                    ← Volver al inicio de sesión
+                                    {t('auth.backToLogin')}
                                 </button>
                             </div>
 
@@ -186,12 +186,12 @@ const Login: React.FC = () => {
                         {step === 'credentials' ? (
                             <>
                                 <div className="form-group">
-                                    <label><MorphIcon icon={Mail} size={15} /> Correo Electrónico</label>
+                                    <label><MorphIcon icon={Mail} size={15} /> {t('auth.email')}</label>
                                     <input type="email" value={email} onChange={e => setEmail(e.target.value)}
-                                        placeholder="nombre@ejemplo.com" required autoFocus />
+                                        placeholder={t('auth.emailPlaceholder')} required autoFocus />
                                 </div>
                                 <div className="form-group">
-                                    <label><MorphIcon icon={Lock} size={15} /> Contraseña</label>
+                                    <label><MorphIcon icon={Lock} size={15} /> {t('auth.password')}</label>
                                     <div className="password-field-wrapper">
                                         <input type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)}
                                             placeholder="••••••••" required />
@@ -200,7 +200,7 @@ const Login: React.FC = () => {
                                             className="pw-toggle-btn"
                                             tabIndex={-1}
                                             onClick={() => setShowPassword(v => !v)}
-                                            aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                                            aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
                                         >
                                             <MorphIcon icon={showPassword ? EyeOff : Eye} size={17} spring="snappy" />
                                         </button>
@@ -210,29 +210,29 @@ const Login: React.FC = () => {
                                         className="btn-link forgot-password-link"
                                         onClick={() => { setStep('forgot'); setError(null); }}
                                     >
-                                        ¿Olvidaste tu contraseña?
+                                        {t('login.forgotLink')}
                                     </button>
                                 </div>
                             </>
                         ) : (
                             <div className="totp-group">
                                 <p className="totp-hint">
-                                    <MorphIcon icon={ShieldCheck} size={14} /> Código de tu app autenticadora
+                                    <MorphIcon icon={ShieldCheck} size={14} /> {t('login.totpHint')}
                                 </p>
                                 <OTPInput value={totpCode} onChange={setTotpCode} />
                             </div>
                         )}
 
                         <button type="submit" disabled={loading || (step === '2fa' && totpCode.length < 6)}>
-                            {loading ? 'Verificando...' : step === 'credentials'
-                                ? 'Iniciar Sesión'
-                                : <><MorphIcon icon={ShieldCheck} size={17} /> Verificar</>
+                            {loading ? t('login.verifying') : step === 'credentials'
+                                ? t('login.submit')
+                                : <><MorphIcon icon={ShieldCheck} size={17} /> {t('login.verify')}</>
                             }
                         </button>
 
                         {step === 'credentials' && (
                             <>
-                                <div className="social-divider"><span>o continúa con</span></div>
+                                <div className="social-divider"><span>{t('login.continueWith')}</span></div>
                                 <div className="social-buttons">
                                     <button type="button" className="social-btn" onClick={() => { /* TODO: auth Google */ }}>
                                         <GoogleIcon /> Google
@@ -248,7 +248,7 @@ const Login: React.FC = () => {
                             <div className="login-footer">
                                 <button type="button" className="btn-link"
                                     onClick={() => { setStep('credentials'); setError(null); setTotpCode(''); }}>
-                                    ← Volver al inicio de sesión
+                                    {t('auth.backToLogin')}
                                 </button>
                             </div>
                         )}
@@ -256,7 +256,7 @@ const Login: React.FC = () => {
                         {step === 'credentials' && (
                             <div className="login-footer">
                                 <button type="button" className="btn-link" onClick={() => navigate('/register')}>
-                                    ¿No tienes cuenta? Regístrate gratis <MorphIcon icon={ArrowRight} size={14} />
+                                    {t('login.noAccount')} <MorphIcon icon={ArrowRight} size={14} />
                                 </button>
                             </div>
                         )}

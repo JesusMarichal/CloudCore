@@ -2,18 +2,63 @@ import { useState, useEffect } from 'react';
 import {
     Github, KeyRound, Save, CheckCircle2, AlertCircle,
     ShieldCheck, Lock, Eye, EyeOff, QrCode, Shield,
-    AlertTriangle, X, Check
+    AlertTriangle, X, Check, Languages
 } from 'lucide';
 import { MorphIcon } from 'morphicons/react';
 import { API_URL } from '../../config';
 import { AuthService } from '../../services/auth.service';
 import { authFetch } from '../../services/apiFetch';
 import { tokenStorage } from '../../services/tokenStorage';
+import { useI18n, useT, LANGUAGES } from '../../i18n';
+import type { TranslateFn } from '../../i18n';
 import OTPInput from '../../components/OTPInput';
 import './Settings.css';
 
+// ── Sección: Idioma ───────────────────────────────────────────────────────────
+const LanguageSection = () => {
+    const { lang, setLang, t } = useI18n();
+
+    return (
+        <div className="setting-card">
+            <div className="setting-card-header">
+                <div className="setting-icon sec-blue"><MorphIcon icon={Languages} size={22} /></div>
+                <div className="setting-title">
+                    <h3>{t('lang.title')}</h3>
+                    <p>{t('lang.description')}</p>
+                </div>
+            </div>
+            <div className="setting-form">
+                <div className="form-group">
+                    <label>{t('lang.label')}</label>
+                    <div className="lang-options" role="radiogroup" aria-label={t('lang.label')}>
+                        {LANGUAGES.map(option => (
+                            <button
+                                key={option.code}
+                                type="button"
+                                role="radio"
+                                aria-checked={lang === option.code}
+                                className={`lang-option${lang === option.code ? ' active' : ''}`}
+                                onClick={() => setLang(option.code)}
+                            >
+                                <span className="lang-flag" aria-hidden="true">{option.flag}</span>
+                                <span className="lang-names">
+                                    <span className="lang-native">{option.nativeLabel}</span>
+                                    <span className="lang-code">{option.code.toUpperCase()}</span>
+                                </span>
+                                {lang === option.code && (
+                                    <MorphIcon icon={Check} size={16} className="lang-check" />
+                                )}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 // ── Sección: GitHub ───────────────────────────────────────────────────────────
-const GithubSection = () => {
+const GithubSection = ({ t }: { t: TranslateFn }) => {
     const [token, setToken] = useState('');
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -40,9 +85,9 @@ const GithubSection = () => {
                 body: JSON.stringify({ token }),
             });
             const d = await r.json();
-            setStatus({ type: d.success ? 'success' : 'error', msg: d.success ? 'Token guardado correctamente.' : d.message });
+            setStatus({ type: d.success ? 'success' : 'error', msg: d.success ? t('settings.github.saved') : d.message });
         } catch {
-            setStatus({ type: 'error', msg: 'Error de conexión' });
+            setStatus({ type: 'error', msg: t('common.connectionError') });
         } finally {
             setSaving(false);
         }
@@ -53,21 +98,23 @@ const GithubSection = () => {
             <div className="setting-card-header">
                 <div className="setting-icon github"><MorphIcon icon={Github} size={24} /></div>
                 <div className="setting-title">
-                    <h3>GitHub Integration</h3>
-                    <p>Conecta CloudCore con GitHub usando un Personal Access Token para desplegar repositorios automáticamente.</p>
+                    <h3>{t('settings.github.title')}</h3>
+                    <p>{t('settings.github.desc')}</p>
                 </div>
             </div>
             <div className="setting-form">
                 <div className="form-group">
-                    <label>Personal Access Token</label>
+                    <label>{t('settings.github.tokenLabel')}</label>
                     <div className="input-with-icon">
                         <MorphIcon icon={KeyRound} size={16} className="input-icon" />
                         <input type="password" placeholder="ghp_************************************"
                             value={token} onChange={e => setToken(e.target.value)} disabled={loading} />
                     </div>
                     <span className="help-text">
-                        Necesitas permisos de <code>repo</code>. Créalo en{' '}
-                        <a href="https://github.com/settings/tokens/new" target="_blank" rel="noreferrer">GitHub Settings</a>.
+                        {t('settings.github.helpBefore')} <code>repo</code>{t('settings.github.helpAfter')}{' '}
+                        <a href="https://github.com/settings/tokens/new" target="_blank" rel="noreferrer">
+                            {t('settings.github.helpLink')}
+                        </a>.
                     </span>
                 </div>
                 {status.type && (
@@ -78,7 +125,7 @@ const GithubSection = () => {
                 )}
                 <div className="setting-actions">
                     <button className="btn-save" onClick={handleSave} disabled={saving || loading}>
-                        {saving ? 'Guardando...' : <><MorphIcon icon={Save} size={16} /> Guardar</>}
+                        {saving ? t('common.saving') : <><MorphIcon icon={Save} size={16} /> {t('common.save')}</>}
                     </button>
                 </div>
             </div>
@@ -87,7 +134,7 @@ const GithubSection = () => {
 };
 
 // ── Sección: Cambiar contraseña ───────────────────────────────────────────────
-const ChangePasswordSection = () => {
+const ChangePasswordSection = ({ t }: { t: TranslateFn }) => {
     const [form, setForm] = useState({ current: '', newPass: '', confirm: '' });
     const [show, setShow] = useState({ current: false, newPass: false, confirm: false });
     const [loading, setLoading] = useState(false);
@@ -102,14 +149,20 @@ const ChangePasswordSection = () => {
         return s;
     };
     const str = strength(form.newPass);
-    const strLabel = ['', 'Débil', 'Regular', 'Buena', 'Fuerte'][str];
+    const strLabel = ['', t('settings.password.strength.weak'), t('settings.password.strength.fair'),
+                      t('settings.password.strength.good'), t('settings.password.strength.strong')][str];
     const strColor = ['', '#f85149', '#d29922', '#3fb950', '#58a6ff'][str];
+
+    const fieldLabel = (field: 'current' | 'newPass' | 'confirm') =>
+        field === 'current' ? t('settings.password.current')
+            : field === 'newPass' ? t('settings.password.new')
+                : t('settings.password.confirm');
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setStatus({ type: null, msg: '' });
         if (form.newPass !== form.confirm) {
-            setStatus({ type: 'error', msg: 'Las contraseñas no coinciden' });
+            setStatus({ type: 'error', msg: t('settings.password.mismatch') });
             return;
         }
         if (!tokenStorage.getToken()) return;
@@ -119,7 +172,7 @@ const ChangePasswordSection = () => {
             setStatus({ type: result.success ? 'success' : 'error', msg: result.message });
             if (result.success) setForm({ current: '', newPass: '', confirm: '' });
         } catch {
-            setStatus({ type: 'error', msg: 'Error de conexión' });
+            setStatus({ type: 'error', msg: t('common.connectionError') });
         } finally {
             setLoading(false);
         }
@@ -130,17 +183,14 @@ const ChangePasswordSection = () => {
             <div className="setting-card-header">
                 <div className="setting-icon sec-blue"><MorphIcon icon={Lock} size={22} /></div>
                 <div className="setting-title">
-                    <h3>Cambiar Contraseña</h3>
-                    <p>Actualiza tu contraseña periódicamente para mantener tu cuenta segura.</p>
+                    <h3>{t('settings.password.title')}</h3>
+                    <p>{t('settings.password.desc')}</p>
                 </div>
             </div>
             <form className="setting-form" onSubmit={handleSubmit}>
                 {(['current', 'newPass', 'confirm'] as const).map(field => (
                     <div className="form-group" key={field}>
-                        <label>
-                            {field === 'current' ? 'Contraseña actual' :
-                             field === 'newPass'  ? 'Nueva contraseña' : 'Confirmar nueva contraseña'}
-                        </label>
+                        <label>{fieldLabel(field)}</label>
                         <div className="input-with-icon">
                             <MorphIcon icon={Lock} size={16} className="input-icon" />
                             <input
@@ -175,7 +225,7 @@ const ChangePasswordSection = () => {
                 )}
                 <div className="setting-actions">
                     <button className="btn-save" type="submit" disabled={loading}>
-                        {loading ? 'Actualizando...' : <><MorphIcon icon={Save} size={16} /> Actualizar Contraseña</>}
+                        {loading ? t('settings.password.updating') : <><MorphIcon icon={Save} size={16} /> {t('settings.password.submit')}</>}
                     </button>
                 </div>
             </form>
@@ -184,7 +234,7 @@ const ChangePasswordSection = () => {
 };
 
 // ── Sección: 2FA ──────────────────────────────────────────────────────────────
-const TwoFASection = () => {
+const TwoFASection = ({ t }: { t: TranslateFn }) => {
     const [enabled, setEnabled] = useState(false);
     const [loading, setLoading] = useState(true);
     const [step, setStep]       = useState<'idle' | 'setup' | 'disable'>('idle');
@@ -217,7 +267,7 @@ const TwoFASection = () => {
                 setStatus({ type: 'error', msg: d.message });
             }
         } catch {
-            setStatus({ type: 'error', msg: 'Error al generar QR' });
+            setStatus({ type: 'error', msg: t('settings.twofa.qrError') });
         } finally {
             setSaving(false);
         }
@@ -234,12 +284,12 @@ const TwoFASection = () => {
                 setEnabled(true);
                 setStep('idle');
                 setCode('');
-                setStatus({ type: 'success', msg: '✓ 2FA activado. Tu cuenta ahora requiere código al iniciar sesión.' });
+                setStatus({ type: 'success', msg: t('settings.twofa.enabled') });
             } else {
                 setStatus({ type: 'error', msg: d.message });
             }
         } catch {
-            setStatus({ type: 'error', msg: 'Error al activar 2FA' });
+            setStatus({ type: 'error', msg: t('settings.twofa.enableError') });
         } finally {
             setSaving(false);
         }
@@ -256,12 +306,12 @@ const TwoFASection = () => {
                 setEnabled(false);
                 setStep('idle');
                 setPassword('');
-                setStatus({ type: 'success', msg: '2FA desactivado.' });
+                setStatus({ type: 'success', msg: t('settings.twofa.disabled') });
             } else {
                 setStatus({ type: 'error', msg: d.message });
             }
         } catch {
-            setStatus({ type: 'error', msg: 'Error al desactivar 2FA' });
+            setStatus({ type: 'error', msg: t('settings.twofa.disableError') });
         } finally {
             setSaving(false);
         }
@@ -275,12 +325,14 @@ const TwoFASection = () => {
                 </div>
                 <div className="setting-title" style={{ flex: 1 }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <h3>Autenticación de Dos Factores (2FA)</h3>
+                        <h3>{t('settings.twofa.title')}</h3>
                         <span className={`twofa-badge ${enabled ? 'on' : 'off'}`}>
-                            {enabled ? <><MorphIcon icon={Check} size={12} /> Activo</> : 'Inactivo'}
+                            {enabled
+                                ? <><MorphIcon icon={Check} size={12} /> {t('settings.twofa.active')}</>
+                                : t('settings.twofa.inactive')}
                         </span>
                     </div>
-                    <p>Protege tu cuenta con Google Authenticator, Authy u otra app TOTP.</p>
+                    <p>{t('settings.twofa.desc')}</p>
                 </div>
             </div>
 
@@ -296,11 +348,11 @@ const TwoFASection = () => {
                     <div className="setting-actions">
                         {!enabled ? (
                             <button className="btn-save" onClick={handleGenerate} disabled={saving}>
-                                {saving ? 'Generando...' : <><MorphIcon icon={QrCode} size={16} /> Activar 2FA</>}
+                                {saving ? t('settings.twofa.generating') : <><MorphIcon icon={QrCode} size={16} /> {t('settings.twofa.enable')}</>}
                             </button>
                         ) : (
                             <button className="btn-danger" onClick={() => { setStep('disable'); setStatus({ type: null, msg: '' }); }}>
-                                <MorphIcon icon={X} size={16} /> Desactivar 2FA
+                                <MorphIcon icon={X} size={16} /> {t('settings.twofa.disable')}
                             </button>
                         )}
                     </div>
@@ -308,24 +360,24 @@ const TwoFASection = () => {
 
                 {step === 'setup' && (
                     <div className="twofa-setup">
-                        <p className="twofa-step-label">Paso 1 — Escanea el código QR con tu app autenticadora</p>
+                        <p className="twofa-step-label">{t('settings.twofa.step1')}</p>
                         <div className="twofa-qr-wrap">
-                            {qrUrl && <img src={qrUrl} alt="QR 2FA" className="twofa-qr" />}
+                            {qrUrl && <img src={qrUrl} alt={t('settings.twofa.qrAlt')} className="twofa-qr" />}
                         </div>
-                        <p className="twofa-step-label">¿No puedes escanear? Ingresa este código manualmente:</p>
+                        <p className="twofa-step-label">{t('settings.twofa.manualHint')}</p>
                         <div className="twofa-secret">
                             <code>{secret}</code>
                         </div>
-                        <p className="twofa-step-label">Paso 2 — Ingresa el código de 6 dígitos para confirmar</p>
+                        <p className="twofa-step-label">{t('settings.twofa.step2')}</p>
                         <form onSubmit={handleEnable} className="twofa-verify-form">
                             <OTPInput value={code} onChange={setCode} />
                             <div className="twofa-actions">
                                 <button type="button" className="btn-ghost-sm"
                                     onClick={() => { setStep('idle'); setCode(''); setStatus({ type: null, msg: '' }); }}>
-                                    Cancelar
+                                    {t('common.cancel')}
                                 </button>
                                 <button type="submit" className="btn-save" disabled={saving || code.length !== 6}>
-                                    {saving ? 'Verificando...' : <><MorphIcon icon={Check} size={16} /> Confirmar y Activar</>}
+                                    {saving ? t('settings.twofa.verifying') : <><MorphIcon icon={Check} size={16} /> {t('settings.twofa.confirmEnable')}</>}
                                 </button>
                             </div>
                         </form>
@@ -334,20 +386,20 @@ const TwoFASection = () => {
 
                 {step === 'disable' && (
                     <form onSubmit={handleDisable} className="twofa-setup">
-                        <p className="twofa-step-label">Ingresa tu contraseña para desactivar 2FA</p>
+                        <p className="twofa-step-label">{t('settings.twofa.passwordToDisable')}</p>
                         <div className="input-with-icon" style={{ maxWidth: '340px' }}>
                             <MorphIcon icon={Lock} size={16} className="input-icon" />
                             <input type="password" value={password}
                                 onChange={e => setPassword(e.target.value)}
-                                placeholder="Tu contraseña actual" required autoFocus />
+                                placeholder={t('settings.twofa.currentPasswordPlaceholder')} required autoFocus />
                         </div>
                         <div className="twofa-actions">
                             <button type="button" className="btn-ghost-sm"
                                 onClick={() => { setStep('idle'); setPassword(''); }}>
-                                Cancelar
+                                {t('common.cancel')}
                             </button>
                             <button type="submit" className="btn-danger" disabled={saving || !password}>
-                                {saving ? 'Desactivando...' : <><MorphIcon icon={X} size={16} /> Desactivar</>}
+                                {saving ? t('settings.twofa.disabling') : <><MorphIcon icon={X} size={16} /> {t('settings.twofa.disableShort')}</>}
                             </button>
                         </div>
                     </form>
@@ -358,36 +410,41 @@ const TwoFASection = () => {
 };
 
 // ── Sección: Aviso de seguridad ───────────────────────────────────────────────
-const SecurityTipsSection = () => (
+const SecurityTipsSection = ({ t }: { t: TranslateFn }) => (
     <div className="security-tips-card">
         <div className="security-tips-header">
             <MorphIcon icon={AlertTriangle} size={18} style={{ color: '#d29922' }} />
-            <span>Buenas prácticas de seguridad</span>
+            <span>{t('settings.tips.title')}</span>
         </div>
         <ul className="security-tips-list">
-            <li><MorphIcon icon={Shield} size={13} /> Nunca compartas tus credenciales ni claves SSH con nadie.</li>
-            <li><MorphIcon icon={Shield} size={13} /> Usa contraseñas únicas de al menos 12 caracteres con mayúsculas, números y símbolos.</li>
-            <li><MorphIcon icon={Shield} size={13} /> Activa 2FA para proteger tu cuenta incluso si tu contraseña es comprometida.</li>
-            <li><MorphIcon icon={Shield} size={13} /> CloudCore nunca te pedirá tu contraseña por correo o chat.</li>
-            <li><MorphIcon icon={Shield} size={13} /> Revisa regularmente los servidores conectados y elimina accesos que ya no uses.</li>
+            {(['t1', 't2', 't3', 't4', 't5'] as const).map(key => (
+                <li key={key}>
+                    <MorphIcon icon={Shield} size={13} /> {t(`settings.tips.${key}`)}
+                </li>
+            ))}
         </ul>
     </div>
 );
 
 // ── Page ──────────────────────────────────────────────────────────────────────
-const Settings = () => (
-    <div className="settings-container">
-        <div className="settings-header">
-            <h2>Ajustes</h2>
-            <p className="subtitle">Gestiona integraciones y la seguridad de tu cuenta</p>
+const Settings = () => {
+    const t = useT();
+
+    return (
+        <div className="settings-container">
+            <div className="settings-header">
+                <h2>{t('settings.title')}</h2>
+                <p className="subtitle">{t('settings.subtitle')}</p>
+            </div>
+            <div className="settings-content">
+                <LanguageSection />
+                <GithubSection t={t} />
+                <ChangePasswordSection t={t} />
+                <TwoFASection t={t} />
+                <SecurityTipsSection t={t} />
+            </div>
         </div>
-        <div className="settings-content">
-            <GithubSection />
-            <ChangePasswordSection />
-            <TwoFASection />
-            <SecurityTipsSection />
-        </div>
-    </div>
-);
+    );
+};
 
 export default Settings;

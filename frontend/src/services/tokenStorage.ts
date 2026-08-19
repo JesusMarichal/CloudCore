@@ -3,6 +3,8 @@ export interface StoredUser {
     name: string;
     email: string;
     role?: 'ADMIN' | 'CLIENT';
+    /** ID del avatar del pack predeterminado (ej. 'av-pe-1'). Nunca una imagen. */
+    avatar?: string | null;
 }
 
 const TOKEN_KEY = 'cc_auth_token';
@@ -26,6 +28,15 @@ export const tokenStorage = {
     setSession(token: string, user: StoredUser) {
         localStorage.setItem(TOKEN_KEY, token);
         localStorage.setItem(USER_KEY, JSON.stringify(user));
+    },
+
+    /** Actualiza el usuario guardado sin tocar el token de sesión. */
+    updateUser(patch: Partial<StoredUser>) {
+        const current = this.getUser();
+        if (!current) return null;
+        const next = { ...current, ...patch };
+        localStorage.setItem(USER_KEY, JSON.stringify(next));
+        return next;
     },
 
     clearSession() {

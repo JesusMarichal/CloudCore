@@ -18,6 +18,7 @@ import {
     ChangePasswordDto,
     Enable2FADto,
     Disable2FADto,
+    UpdateAvatarDto,
 } from './dto/auth.dto';
 
 // ── TOTP (sin dependencias externas) ─────────────────────────────────────────
@@ -155,7 +156,7 @@ export class AuthController {
             return {
                 success: true,
                 token,
-                user: { id: String(user.id), name: user.name, email: user.email, role: user.role || 'CLIENT' }
+                user: { id: String(user.id), name: user.name, email: user.email, role: user.role || 'CLIENT', avatar: user.avatar || null }
             };
         } catch (error) {
             this.logger.error('Error en login');
@@ -194,7 +195,7 @@ export class AuthController {
             return {
                 success: true,
                 token: fullToken,
-                user: { id: String(user.id), name: user.name, email: user.email, role: user.role || 'CLIENT' }
+                user: { id: String(user.id), name: user.name, email: user.email, role: user.role || 'CLIENT', avatar: user.avatar || null }
             };
         } catch {
             return { success: false, message: 'Error al verificar' };
@@ -207,7 +208,7 @@ export class AuthController {
     @Public()
     @Post('register')
     async register(@Body() body: RegisterDto) {
-        const { name, email, password } = body;
+        const { name, email, password, avatar } = body;
 
         try {
             const existing = await this.db.query(
@@ -225,16 +226,17 @@ export class AuthController {
             // el usuario no recibió el código y volvió a enviar el formulario), se
             // reemplaza con un código nuevo en vez de fallar.
             await this.db.query(
-                `INSERT INTO pending_registrations (email, name, password, code_hash, attempts, expires_at)
-                 VALUES (LOWER($1), $2, $3, $4, 0, $5)
+                `INSERT INTO pending_registrations (email, name, password, code_hash, avatar, attempts, expires_at)
+                 VALUES (LOWER($1), $2, $3, $4, $5, 0, $6)
                  ON CONFLICT (email) DO UPDATE
                  SET name = EXCLUDED.name,
                      password = EXCLUDED.password,
                      code_hash = EXCLUDED.code_hash,
+                     avatar = EXCLUDED.avatar,
                      attempts = 0,
                      expires_at = EXCLUDED.expires_at,
                      created_at = NOW()`,
-                [email, name, hashedPassword, codeHash, expiresAt]
+                [email, name, hashedPassword, codeHash, avatar || null, expiresAt]
             );
 
             await this.mail.sendVerificationCode(email, name, code);
@@ -292,8 +294,8 @@ export class AuthController {
             }
 
             const insertResult = await this.db.query(
-                "INSERT INTO users (name, email, password, role) VALUES ($1, LOWER($2), $3, 'CLIENT') RETURNING id, name, email, role",
-                [pending.name, email, pending.password]
+                "INSERT INTO users (name, email, password, role, avatar) VALUES ($1, LOWER($2), $3, 'CLIENT', $4) RETURNING id, name, email, role, avatar",
+                [pending.name, email, pending.password, pending.avatar || null]
             );
             await this.db.query('DELETE FROM pending_registrations WHERE LOWER(email)=LOWER($1)', [email]);
 
@@ -303,7 +305,7 @@ export class AuthController {
                 success: true,
                 message: 'Cuenta verificada y creada con éxito',
                 token,
-                user: { id: String(user.id), name: user.name, email: user.email, role: user.role || 'CLIENT' },
+                user: { id: String(user.id), name: user.name, email: user.email, role: user.role || 'CLIENT', avatar: user.avatar || null },
             };
         } catch (error) {
             this.logger.error('Error en verifyRegister: ' + error.message);
@@ -485,6 +487,63 @@ export class AuthController {
             return { success: true, enabled: !!result.rows[0]?.totp_enabled };
         } catch {
             return { success: false, enabled: false };
+        }
+    }
+
+    // ── Perfil del usuario autenticado ────────────────────────────────────────
+    @Post('me')
+    @HttpCode(HttpStatus.OK)
+    async me(@CurrentUser('sub') userId: string) {
+        try {
+            const result = await this.db.query(
+                'SELECT id, name, email, role, avatar, created_at FROM users WHERE id=$1', [userId]
+            );
+            const user = result.rows[0];
+            if (!user) return { success: false, message: 'Usuario no encontrado' };
+
+            return {
+                success: true,
+                user: {
+                    id: String(user.id),
+                    name: user.name,
+                    email: user.email,
+                    role: user.role || 'CLIENT',
+                    avatar: user.avatar || null,
+                    createdAt: user.created_at,
+                },
+            };
+        } catch {
+            return { success: false, message: 'Error al cargar el perfil' };
+        }
+    }
+
+    // ── Cambiar foto de perfil ────────────────────────────────────────────────
+    // Solo se persiste el ID del avatar (ej. 'av-07'); la imagen vive en el
+    // catálogo del frontend, nunca en la base de datos.
+    @Post('avatar')
+    @HttpCode(HttpStatus.OK)
+    async updateAvatar(@CurrentUser('sub') userId: string, @Body() body: UpdateAvatarDto) {
+        try {
+            const result = await this.db.query(
+                'UPDATE users SET avatar=$1 WHERE id=$2 RETURNING id, name, email, role, avatar',
+                [body.avatar, userId]
+            );
+            const user = result.rows[0];
+            if (!user) return { success: false, message: 'Usuario no encontrado' };
+
+            return {
+                success: true,
+                message: 'Foto de perfil actualizada',
+                user: {
+                    id: String(user.id),
+                    name: user.name,
+                    email: user.email,
+                    role: user.role || 'CLIENT',
+                    avatar: user.avatar || null,
+                },
+            };
+        } catch {
+            return { success: false, message: 'Error al actualizar la foto de perfil' };
         }
     }
 }

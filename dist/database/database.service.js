@@ -99,6 +99,19 @@ let DatabaseService = DatabaseService_1 = class DatabaseService {
                                      WHERE table_name='users' AND column_name='role') THEN
                             ALTER TABLE users ADD COLUMN role VARCHAR(20) DEFAULT 'CLIENT';
                         END IF;
+                        -- Avatar: solo se guarda el ID del avatar predeterminado
+                        -- (ej. 'av-03'), nunca la imagen. El frontend resuelve el
+                        -- ID a una URL con su catalogo local.
+                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                                     WHERE table_name='users' AND column_name='avatar') THEN
+                            ALTER TABLE users ADD COLUMN avatar VARCHAR(64);
+                        END IF;
+                    END IF;
+                    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='pending_registrations') THEN
+                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                                     WHERE table_name='pending_registrations' AND column_name='avatar') THEN
+                            ALTER TABLE pending_registrations ADD COLUMN avatar VARCHAR(64);
+                        END IF;
                     END IF;
                 END $$;
             `);
@@ -152,6 +165,7 @@ let DatabaseService = DatabaseService_1 = class DatabaseService {
                 password TEXT NOT NULL,
                 github_token VARCHAR(255),
                 role VARCHAR(20) DEFAULT 'CLIENT',
+                avatar VARCHAR(64),
                 created_at TIMESTAMP DEFAULT NOW()
             );
         `;
@@ -171,6 +185,7 @@ let DatabaseService = DatabaseService_1 = class DatabaseService {
                 name VARCHAR(255) NOT NULL,
                 password TEXT NOT NULL,
                 code_hash TEXT NOT NULL,
+                avatar VARCHAR(64),
                 attempts INT DEFAULT 0,
                 expires_at TIMESTAMP NOT NULL,
                 created_at TIMESTAMP DEFAULT NOW()

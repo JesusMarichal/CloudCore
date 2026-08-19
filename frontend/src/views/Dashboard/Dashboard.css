@@ -1,14 +1,29 @@
+/* Tokens de superficie del panel. El bloque `.theme-light` de más abajo los
+   reescribe (junto con las variables --gh-*) para el diseño en blanco. */
 .dashboard-layout {
+    --dash-sidebar-bg: #010409;
+    --dash-input-bg: #0d1117;
+    --dash-btn-bg: #21262d;
+    --dash-btn-bg-hover: #30363d;
+    --dash-elevated: #161b22;
+    --dash-hover: rgba(177, 186, 196, 0.12);
+    --dash-hover-soft: rgba(177, 186, 196, 0.06);
+    --dash-row-hover: rgba(22, 27, 34, 0.8);
+    --dash-avatar-bg: #30363d;
+    --dash-shadow: rgba(0, 0, 0, 0.5);
+
     display: flex;
     min-height: 100vh;
     max-width: 100vw;
     overflow-x: hidden;
+    background-color: var(--gh-bg);
+    color: var(--gh-text-default);
 }
 
 /* Sidebar */
 .sidebar {
     width: var(--sidebar-width);
-    background-color: #010409;
+    background-color: var(--dash-sidebar-bg);
     border-right: 1px solid var(--gh-border);
     display: flex;
     flex-direction: column;
@@ -17,18 +32,51 @@
     height: 100vh;
 }
 
+/* El logo es a la vez la marca y el botón de plegar (menú hamburguesa) */
 .sidebar-logo {
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 0 12px;
+    width: 100%;
+    padding: 8px 12px;
     margin-bottom: 24px;
     font-size: 16px;
     font-weight: 600;
+    background: none;
+    border: none;
+    border-radius: 6px;
+    color: inherit;
+    font-family: inherit;
+    cursor: pointer;
+    text-align: left;
+    transition: background-color 0.2s;
+}
+
+.sidebar-logo:hover {
+    background-color: var(--dash-hover);
 }
 
 .sidebar-logo svg {
     color: var(--gh-text-default);
+}
+
+.sidebar-favicon {
+    width: 22px;
+    height: 22px;
+    flex-shrink: 0;
+    object-fit: contain;
+    display: block;
+}
+
+.sidebar-brand-name {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.sidebar-burger {
+    flex-shrink: 0;
+    color: var(--gh-text-muted);
 }
 
 .nav-links {
@@ -50,7 +98,7 @@
 }
 
 .nav-link:hover {
-    background-color: rgba(177, 186, 196, 0.12);
+    background-color: var(--dash-hover);
 }
 
 .nav-link.active {
@@ -69,15 +117,6 @@
     background-color: #f78166;
     /* GitHub style orange active marker */
     border-radius: 0;
-}
-
-.logout {
-    margin-top: auto;
-    color: var(--gh-text-muted);
-}
-
-.logout:hover {
-    color: #f85149;
 }
 
 /* Main Content */
@@ -117,13 +156,14 @@
 .avatar {
     width: 24px;
     height: 24px;
-    background-color: #30363d;
+    background-color: var(--dash-avatar-bg);
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 10px;
     font-weight: 600;
+    flex-shrink: 0;
 }
 
 .content-body {
@@ -183,7 +223,7 @@
 .search-bar {
     display: flex;
     align-items: center;
-    background-color: #0d1117;
+    background-color: var(--dash-input-bg);
     border: 1px solid var(--gh-border);
     border-radius: 0;
     padding: 0 12px;
@@ -211,7 +251,7 @@
     display: flex;
     align-items: center;
     gap: 4px;
-    background-color: #21262d;
+    background-color: var(--dash-btn-bg);
     border: 1px solid var(--gh-border);
     border-radius: 0;
     color: var(--gh-text-default);
@@ -221,8 +261,8 @@
 }
 
 .btn-secondary:hover {
-    background-color: #30363d;
-    border-color: #8b949e;
+    background-color: var(--dash-btn-bg-hover);
+    border-color: var(--gh-text-muted);
 }
 
 /* GitHub "Box" Table Layout */
@@ -271,7 +311,7 @@
 }
 
 .server-table tr:hover {
-    background-color: rgba(22, 27, 34, 0.8);
+    background-color: var(--dash-row-hover);
 }
 
 .server-table tr:last-child td {
@@ -319,30 +359,6 @@
 
 .action-icon:hover {
     color: var(--gh-text-default);
-}
-
-/* Button "Agregar Servidor" exactly like GitHub primary */
-.btn-add-server {
-    width: auto;
-    padding: 0 8px;
-    height: 31px;
-    background-color: #238636;
-    border: 1px solid rgba(240, 246, 252, 0.1);
-    border-radius: 0;
-    color: #ffffff;
-    font-size: 13px;
-    font-weight: 500;
-    cursor: pointer;
-    box-shadow: 0 1px 0 rgba(27, 31, 35, 0.1);
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    white-space: nowrap;
-    flex-shrink: 0;
-}
-
-.btn-add-server:hover {
-    background-color: #2ea043;
 }
 
 .empty-state {
@@ -533,9 +549,9 @@
     top: calc(100% + 10px);
     right: 0;
     width: 320px;
-    background: #161b22;
+    background: var(--dash-elevated);
     border: 1px solid var(--gh-border);
-    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 16px 40px var(--dash-shadow);
     z-index: 200;
     display: flex;
     flex-direction: column;
@@ -613,7 +629,7 @@
 
 .notif-list::-webkit-scrollbar { width: 4px; }
 .notif-list::-webkit-scrollbar-track { background: transparent; }
-.notif-list::-webkit-scrollbar-thumb { background: #30363d; border-radius: 4px; }
+.notif-list::-webkit-scrollbar-thumb { background: var(--gh-border); border-radius: 4px; }
 
 .notif-empty {
     display: flex;
@@ -646,7 +662,7 @@
 }
 
 .notif-item:hover {
-    background: rgba(177, 186, 196, 0.06);
+    background: var(--dash-hover-soft);
 }
 
 .notif-item.unread {
@@ -726,7 +742,8 @@
         font-size: 13px !important;
     }
 
-    .user-info span {
+    /* Oculta solo el nombre — el avatar sigue visible */
+    .user-info .user-name {
         display: none !important;
     }
 
@@ -741,3 +758,253 @@
     }
 }
 
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Encabezado: cambio de tema, chip de usuario y avatar
+   ═══════════════════════════════════════════════════════════════════════════ */
+.theme-switch {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    background: transparent;
+    border: 1px solid var(--gh-border);
+    border-radius: 6px;
+    color: var(--gh-text-muted);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.theme-switch:hover {
+    color: var(--gh-text-default);
+    border-color: var(--gh-text-muted);
+    background: var(--dash-hover-soft);
+}
+
+.theme-switch:active {
+    transform: scale(0.88);
+}
+
+.user-chip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 3px 8px 3px 3px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.user-chip:hover {
+    background: var(--dash-hover-soft);
+    border-color: var(--gh-border);
+}
+
+.avatar.avatar-img {
+    background-color: var(--dash-avatar-bg);
+    object-fit: cover;
+    padding: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TEMA CLARO (por defecto) — mismo lenguaje visual que el Login
+   Redefine las variables globales para que las vistas hijas (Instancias,
+   Sitios, Bases de datos, Terminal, Ajustes, Perfil) lo hereden.
+   ═══════════════════════════════════════════════════════════════════════════ */
+.dashboard-layout.theme-light {
+    /* Tokens propios del panel */
+    --dash-sidebar-bg: #ffffff;
+    --dash-input-bg: #ffffff;
+    /* Blancos: el lienzo del contenido ya es #f6f8fa, así que un botón de ese
+       mismo tono se fundiría con el fondo. */
+    --dash-btn-bg: #ffffff;
+    --dash-btn-bg-hover: #f3f4f6;
+    --dash-elevated: #ffffff;
+    --dash-hover: rgba(31, 35, 40, 0.06);
+    --dash-hover-soft: rgba(31, 35, 40, 0.04);
+    --dash-row-hover: #f6f8fa;
+    --dash-avatar-bg: #eaeef2;
+    --dash-shadow: rgba(140, 149, 159, 0.25);
+
+    /* Variables globales de GitHub Dark → paleta clara */
+    --gh-bg: #ffffff;
+    --gh-canvas-subtle: #f6f8fa;
+    --gh-border: #d0d7de;
+    --gh-border-muted: #d8dee4;
+    --gh-text-default: #1f2328;
+    --gh-text-muted: #656d76;
+    --gh-text-link: #0969da;
+
+    --primary: #0969da;
+    --primary-hover: #0550ae;
+    --primary-glow: rgba(9, 105, 218, 0.15);
+
+    --bg-dark: #ffffff;
+    --card-bg: #ffffff;
+    --input-bg: #ffffff;
+
+    --text-main: #1f2328;
+    --text-muted: #656d76;
+    --text-dim: #6e7781;
+
+    --card-shadow: 0 8px 24px rgba(140, 149, 159, 0.2);
+    --glow-shadow: 0 0 20px rgba(9, 105, 218, 0.08);
+
+    background-color: #ffffff;
+    color: var(--gh-text-default);
+}
+
+/* Fondo sutil del área de contenido, como el lienzo claro del Login */
+.dashboard-layout.theme-light .main-content {
+    background-color: #f6f8fa;
+}
+
+/* "Filtros" / "Ordenar": fondo blanco y texto negro.
+   Websites.css y Database.css redefinen `.btn-secondary` con `background: #21262d`
+   y se cargan después que este archivo, así que hay que ganarles por
+   especificidad — declarando el fondo aquí, no solo en el token. */
+.dashboard-layout.theme-light .btn-secondary {
+    background: #ffffff;
+    color: #1f2328;
+    border: 1px solid var(--gh-border);
+    box-shadow: 0 1px 2px rgba(31, 35, 40, 0.08);
+}
+
+.dashboard-layout.theme-light .btn-secondary:hover {
+    background: #f3f4f6;
+    color: #1f2328;
+    border-color: #afb8c1;
+    box-shadow: 0 2px 4px rgba(31, 35, 40, 0.12);
+}
+
+.dashboard-layout.theme-light .btn-secondary svg {
+    color: #1f2328;
+}
+
+.dashboard-layout.theme-light .header {
+    background-color: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+.dashboard-layout.theme-light .sidebar {
+    box-shadow: inset -1px 0 0 var(--gh-border);
+}
+
+.dashboard-layout.theme-light .nav-link.active {
+    background-color: #f6f8fa;
+}
+
+/* Tarjetas y contenedores sobre el lienzo gris → blancos con sombra suave */
+.dashboard-layout.theme-light .stat-card,
+.dashboard-layout.theme-light .server-container,
+.dashboard-layout.theme-light .setting-card,
+.dashboard-layout.theme-light .profile-hero {
+    background-color: #ffffff;
+    box-shadow: 0 1px 3px rgba(31, 35, 40, 0.06);
+}
+
+.dashboard-layout.theme-light .server-table th {
+    background-color: #f6f8fa;
+}
+
+.dashboard-layout.theme-light .search-bar,
+.dashboard-layout.theme-light input,
+.dashboard-layout.theme-light select,
+.dashboard-layout.theme-light textarea {
+    background-color: #ffffff;
+    color: var(--gh-text-default);
+}
+
+.dashboard-layout.theme-light .input-with-icon input {
+    background: #f6f8fa;
+}
+
+.dashboard-layout.theme-light .input-with-icon input:focus {
+    background: #ffffff;
+}
+
+.dashboard-layout.theme-light .search-bar input {
+    color: var(--gh-text-default);
+}
+
+.dashboard-layout.theme-light .status-badge.offline::before {
+    background-color: #8c959f;
+}
+
+.dashboard-layout.theme-light .notif-item.unread {
+    background: rgba(9, 105, 218, 0.05);
+}
+
+.dashboard-layout.theme-light .notif-item.unread::before {
+    background: var(--primary);
+}
+
+/* La terminal se mantiene oscura a propósito: es una consola */
+.dashboard-layout.theme-light .terminal-body,
+.dashboard-layout.theme-light .xterm,
+.dashboard-layout.theme-light .xterm-viewport {
+    background-color: #0d1117;
+    color: #c9d1d9;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Barra lateral plegada — solo se ve el favicon
+   Se limita a escritorio: en móvil la barra ya es un cajón deslizante y
+   plegarla dejaría los iconos sin etiqueta sin motivo.
+   ═══════════════════════════════════════════════════════════════════════════ */
+.sidebar,
+.main-content {
+    transition: width 0.22s cubic-bezier(0.4, 0, 0.2, 1),
+                margin-left 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@media (min-width: 769px) {
+    .dashboard-layout.sidebar-collapsed {
+        --sidebar-width: 68px;
+    }
+
+    .dashboard-layout.sidebar-collapsed .sidebar {
+        padding-left: 8px;
+        padding-right: 8px;
+        align-items: center;
+    }
+
+    /* Solo queda el favicon, centrado y clicable para volver a abrir */
+    .dashboard-layout.sidebar-collapsed .sidebar-logo {
+        justify-content: center;
+        gap: 0;
+        padding: 8px 0;
+    }
+
+    .dashboard-layout.sidebar-collapsed .sidebar-brand-name,
+    .dashboard-layout.sidebar-collapsed .sidebar-burger {
+        display: none;
+    }
+
+    .dashboard-layout.sidebar-collapsed .nav-links {
+        width: 100%;
+    }
+
+    .dashboard-layout.sidebar-collapsed .nav-link {
+        justify-content: center;
+        padding: 10px 0;
+        gap: 0;
+    }
+
+    .dashboard-layout.sidebar-collapsed .nav-link span {
+        display: none;
+    }
+
+    /* El marcador naranja del enlace activo estorba sin etiqueta */
+    .dashboard-layout.sidebar-collapsed .nav-link.active::before {
+        left: 0;
+        right: auto;
+        width: 2px;
+    }
+}

@@ -1,18 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthService } from '../../services/auth.service';
-import { Mail, Lock, User, ArrowRight, Cloud, CheckCircle, Circle, ShieldCheck, Eye, EyeOff, Sun, Moon } from 'lucide';
+import { Mail, Lock, User, ArrowRight, Cloud, CheckCircle, Circle, ShieldCheck, Eye, EyeOff, Sun, Moon, Image as ImageIcon } from 'lucide';
 import { MorphIcon } from 'morphicons/react';
 import OTPInput from '../../components/OTPInput';
+import AvatarPicker from '../../components/AvatarPicker';
+import { DEFAULT_AVATAR_ID, getAvatarUrl } from '../../data/avatars';
+import { useT } from '../../i18n';
 import '../Login/Login.css';
 import './Register.css';
 
 const Register: React.FC = () => {
+    const t = useT();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [name, setName] = useState('');
     const [code, setCode] = useState('');
-    const [step, setStep] = useState<'form' | 'verify'>('form');
+    const [avatar, setAvatar] = useState<string>(DEFAULT_AVATAR_ID);
+    const [step, setStep] = useState<'form' | 'avatar' | 'verify'>('form');
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -38,35 +43,43 @@ const Register: React.FC = () => {
     const passwordStrength = React.useMemo(() => {
         if (!password) return { level: 0, label: '', percent: 0 };
         const score = Object.values(pwChecks).filter(Boolean).length;
-        if (score <= 2) return { level: 1, label: 'Débil', percent: 33 };
-        if (score <= 4) return { level: 2, label: 'Media', percent: 66 };
-        return { level: 3, label: 'Fuerte', percent: 100 };
-    }, [password, pwChecks]);
+        if (score <= 2) return { level: 1, label: t('auth.strength.weak'), percent: 33 };
+        if (score <= 4) return { level: 2, label: t('auth.strength.medium'), percent: 66 };
+        return { level: 3, label: t('auth.strength.strong'), percent: 100 };
+    }, [password, pwChecks, t]);
 
     // Paso 1: pide un código de verificación por correo. La cuenta todavía no existe.
     const sendCode = async () => {
         setError(null);
         setLoading(true);
         try {
-            const result = await AuthService.register({ name, email, password });
+            const result = await AuthService.register({ name, email, password, avatar });
             if (result.success) {
                 setStep('verify');
                 setCode('');
                 setResendCooldown(30);
             } else {
-                setError(result.message || 'Error al registrarse');
+                setError(result.message || t('register.registerError'));
             }
         } catch (err: any) {
             const msg = err?.response?.data?.message
-                ?? (err?.code === 'ERR_NETWORK' ? 'No se pudo conectar al servidor.' : null)
-                ?? 'Error al procesar el registro';
+                ?? (err?.code === 'ERR_NETWORK' ? t('auth.networkErrorShort') : null)
+                ?? t('register.registerProcessError');
             setError(msg);
         } finally {
             setLoading(false);
         }
     };
 
+    // Paso intermedio: antes de enviar el código, el usuario elige su foto de
+    // perfil del pack predeterminado.
     const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        setError(null);
+        setStep('avatar');
+    };
+
+    const handleAvatarContinue = (e: React.FormEvent) => {
         e.preventDefault();
         sendCode();
     };
@@ -87,12 +100,12 @@ const Register: React.FC = () => {
                 setSuccess(true);
                 setTimeout(() => navigate('/login'), 1800);
             } else {
-                setError(result.message || 'Código incorrecto');
+                setError(result.message || t('login.badCode'));
             }
         } catch (err: any) {
             const msg = err?.response?.data?.message
-                ?? (err?.code === 'ERR_NETWORK' ? 'No se pudo conectar al servidor.' : null)
-                ?? 'Error al verificar el código';
+                ?? (err?.code === 'ERR_NETWORK' ? t('auth.networkErrorShort') : null)
+                ?? t('register.verifyError');
             setError(msg);
         } finally {
             setLoading(false);
@@ -108,13 +121,13 @@ const Register: React.FC = () => {
                 <div className="shape shape-4"></div>
             </div>
 
-            <div className="login-card">
+            <div className={`login-card${step === 'avatar' ? ' login-card-wide' : ''}`}>
                 <button
                     type="button"
                     className="theme-toggle"
                     onClick={() => setIsDark(v => !v)}
-                    title={isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
-                    aria-label="Cambiar tema"
+                    title={isDark ? t('dashboard.toLightMode') : t('dashboard.toDarkMode')}
+                    aria-label={t('dashboard.toggleTheme')}
                 >
                     <MorphIcon icon={isDark ? Sun : Moon} size={18} spring="snappy" className="theme-icon" />
                 </button>
@@ -122,8 +135,8 @@ const Register: React.FC = () => {
                 {success ? (
                     <div className="reg-success">
                         <MorphIcon icon={CheckCircle} size={44} className="reg-success-icon" />
-                        <h2>¡Cuenta verificada!</h2>
-                        <p>Redirigiendo al inicio de sesión...</p>
+                        <h2>{t('register.successTitle')}</h2>
+                        <p>{t('register.successDesc')}</p>
                     </div>
                 ) : (
                     <>
@@ -135,13 +148,18 @@ const Register: React.FC = () => {
                             <div className="auth-divider" />
                             {step === 'form' ? (
                                 <>
-                                    <p className="auth-subtitle">Crea tu cuenta</p>
-                                    <p className="auth-desc">Gestiona tu infraestructura cloud desde un solo lugar.</p>
+                                    <p className="auth-subtitle">{t('register.title')}</p>
+                                    <p className="auth-desc">{t('register.desc')}</p>
+                                </>
+                            ) : step === 'avatar' ? (
+                                <>
+                                    <p className="auth-subtitle">{t('register.avatarTitle')}</p>
+                                    <p className="auth-desc">{t('register.avatarDesc')}</p>
                                 </>
                             ) : (
                                 <>
-                                    <p className="auth-subtitle">Verifica tu correo</p>
-                                    <p className="auth-desc">Ingresa el código de 6 dígitos que enviamos a {email}</p>
+                                    <p className="auth-subtitle">{t('register.verifyTitle')}</p>
+                                    <p className="auth-desc">{t('register.verifyDesc', { email })}</p>
                                 </>
                             )}
                         </div>
@@ -149,34 +167,34 @@ const Register: React.FC = () => {
                         {step === 'form' ? (
                             <form onSubmit={handleSubmit} className="reg-form">
                                 <div className="form-group">
-                                    <label><MorphIcon icon={User} size={15} /> Nombre Completo</label>
+                                    <label><MorphIcon icon={User} size={15} /> {t('register.fullName')}</label>
                                     <input
                                         type="text"
                                         value={name}
                                         onChange={e => setName(e.target.value)}
-                                        placeholder="Juan Pérez"
+                                        placeholder={t('register.namePlaceholder')}
                                         required
                                         autoFocus
                                     />
                                 </div>
                                 <div className="form-group">
-                                    <label><MorphIcon icon={Mail} size={15} /> Correo Electrónico</label>
+                                    <label><MorphIcon icon={Mail} size={15} /> {t('auth.email')}</label>
                                     <input
                                         type="email"
                                         value={email}
                                         onChange={e => setEmail(e.target.value)}
-                                        placeholder="nombre@ejemplo.com"
+                                        placeholder={t('auth.emailPlaceholder')}
                                         required
                                     />
                                 </div>
                                 <div className="form-group pw-group">
-                                    <label><MorphIcon icon={Lock} size={15} /> Contraseña</label>
+                                    <label><MorphIcon icon={Lock} size={15} /> {t('auth.password')}</label>
                                     <div className="password-field-wrapper">
                                         <input
                                             type={showPassword ? 'text' : 'password'}
                                             value={password}
                                             onChange={e => setPassword(e.target.value)}
-                                            placeholder="Mínimo 8 caracteres"
+                                            placeholder={t('auth.minCharsPlaceholder')}
                                             minLength={8}
                                             required
                                         />
@@ -185,7 +203,7 @@ const Register: React.FC = () => {
                                             className="pw-toggle-btn"
                                             tabIndex={-1}
                                             onClick={() => setShowPassword(v => !v)}
-                                            aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                                            aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
                                         >
                                             <MorphIcon icon={showPassword ? EyeOff : Eye} size={17} spring="snappy" />
                                         </button>
@@ -199,30 +217,30 @@ const Register: React.FC = () => {
                                                 />
                                             </div>
                                             <span className={`pw-strength-label level-${passwordStrength.level}`}>
-                                                Seguridad: {passwordStrength.label}
+                                                {t('auth.strength.label', { level: passwordStrength.label })}
                                             </span>
 
                                             <div className="pw-requirements">
                                                 <ul>
                                                     <li className={pwChecks.length ? 'pw-req-met' : ''}>
                                                         <MorphIcon icon={pwChecks.length ? CheckCircle : Circle} size={13} spring="snappy" />
-                                                        <span>Mínimo 8 caracteres</span>
+                                                        <span>{t('auth.requirements.length')}</span>
                                                     </li>
                                                     <li className={pwChecks.upper ? 'pw-req-met' : ''}>
                                                         <MorphIcon icon={pwChecks.upper ? CheckCircle : Circle} size={13} spring="snappy" />
-                                                        <span>Una letra mayúscula</span>
+                                                        <span>{t('auth.requirements.upper')}</span>
                                                     </li>
                                                     <li className={pwChecks.lower ? 'pw-req-met' : ''}>
                                                         <MorphIcon icon={pwChecks.lower ? CheckCircle : Circle} size={13} spring="snappy" />
-                                                        <span>Una letra minúscula</span>
+                                                        <span>{t('auth.requirements.lower')}</span>
                                                     </li>
                                                     <li className={pwChecks.number ? 'pw-req-met' : ''}>
                                                         <MorphIcon icon={pwChecks.number ? CheckCircle : Circle} size={13} spring="snappy" />
-                                                        <span>Un número</span>
+                                                        <span>{t('auth.requirements.number')}</span>
                                                     </li>
                                                     <li className={pwChecks.special ? 'pw-req-met' : ''}>
                                                         <MorphIcon icon={pwChecks.special ? CheckCircle : Circle} size={13} spring="snappy" />
-                                                        <span>Un carácter especial</span>
+                                                        <span>{t('auth.requirements.special')}</span>
                                                     </li>
                                                 </ul>
                                             </div>
@@ -230,13 +248,43 @@ const Register: React.FC = () => {
                                     )}
                                 </div>
 
-                                <button type="submit" disabled={loading}>
-                                    {loading ? 'Enviando código...' : <><MorphIcon icon={User} size={17} /> Crear cuenta gratis</>}
+                                <button type="submit">
+                                    <MorphIcon icon={ImageIcon} size={17} /> {t('register.continueToAvatar')}
                                 </button>
 
                                 <div className="login-footer">
                                     <button type="button" className="btn-link" onClick={() => navigate('/login')}>
-                                        ¿Ya tienes cuenta? Inicia sesión <MorphIcon icon={ArrowRight} size={14} />
+                                        {t('register.hasAccount')} <MorphIcon icon={ArrowRight} size={14} />
+                                    </button>
+                                </div>
+
+                                {error && (
+                                    <div className="message error-message">{error}</div>
+                                )}
+                            </form>
+                        ) : step === 'avatar' ? (
+                            <form onSubmit={handleAvatarContinue} className="avatar-step">
+                                <div className="avatar-preview">
+                                    <img src={getAvatarUrl(avatar) ?? undefined} alt={t('profile.avatar.alt')} />
+                                    <div className="avatar-preview-info">
+                                        <span className="avatar-preview-name">{name || t('register.yourAccount')}</span>
+                                        <span className="avatar-preview-mail">{email}</span>
+                                    </div>
+                                </div>
+
+                                <AvatarPicker value={avatar} onChange={setAvatar} />
+
+                                <button type="submit" disabled={loading || !avatar}>
+                                    {loading ? t('register.sendingCode') : <><MorphIcon icon={User} size={17} /> {t('register.createAccount')}</>}
+                                </button>
+
+                                <div className="login-footer">
+                                    <button
+                                        type="button"
+                                        className="btn-link"
+                                        onClick={() => { setStep('form'); setError(null); }}
+                                    >
+                                        {t('register.backToData')}
                                     </button>
                                 </div>
 
@@ -248,13 +296,13 @@ const Register: React.FC = () => {
                             <form onSubmit={handleVerify}>
                                 <div className="totp-group">
                                     <p className="totp-hint">
-                                        <MorphIcon icon={ShieldCheck} size={14} /> Revisa tu bandeja de entrada (y spam, por si acaso)
+                                        <MorphIcon icon={ShieldCheck} size={14} /> {t('register.inboxHint')}
                                     </p>
                                     <OTPInput value={code} onChange={setCode} />
                                 </div>
 
                                 <button type="submit" disabled={loading || code.length < 6}>
-                                    {loading ? 'Verificando...' : <><MorphIcon icon={ShieldCheck} size={17} /> Verificar y crear cuenta</>}
+                                    {loading ? t('login.verifying') : <><MorphIcon icon={ShieldCheck} size={17} /> {t('register.verifyAndCreate')}</>}
                                 </button>
 
                                 <div className="login-footer">
@@ -264,7 +312,7 @@ const Register: React.FC = () => {
                                         onClick={handleResend}
                                         disabled={resendCooldown > 0 || loading}
                                     >
-                                        {resendCooldown > 0 ? `Reenviar código (${resendCooldown}s)` : 'Reenviar código'}
+                                        {resendCooldown > 0 ? t('register.resendIn', { seconds: resendCooldown }) : t('register.resend')}
                                     </button>
                                 </div>
 
@@ -274,7 +322,7 @@ const Register: React.FC = () => {
                                         className="btn-link"
                                         onClick={() => { setStep('form'); setError(null); setCode(''); }}
                                     >
-                                        ← Cambiar datos
+                                        {t('register.changeData')}
                                     </button>
                                 </div>
 

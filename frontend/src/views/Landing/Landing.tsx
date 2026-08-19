@@ -6,48 +6,21 @@ import {
     CheckCircle2, Rocket, Gauge
 } from 'lucide';
 import { MorphIcon } from 'morphicons/react';
+import { useT } from '../../i18n';
+import type { TranslateFn } from '../../i18n';
 import './Landing.css';
 
-const steps = [
-    { number: '01', icon: Server, title: 'Conecta tu servidor', desc: 'Agrega cualquier VPS con tu clave SSH o contraseña. Compatible con DigitalOcean, AWS, Hetzner, Vultr y más.' },
-    { number: '02', icon: Rocket, title: 'Despliega tu proyecto', desc: 'Selecciona tu repositorio Git, configura los comandos y CloudCore hace el resto automáticamente.' },
-    { number: '03', icon: Gauge, title: 'Monitorea y gestiona', desc: 'CPU, RAM, disco, servicios, certificados SSL y variables de entorno — todo desde un solo panel.' },
+const buildSteps = (t: TranslateFn) => [
+    { number: '01', icon: Server, title: t('landing.steps.s1.title'), desc: t('landing.steps.s1.desc') },
+    { number: '02', icon: Rocket, title: t('landing.steps.s2.title'), desc: t('landing.steps.s2.desc') },
+    { number: '03', icon: Gauge, title: t('landing.steps.s3.title'), desc: t('landing.steps.s3.desc') },
 ];
 
-const deepFeatures = [
-    {
-        title: 'Consola de administración del servidor',
-        desc: 'Compatible con DigitalOcean, AWS, Linode, Vultr, Hetzner y UpCloud. ¿Tienes tu propio servidor? También funciona con cualquier VPS con acceso SSH.',
-    },
-    {
-        title: 'Despliega cualquier stack',
-        desc: 'Node.js, WordPress, NuxtJS, Laravel, Strapi, PHP y HTML estático. Instalación con un clic desde tu repositorio Git.',
-    },
-    {
-        title: 'Bases de datos gestionadas',
-        desc: 'Crea instancias MySQL, PostgreSQL o MariaDB. Gestiona usuarios, permisos y conexiones directamente desde el panel.',
-    },
-    {
-        title: 'Copias de seguridad automáticas',
-        desc: 'Backups programados de archivos y bases de datos. Compatible con AWS S3, Wasabi, BackBlaze, DO Spaces y SFTP.',
-    },
-    {
-        title: 'Seguridad integrada',
-        desc: 'SSL gratuito con Let\'s Encrypt, UFW, Fail2Ban, SSH con clave privada y aislamiento por sitio.',
-    },
-    {
-        title: 'Deploy sin tiempo de inactividad',
-        desc: 'Despliega con un clic o push-to-deploy automático desde GitHub, GitLab o Bitbucket.',
-    },
-    {
-        title: 'Terminal SSH integrado',
-        desc: 'Accede a tus servidores desde el navegador con una terminal SSH completa y segura, sin instalar nada.',
-    },
-    {
-        title: '¡Y mucho más!',
-        desc: 'Gestiona dominios, instala Docker, Redis y PM2, configura cron jobs, variables de entorno y certificados desde un solo lugar.',
-    },
-];
+const buildDeepFeatures = (t: TranslateFn) =>
+    ['console', 'stack', 'databases', 'backups', 'security', 'deploy', 'terminal', 'more'].map(key => ({
+        title: t(`landing.features.${key}.title`),
+        desc: t(`landing.features.${key}.desc`),
+    }));
 
 const commandTokens: { text: string; cls?: string }[] = [
     { text: 'cloudcore', cls: 't-cmd-bin' },
@@ -65,6 +38,9 @@ const commandTokens: { text: string; cls?: string }[] = [
 const commandText = commandTokens.map(t => t.text).join('');
 
 const Landing = () => {
+    const t = useT();
+    const deepFeatures = buildDeepFeatures(t);
+    const steps = buildSteps(t);
     const navigate = useNavigate();
     const [navOpen, setNavOpen] = useState(false);
     const [isDark, setIsDark] = useState(false);
@@ -186,20 +162,20 @@ const Landing = () => {
                         <span>CloudCore</span>
                     </div>
                     <div className={`landing-nav-links${navOpen ? ' open' : ''}`}>
-                        <a href="#features" onClick={() => setNavOpen(false)}>Características</a>
-                        <a href="#how" onClick={() => setNavOpen(false)}>Cómo funciona</a>
-                        <a href="#features" className="nav-link-mobile-cta" onClick={() => { setNavOpen(false); navigate('/login'); }}>Iniciar sesión</a>
+                        <a href="#features" onClick={() => setNavOpen(false)}>{t('landing.nav.features')}</a>
+                        <a href="#how" onClick={() => setNavOpen(false)}>{t('landing.nav.how')}</a>
+                        <a href="#features" className="nav-link-mobile-cta" onClick={() => { setNavOpen(false); navigate('/login'); }}>{t('landing.nav.login')}</a>
                     </div>
                     <div className="landing-nav-actions">
                         <button className="theme-toggle-btn" onClick={() => setIsDark(!isDark)} title={isDark ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}>
                             <MorphIcon icon={isDark ? Sun : Moon} size={18} spring="snappy" />
                         </button>
-                        <button className="landing-btn-ghost" onClick={() => navigate('/login')}>Iniciar sesión</button>
+                        <button className="landing-btn-ghost" onClick={() => navigate('/login')}>{t('landing.nav.login')}</button>
                         <button className="landing-btn-primary" onClick={() => navigate('/register')}>
                             Empezar gratis <MorphIcon icon={ArrowRight} size={14} />
                         </button>
                     </div>
-                    <button className="nav-hamburger" onClick={() => setNavOpen(!navOpen)} aria-label="Menú">
+                    <button className="nav-hamburger" onClick={() => setNavOpen(!navOpen)} aria-label={t('landing.nav.menu')}>
                         <span /><span /><span />
                     </button>
                 </div>
@@ -210,18 +186,18 @@ const Landing = () => {
                 <div className="landing-hero-inner">
                     <div className="hero-content">
                         <h1 className="hero-title">
-                            Gestiona tu infraestructura<br />
-                            <span className="hero-gradient">desde un solo lugar.</span>
+                            {t('landing.hero.titleLine1')}<br />
+                            <span className="hero-gradient">{t('landing.hero.gradient')}</span>
                         </h1>
                         <p className="hero-sub">
-                            Despliega servidores, sitios web, WordPress, bases de datos y terminales SSH con una interfaz profesional, en tiempo real y sin complicaciones.
+                            {t('landing.hero.sub')}
                         </p>
                         <div className="hero-actions">
                             <button className="landing-btn-primary hero-cta" onClick={() => navigate('/register')}>
-                                Crear cuenta gratis <MorphIcon icon={ArrowRight} size={16} />
+                                {t('landing.hero.createAccount')} <MorphIcon icon={ArrowRight} size={16} />
                             </button>
                             <button className="landing-btn-outline" onClick={() => navigate('/login')}>
-                                Ver el panel <MorphIcon icon={ChevronRight} size={15} />
+                                {t('landing.hero.viewPanel')} <MorphIcon icon={ChevronRight} size={15} />
                             </button>
                         </div>
                     </div>
@@ -253,7 +229,7 @@ const Landing = () => {
                                 {terminalStep >= 1 && (
                                     <div className="t-animated-line">
                                         <MorphIcon icon={Server} size={14} className="t-step-icon blue" />
-                                        <span className="t-text">Conectando a VPS (ubuntu-22.04)...</span>
+                                        <span className="t-text">{t('landing.term.connecting')}</span>
                                         <span className="t-val blue">104.248.192.12</span>
                                     </div>
                                 )}
@@ -262,8 +238,8 @@ const Landing = () => {
                                 {terminalStep >= 2 && (
                                     <div className="t-animated-line">
                                         <MorphIcon icon={ShieldCheck} size={14} className="t-step-icon green" />
-                                        <span className="t-text">Configurando Firewall (UFW & Fail2Ban)...</span>
-                                        <span className="t-val green">Protegido</span>
+                                        <span className="t-text">{t('landing.term.firewall')}</span>
+                                        <span className="t-val green">{t('landing.term.protected')}</span>
                                     </div>
                                 )}
 
@@ -271,7 +247,7 @@ const Landing = () => {
                                 {terminalStep >= 3 && (
                                     <div className="t-animated-line">
                                         <MorphIcon icon={Cpu} size={14} className="t-step-icon purple" />
-                                        <span className="t-text">Instalando Docker, Nginx & PM2...</span>
+                                        <span className="t-text">{t('landing.term.installing')}</span>
                                         <span className="t-val green">v24.2.0 Ready</span>
                                     </div>
                                 )}
@@ -280,8 +256,8 @@ const Landing = () => {
                                 {terminalStep >= 4 && (
                                     <div className="t-animated-line">
                                         <MorphIcon icon={Lock} size={14} className="t-step-icon green" />
-                                        <span className="t-text">Emitiendo certificado TLS 1.3 / Let's Encrypt...</span>
-                                        <span className="t-val green">SSL Activo</span>
+                                        <span className="t-text">{t('landing.term.tls')}</span>
+                                        <span className="t-val green">{t('landing.term.sslActive')}</span>
                                     </div>
                                 )}
 
@@ -289,7 +265,7 @@ const Landing = () => {
                                 {terminalStep >= 5 && (
                                     <div className="t-animated-line">
                                         <MorphIcon icon={Globe} size={14} className="t-step-icon blue" />
-                                        <span className="t-text">Verificando propagación DNS & Health...</span>
+                                        <span className="t-text">{t('landing.term.dns')}</span>
                                         <span className="t-val green">200 OK (12ms)</span>
                                     </div>
                                 )}
@@ -298,7 +274,7 @@ const Landing = () => {
                                 {terminalStep >= 6 && (
                                     <div className="t-animated-success-line">
                                         <MorphIcon icon={Zap} size={16} className="t-success-icon" />
-                                        <span>¡Servidor listo en producción! <strong className="t-domain">https://cloudcore.com</strong></span>
+                                        <span>{t('landing.term.ready')} <strong className="t-domain">https://cloudcore.com</strong></span>
                                     </div>
                                 )}
                             </div>
@@ -324,8 +300,8 @@ const Landing = () => {
             {/* ── Features ── */}
             <section className="landing-section deep-features-section" id="features">
                 <div className="landing-section-inner">
-                    <h2 className="section-title">Gestiona tus servidores y aplicaciones con confianza.</h2>
-                    <p className="section-sub">CloudCore reemplaza múltiples herramientas con un solo panel — lanza sitios web y aplicaciones en minutos, no en horas.</p>
+                    <h2 className="section-title">{t('landing.sections.featuresTitle')}</h2>
+                    <p className="section-sub">{t('landing.sections.featuresSub')}</p>
                     <div className="deep-grid">
                         {deepFeatures.map((f, i) => (
                             <div
@@ -344,7 +320,7 @@ const Landing = () => {
             {/* ── Cómo funciona ── */}
             <section className="landing-section" id="how">
                 <div className="landing-section-inner">
-                    <h2 className="section-title">En producción en minutos, no en horas.</h2>
+                    <h2 className="section-title">{t('landing.sections.howTitle')}</h2>
                     <div className="steps-grid">
                         {steps.map((s, i) => (
                             <div
@@ -373,10 +349,10 @@ const Landing = () => {
             {/* ── CTA ── */}
             <section className="landing-cta-section">
                 <div className="landing-cta-inner">
-                    <h2>Empieza a gestionar tu infraestructura hoy.</h2>
-                    <p>Sin tarjeta de crédito. Sin configuración compleja. Listo en minutos.</p>
+                    <h2>{t('landing.cta.title')}</h2>
+                    <p>{t('landing.cta.sub')}</p>
                     <button className="landing-btn-primary hero-cta" onClick={() => navigate('/register')}>
-                        Crear cuenta gratis <MorphIcon icon={ArrowRight} size={16} />
+                        {t('landing.hero.createAccount')} <MorphIcon icon={ArrowRight} size={16} />
                     </button>
                 </div>
             </section>
@@ -387,7 +363,7 @@ const Landing = () => {
                     <div className="landing-logo">
                         <MorphIcon icon={Cloud} size={18} /><span>CloudCore</span>
                     </div>
-                    <p className="footer-copy">© 2025 CloudCore. Infraestructura SaaS. · Desarrollado por <span className="footer-dev">AbstracDev</span></p>
+                    <p className="footer-copy">{t('landing.footer.copy')} <span className="footer-dev">AbstracDev</span></p>
                 </div>
             </footer>
         </div>

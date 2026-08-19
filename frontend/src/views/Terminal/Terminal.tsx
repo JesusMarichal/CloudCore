@@ -7,6 +7,7 @@ import { serverService } from '../../services/server.service';
 import type { CreateServerData } from '../../services/server.service';
 import { tokenStorage } from '../../services/tokenStorage';
 import '@xterm/xterm/css/xterm.css';
+import { useT } from '../../i18n';
 import './Terminal.css';
 
 type Status = 'idle' | 'connecting' | 'connected' | 'disconnected';
@@ -18,6 +19,7 @@ const WS_URL = window.location.hostname === 'localhost'
 const Terminal = () => {
     const [servers, setServers] = useState<CreateServerData[]>([]);
     const [selectedServerId, setSelectedServerId] = useState('');
+    const t = useT();
     const [status, setStatus] = useState<Status>('idle');
     const [serverMenuOpen, setServerMenuOpen] = useState(false);
 
@@ -92,8 +94,8 @@ const Terminal = () => {
         xtermRef.current = term;
         fitAddonRef.current = fitAddon;
 
-        term.writeln('\x1b[90m  CloudCore SSH Terminal\x1b[0m');
-        term.writeln('\x1b[90m  Selecciona un servidor y haz clic en Conectar\x1b[0m');
+        term.writeln(`\x1b[90m${t('terminal.welcome')}\x1b[0m`);
+        term.writeln(`\x1b[90m${t('terminal.welcomeHint')}\x1b[0m`);
         term.writeln('');
 
         // Resize observer — keeps PTY in sync with container size
@@ -162,7 +164,7 @@ const Terminal = () => {
         };
 
         ws.onerror = () => {
-            xtermRef.current?.writeln('\r\n\x1b[31m[Error de conexión WebSocket]\x1b[0m');
+            xtermRef.current?.writeln(`\r\n\x1b[31m${t('terminal.wsError')}\x1b[0m`);
             setStatus('disconnected');
         };
     }, [selectedServerId]);
@@ -171,7 +173,7 @@ const Terminal = () => {
         setSelectedServerId(id);
         if (status === 'connected' || status === 'disconnected') {
             disconnect();
-            xtermRef.current?.writeln('\r\n\x1b[90m[Servidor cambiado — reconecta para continuar]\x1b[0m\r\n');
+            xtermRef.current?.writeln(`\r\n\x1b[90m${t('terminal.serverChanged')}\x1b[0m\r\n`);
         }
     };
 
@@ -181,9 +183,9 @@ const Terminal = () => {
 
     const statusLabel: Record<Status, { text: string; cls: string }> = {
         idle: { text: '', cls: '' },
-        connecting: { text: '● Conectando al Servidor...', cls: 'connecting' },
-        connected: { text: '● Conectado', cls: 'connected' },
-        disconnected: { text: '● Desconectado', cls: 'disconnected' },
+        connecting: { text: t('terminal.connecting'), cls: 'connecting' },
+        connected: { text: t('terminal.connected'), cls: 'connected' },
+        disconnected: { text: t('terminal.disconnected'), cls: 'disconnected' },
     };
 
     return (
@@ -191,7 +193,7 @@ const Terminal = () => {
             <div className="terminal-header-top">
                 <div className="terminal-title">
                     <MorphIcon icon={TerminalIcon} size={20} className="icon-blue" />
-                    <h1>Consola SSH</h1>
+                    <h1>{t('terminal.title')}</h1>
                     {status !== 'idle' && (
                         <span className={`status-badge ${statusLabel[status].cls}`}>
                             {statusLabel[status].text}
@@ -209,7 +211,7 @@ const Terminal = () => {
                         >
                             <MorphIcon icon={Server} size={14} className="icon-dim" />
                             <span className="server-selector-label">
-                                {selectedServer ? `${selectedServer.name} (${selectedServer.ip})` : 'No hay servidores'}
+                                {selectedServer ? `${selectedServer.name} (${selectedServer.ip})` : t('terminal.noServers')}
                             </span>
                             <MorphIcon icon={ChevronDown} size={14} className={`server-selector-chevron ${serverMenuOpen ? 'open' : ''}`} />
                         </button>
@@ -235,7 +237,7 @@ const Terminal = () => {
 
                     {status === 'connected' ? (
                         <button className="btn-disconnect" onClick={disconnect}>
-                            <MorphIcon icon={X} size={14} /> Desconectar
+                            <MorphIcon icon={X} size={14} /> {t('terminal.disconnect')}
                         </button>
                     ) : (
                         <button
@@ -243,11 +245,11 @@ const Terminal = () => {
                             onClick={connect}
                             disabled={!selectedServerId || status === 'connecting'}
                         >
-                            <MorphIcon icon={Plug} size={14} /> {status === 'connecting' ? 'Conectando al Servidor...' : status === 'disconnected' ? 'Reconectar' : 'Conectar'}
+                            <MorphIcon icon={Plug} size={14} /> {status === 'connecting' ? t('terminal.connectingBtn') : status === 'disconnected' ? t('terminal.reconnect') : t('terminal.connect')}
                         </button>
                     )}
 
-                    <button className="btn-clear" onClick={clear} title="Limpiar terminal">
+                    <button className="btn-clear" onClick={clear} title={t('terminal.clear')}>
                         <MorphIcon icon={Trash2} size={16} />
                     </button>
                 </div>

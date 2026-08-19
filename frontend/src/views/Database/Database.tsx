@@ -5,6 +5,7 @@ import type { CreateServerData } from '../../services/server.service';
 import { tokenStorage } from '../../services/tokenStorage';
 import { Database as DatabaseIcon, Plus, Play, Square, RotateCcw, Trash2, ExternalLink, Eye, EyeOff, X, HardDrive, Copy, Check, Link, Search, CheckCircle2 } from 'lucide';
 import { MorphIcon } from 'morphicons/react';
+import { useT } from '../../i18n';
 import './Database.css';
 
 interface DatabaseInstance {
@@ -36,6 +37,7 @@ interface DbFormData {
 
 const DatabaseView = () => {
     const navigate = useNavigate();
+    const t = useT();
     const [servers, setServers] = useState<CreateServerData[]>([]);
     const [databases, setDatabases] = useState<DatabaseInstance[]>([]);
     const [showForm, setShowForm] = useState(false);
@@ -120,7 +122,7 @@ const DatabaseView = () => {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setDeploying(true);
-        setDeployLogs('Iniciando despliegue de base de datos...\n');
+        setDeployLogs(t('databases.form.starting'));
 
         try {
             await serverService.deployDatabase(formData.serverId, formData, (chunk: string) => {
@@ -147,7 +149,7 @@ const DatabaseView = () => {
             }
         } catch (error) {
             console.error('Error desplegando base de datos:', error);
-            alert('Error al desplegar la base de datos.');
+            alert(t('databases.msg.deployError'));
         } finally {
             setDeploying(false);
         }
@@ -164,21 +166,21 @@ const DatabaseView = () => {
             }
         } catch (error) {
             console.error(`Error ejecutando ${action}:`, error);
-            alert(`Error al ejecutar ${action} en la base de datos.`);
+            alert(t('databases.msg.actionError', { action }));
         } finally {
             setActionLoading(null);
         }
     };
 
     const handleDelete = async (db: DatabaseInstance) => {
-        if (!window.confirm(`¿Estás seguro de eliminar la base de datos "${db.name}"? Todos los datos serán eliminados permanentemente.`)) return;
+        if (!window.confirm(t('databases.msg.deleteConfirm', { name: db.name }))) return;
         setActionLoading(`${db.id}-delete`);
         try {
             await serverService.deleteDatabase(db.serverId, db.id);
             setDatabases(databases.filter(d => d.id !== db.id));
         } catch (error) {
             console.error('Error eliminando base de datos:', error);
-            alert('Error al eliminar la base de datos.');
+            alert(t('databases.msg.deleteError'));
         } finally {
             setActionLoading(null);
         }
@@ -192,15 +194,15 @@ const DatabaseView = () => {
             if (result.success && result.imported > 0) {
                 const dbData = await serverService.listDatabases();
                 setDatabases(dbData);
-                showToast(`Se encontraron y registraron ${result.imported} base(s) de datos montada(s) en tus servidores.`, 'success');
+                showToast(t('databases.msg.scanFound', { count: result.imported }), 'success');
             } else if (result.success) {
-                showToast('No se encontró ninguna base de datos montada en tus servidores.', 'info');
+                showToast(t('databases.scanNone'), 'info');
             } else {
-                showToast(result.message || 'Error buscando bases de datos.', 'error');
+                showToast(result.message || t('databases.scanError'), 'error');
             }
         } catch (error) {
             console.error('Error buscando bases de datos existentes:', error);
-            showToast('Error buscando bases de datos existentes.', 'error');
+            showToast(t('databases.scanError'), 'error');
         } finally {
             setScanning(false);
         }
@@ -217,16 +219,16 @@ const DatabaseView = () => {
         <div className="database-container">
             <header className="page-header">
                 <div>
-                    <h1><MorphIcon icon={DatabaseIcon} size={24} className="icon-blue" /> Bases de Datos</h1>
-                    <p className="text-muted">Despliega y administra bases de datos MySQL y PostgreSQL en tus servidores.</p>
+                    <h1><MorphIcon icon={DatabaseIcon} size={24} className="icon-blue" /> {t('databases.title')}</h1>
+                    <p className="text-muted">{t('databases.subtitle')}</p>
                 </div>
                 {servers.length > 0 && (
                     <div className="db-header-actions">
                         <button className="btn-secondary" onClick={handleScanExisting} disabled={scanning}>
-                            <MorphIcon icon={Search} size={16} /> {scanning ? 'Buscando...' : 'Buscar BD existentes'}
+                            <MorphIcon icon={Search} size={16} /> {scanning ? t('databases.scanning') : t('databases.scan')}
                         </button>
                         <button className="btn-primary" onClick={() => setShowForm(true)}>
-                            <MorphIcon icon={Plus} size={16} /> Nueva Base de Datos
+                            <MorphIcon icon={Plus} size={16} /> {t('databases.newDatabase')}
                         </button>
                     </div>
                 )}
@@ -234,16 +236,16 @@ const DatabaseView = () => {
 
             {!showForm ? (
                 loading ? (
-                    <div className="db-empty-state"><p>Cargando...</p></div>
+                    <div className="db-empty-state"><p>{t('common.loading')}</p></div>
                 ) : servers.length === 0 ? (
                     <div className="db-empty-state">
                         <div className="db-empty-icon">🖥️</div>
-                        <h3>No tienes servidores conectados</h3>
+                        <h3>{t('databases.noServers')}</h3>
                         <p className="text-muted">
-                            Para crear una base de datos, primero debes agregar un servidor en la sección de Instancias.
+                            {t('databases.noServersDesc')}
                         </p>
                         <button className="btn-primary" onClick={() => navigate('/dashboard/servers')}>
-                            Ir a Servidores
+                            {t('databases.goToServers')}
                         </button>
                     </div>
                 ) : databases.length === 0 ? (
@@ -251,12 +253,12 @@ const DatabaseView = () => {
                         <div className="db-empty-icon">
                             <MorphIcon icon={DatabaseIcon} size={48} />
                         </div>
-                        <h3>No hay bases de datos desplegadas</h3>
+                        <h3>{t('databases.empty')}</h3>
                         <p className="text-muted">
-                            Tienes {servers.length} servidor(es) listo(s). ¡Despliega tu primera base de datos con un clic!
+                            {t('databases.emptyDesc', { count: servers.length })}
                         </p>
                         <button className="btn-primary" onClick={() => setShowForm(true)}>
-                            <MorphIcon icon={Plus} size={16} /> Crear mi primera Base de Datos
+                            <MorphIcon icon={Plus} size={16} /> {t('databases.createFirst')}
                         </button>
                     </div>
                 ) : (
@@ -285,14 +287,14 @@ const DatabaseView = () => {
                                         <div className="db-card-actions">
                                             <span className={`db-status-badge ${db.status}`}>
                                                 <span className="db-status-dot"></span>
-                                                {db.status === 'running' ? 'Activo' : db.status === 'deploying' ? 'Desplegando' : 'Detenido'}
+                                                {db.status === 'running' ? t('databases.active') : db.status === 'deploying' ? t('databases.deploying') : t('databases.stopped')}
                                             </span>
                                             {db.status === 'running' ? (
                                                 <button
                                                     className="db-btn-action stop"
                                                     onClick={() => handleDbAction(db, 'stop')}
                                                     disabled={actionLoading === `${db.id}-stop`}
-                                                    title="Detener"
+                                                    title={t('databases.stop')}
                                                 >
                                                     <MorphIcon icon={Square} size={14} />
                                                 </button>
@@ -301,7 +303,7 @@ const DatabaseView = () => {
                                                     className="db-btn-action start"
                                                     onClick={() => handleDbAction(db, 'start')}
                                                     disabled={actionLoading === `${db.id}-start`}
-                                                    title="Iniciar"
+                                                    title={t('databases.start')}
                                                 >
                                                     <MorphIcon icon={Play} size={14} />
                                                 </button>
@@ -310,7 +312,7 @@ const DatabaseView = () => {
                                                 className="db-btn-action restart"
                                                 onClick={() => handleDbAction(db, 'restart')}
                                                 disabled={actionLoading?.startsWith(db.id) || false}
-                                                title="Reiniciar"
+                                                title={t('databases.restart')}
                                             >
                                                 <MorphIcon icon={RotateCcw} size={14} />
                                             </button>
@@ -318,7 +320,7 @@ const DatabaseView = () => {
                                                 className="db-btn-action delete"
                                                 onClick={() => handleDelete(db)}
                                                 disabled={actionLoading?.startsWith(db.id) || false}
-                                                title="Eliminar"
+                                                title={t('common.delete')}
                                             >
                                                 <MorphIcon icon={Trash2} size={14} />
                                             </button>
@@ -328,15 +330,15 @@ const DatabaseView = () => {
                                     <div className="db-card-body">
                                         <div className="db-info-grid">
                                             <div className="db-info-item">
-                                                <span className="db-label">Puerto</span>
+                                                <span className="db-label">{t('databases.form.port')}</span>
                                                 <span className="db-value">{db.port}</span>
                                             </div>
                                             <div className="db-info-item">
-                                                <span className="db-label">Base de Datos</span>
+                                                <span className="db-label">{t('databases.form.engine')}</span>
                                                 <span className="db-value">{db.dbName}</span>
                                             </div>
                                             <div className="db-info-item">
-                                                <span className="db-label">Usuario</span>
+                                                <span className="db-label">{t('databases.form.user')}</span>
                                                 <span className="db-value">{db.dbUser}</span>
                                             </div>
                                             <div className="db-info-item db-info-connect">
@@ -345,7 +347,7 @@ const DatabaseView = () => {
                                                     onClick={() => { setConnectionModal(db); setCopied(false); setClosingConnModal(false); }}
                                                 >
                                                     <MorphIcon icon={Link} size={14} />
-                                                    Datos de Conexión
+                                                    {t('databases.credentials.connectionData')}
                                                 </button>
                                             </div>
                                         </div>
@@ -356,7 +358,7 @@ const DatabaseView = () => {
                                         <div className="db-card-footer">
                                             <div className="db-card-footer-left">
                                                 <span style={{ fontSize: '12px', color: 'var(--text-dim)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                                                    Panel de Administración
+                                                    {t('databases.adminPanel')}
                                                 </span>
                                             </div>
                                             <a
@@ -378,7 +380,7 @@ const DatabaseView = () => {
             ) : (
                 <div className="db-form-card">
                     <div className="db-form-header">
-                        <h2><MorphIcon icon={DatabaseIcon} size={20} className="icon-blue" /> Nueva Base de Datos</h2>
+                        <h2><MorphIcon icon={DatabaseIcon} size={20} className="icon-blue" /> {t('databases.newDatabase')}</h2>
                         <button className="btn-close" onClick={() => { setShowForm(false); setDeployLogs(''); }}>
                             <MorphIcon icon={X} size={20} />
                         </button>
@@ -392,7 +394,7 @@ const DatabaseView = () => {
                             >
                                 <span className="engine-icon">🐬</span>
                                 <span className="engine-name">MySQL</span>
-                                <span className="engine-desc">Incluye phpMyAdmin para administración visual</span>
+                                <span className="engine-desc">{t('databases.form.mysqlDesc')}</span>
                             </div>
                             <div
                                 className={`db-engine-option ${formData.engine === 'postgres' ? 'selected' : ''}`}
@@ -400,30 +402,30 @@ const DatabaseView = () => {
                             >
                                 <span className="engine-icon">🐘</span>
                                 <span className="engine-name">PostgreSQL</span>
-                                <span className="engine-desc">Base de datos relacional avanzada</span>
+                                <span className="engine-desc">{t('databases.form.postgresDesc')}</span>
                             </div>
                         </div>
 
                         <div className="db-form-section">
-                            <h3>Configuración del Servidor</h3>
+                            <h3>{t('databases.credentials.serverConfig')}</h3>
                             <div className="form-group">
-                                <label>Servidor de destino</label>
+                                <label>{t('databases.form.targetServer')}</label>
                                 <select
                                     value={formData.serverId}
                                     onChange={e => setFormData({ ...formData, serverId: e.target.value })}
                                     required
                                 >
-                                    <option value="" disabled>Seleccionar servidor...</option>
+                                    <option value="" disabled>{t('databases.form.selectServer')}</option>
                                     {servers.map(s => (
                                         <option key={s.id} value={s.id}>{s.name} ({s.ip})</option>
                                     ))}
                                 </select>
                             </div>
                             <div className="form-group">
-                                <label>Nombre de la instancia</label>
+                                <label>{t('databases.form.instanceName')}</label>
                                 <input
                                     type="text"
-                                    placeholder="mi-base-de-datos"
+                                    placeholder={t('databases.form.instancePlaceholder')}
                                     value={formData.name}
                                     onChange={e => setFormData({ ...formData, name: e.target.value })}
                                     required
@@ -432,20 +434,20 @@ const DatabaseView = () => {
                         </div>
 
                         <div className="db-form-section">
-                            <h3>Credenciales</h3>
+                            <h3>{t('databases.credentials.title')}</h3>
                             <div className="form-row">
                                 <div className="form-group">
-                                    <label>Nombre de la Base de Datos</label>
+                                    <label>{t('databases.form.dbName')}</label>
                                     <input
                                         type="text"
-                                        placeholder="mydb"
+                                        placeholder={t('databases.form.dbNamePlaceholder')}
                                         value={formData.dbName}
                                         onChange={e => setFormData({ ...formData, dbName: e.target.value })}
                                         required
                                     />
                                 </div>
                                 <div className="form-group">
-                                    <label>Puerto</label>
+                                    <label>{t('databases.form.port')}</label>
                                     <input
                                         type="number"
                                         value={formData.port}
@@ -456,21 +458,21 @@ const DatabaseView = () => {
                             </div>
                             <div className="form-row">
                                 <div className="form-group">
-                                    <label>Usuario</label>
+                                    <label>{t('databases.form.user')}</label>
                                     <input
                                         type="text"
-                                        placeholder="admin"
+                                        placeholder={t('databases.form.userPlaceholder')}
                                         value={formData.dbUser}
                                         onChange={e => setFormData({ ...formData, dbUser: e.target.value })}
                                         required
                                     />
                                 </div>
                                 <div className="form-group">
-                                    <label>Contraseña</label>
+                                    <label>{t('databases.form.password')}</label>
                                     <div className="db-password-field">
                                         <input
                                             type={showPasswords['form'] ? 'text' : 'password'}
-                                            placeholder="contraseña segura"
+                                            placeholder={t('databases.form.passwordPlaceholder')}
                                             value={formData.dbPassword}
                                             onChange={e => setFormData({ ...formData, dbPassword: e.target.value })}
                                             required
@@ -488,16 +490,16 @@ const DatabaseView = () => {
                             </div>
                             {formData.engine === 'mysql' && (
                                 <div className="form-group">
-                                    <label>Puerto de phpMyAdmin</label>
+                                    <label>{t('databases.form.phpmyadminPort')}</label>
                                     <input
                                         type="number"
-                                        placeholder="8080"
+                                        placeholder={t('databases.form.phpmyadminPortPlaceholder')}
                                         value={formData.adminPort}
                                         onChange={e => setFormData({ ...formData, adminPort: e.target.value })}
                                         required
                                     />
                                     <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
-                                        Accederás a phpMyAdmin desde http://[IP-del-servidor]:{formData.adminPort || '8080'}
+                                        {t('databases.phpmyadminHint', { port: formData.adminPort || '8080' })}
                                     </span>
                                 </div>
                             )}
@@ -505,10 +507,10 @@ const DatabaseView = () => {
 
                         <div className="form-actions">
                             <button type="button" className="btn-secondary" onClick={() => { setShowForm(false); setDeployLogs(''); }}>
-                                Cancelar
+                                {t('common.cancel')}
                             </button>
                             <button type="submit" className="btn-primary" disabled={deploying}>
-                                {deploying ? 'Desplegando...' : 'Desplegar Base de Datos'}
+                                {deploying ? t('databases.form.deploying') : t('databases.form.deploy')}
                             </button>
                         </div>
                     </form>
@@ -522,9 +524,9 @@ const DatabaseView = () => {
                         <div className="db-deploy-modal-header">
                             <h3>
                                 {deploying ? (
-                                    <><div className="db-spinner" style={{ display: 'inline-block', marginRight: '10px' }}></div> Desplegando {formData.engine === 'mysql' ? 'MySQL + phpMyAdmin' : 'PostgreSQL'}...</>
+                                    <><div className="db-spinner" style={{ display: 'inline-block', marginRight: '10px' }}></div> {t('databases.msg.deployingEngine', { engine: formData.engine === 'mysql' ? 'MySQL + phpMyAdmin' : 'PostgreSQL' })}</>
                                 ) : (
-                                    <>✅ ¡Despliegue Completado!</>
+                                    <>✅ {t('databases.msg.deployDone')}</>
                                 )}
                             </h3>
                             {!deploying && (
@@ -537,7 +539,7 @@ const DatabaseView = () => {
                                     <span className="dot" style={{ background: '#ff5f56' }}></span>
                                     <span className="dot" style={{ background: '#ffbd2e' }}></span>
                                     <span className="dot" style={{ background: '#27c93f' }}></span>
-                                    <span className="title">Terminal - Instalación</span>
+                                    <span className="title">{t('databases.terminalTitle')}</span>
                                 </div>
                                 <div className="db-deploy-logs console-scroll">
                                     {deployLogs}
@@ -548,10 +550,10 @@ const DatabaseView = () => {
                         {!deploying && (
                             <div className="db-deploy-modal-footer">
                                 <button type="button" className="btn-secondary" onClick={() => setDeployLogs('')}>
-                                    Limpiar
+                                    {t('databases.msg.clear')}
                                 </button>
                                 <button type="button" className="btn-primary" onClick={() => { setShowForm(false); setDeployLogs(''); }}>
-                                    Terminar
+                                    {t('databases.msg.finish')}
                                 </button>
                             </div>
                         )}
@@ -568,7 +570,7 @@ const DatabaseView = () => {
                                     {connectionModal.engine === 'mysql' ? '🐬' : '🐘'}
                                 </div>
                                 <div>
-                                    <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700 }}>Datos de Conexión</h3>
+                                    <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700 }}>{t('databases.credentials.connectionData')}</h3>
                                     <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-muted)' }}>{connectionModal.name} • {connectionModal.engine === 'mysql' ? 'MySQL' : 'PostgreSQL'}</p>
                                 </div>
                             </div>
@@ -577,29 +579,29 @@ const DatabaseView = () => {
                         <div className="db-conn-modal-body">
                             <div className="db-conn-grid">
                                 <div className="db-conn-item">
-                                    <span className="db-conn-label">Host</span>
+                                    <span className="db-conn-label">{t('databases.credentials.host')}</span>
                                     <span className="db-conn-value">127.0.0.1</span>
                                 </div>
                                 <div className="db-conn-item">
-                                    <span className="db-conn-label">Puerto</span>
+                                    <span className="db-conn-label">{t('databases.form.port')}</span>
                                     <span className="db-conn-value">{connectionModal.port}</span>
                                 </div>
                                 <div className="db-conn-item">
-                                    <span className="db-conn-label">Base de Datos</span>
+                                    <span className="db-conn-label">{t('databases.form.engine')}</span>
                                     <span className="db-conn-value">{connectionModal.dbName}</span>
                                 </div>
                                 <div className="db-conn-item">
-                                    <span className="db-conn-label">Usuario</span>
+                                    <span className="db-conn-label">{t('databases.form.user')}</span>
                                     <span className="db-conn-value">{connectionModal.dbUser}</span>
                                 </div>
                                 <div className="db-conn-item" style={{ gridColumn: '1 / -1' }}>
-                                    <span className="db-conn-label">Contraseña</span>
+                                    <span className="db-conn-label">{t('databases.form.password')}</span>
                                     <span className="db-conn-value">{connectionModal.dbPassword}</span>
                                 </div>
                             </div>
                             <div className="db-conn-env-section">
                                 <div className="db-conn-env-header">
-                                    <span>Variables para tu archivo .env</span>
+                                    <span>{t('databases.credentials.envHint')}</span>
                                     <button
                                         className={`db-conn-copy-btn ${copied ? 'copied' : ''}`}
                                         onClick={() => {
@@ -611,7 +613,7 @@ const DatabaseView = () => {
                                             setTimeout(() => setCopied(false), 2500);
                                         }}
                                     >
-                                        {copied ? <><MorphIcon icon={Check} size={13} /> Copiado</> : <><MorphIcon icon={Copy} size={13} /> Copiar</>}
+                                        {copied ? <><MorphIcon icon={Check} size={13} /> {t('databases.credentials.copied')}</> : <><MorphIcon icon={Copy} size={13} /> {t('databases.credentials.copy')}</>}
                                     </button>
                                 </div>
                                 <pre className="db-connection-pre">{
@@ -622,7 +624,9 @@ const DatabaseView = () => {
                             </div>
                             <div className="db-conn-hint">
                                 <span className="db-conn-hint-icon">💡</span>
-                                <p>El Host es <strong>127.0.0.1</strong> porque Docker expone el puerto al servidor local. Copia estas variables y pégalas en la sección <strong>"Variables .env"</strong> de tu sitio web.</p>
+                                {/* El HTML sale de nuestros archivos de idioma (constantes en
+                                    el bundle), nunca de datos del usuario ni del servidor. */}
+                                <p dangerouslySetInnerHTML={{ __html: t('databases.credentials.hostHintFull') }} />
                             </div>
                         </div>
                     </div>

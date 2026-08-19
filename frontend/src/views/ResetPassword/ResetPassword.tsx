@@ -3,10 +3,12 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AuthService } from '../../services/auth.service';
 import { Lock, KeyRound, CheckCircle, Circle, Eye, EyeOff, Sun, Moon, ArrowRight } from 'lucide';
 import { MorphIcon } from 'morphicons/react';
+import { useT } from '../../i18n';
 import '../Login/Login.css';
 import './ResetPassword.css';
 
 const ResetPassword: React.FC = () => {
+    const t = useT();
     const [searchParams] = useSearchParams();
     const token = searchParams.get('token') || '';
 
@@ -31,17 +33,17 @@ const ResetPassword: React.FC = () => {
     const passwordStrength = React.useMemo(() => {
         if (!newPassword) return { level: 0, label: '', percent: 0 };
         const score = Object.values(pwChecks).filter(Boolean).length;
-        if (score <= 2) return { level: 1, label: 'Débil', percent: 33 };
-        if (score <= 4) return { level: 2, label: 'Media', percent: 66 };
-        return { level: 3, label: 'Fuerte', percent: 100 };
-    }, [newPassword, pwChecks]);
+        if (score <= 2) return { level: 1, label: t('auth.strength.weak'), percent: 33 };
+        if (score <= 4) return { level: 2, label: t('auth.strength.medium'), percent: 66 };
+        return { level: 3, label: t('auth.strength.strong'), percent: 100 };
+    }, [newPassword, pwChecks, t]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError(null);
 
         if (newPassword !== confirmPassword) {
-            setError('Las contraseñas no coinciden');
+            setError(t('resetPassword.mismatch'));
             return;
         }
 
@@ -52,12 +54,12 @@ const ResetPassword: React.FC = () => {
                 setSuccess(true);
                 setTimeout(() => navigate('/login'), 2200);
             } else {
-                setError(result.message || 'No se pudo restablecer la contraseña');
+                setError(result.message || t('resetPassword.error'));
             }
         } catch (err: any) {
             const msg = err?.response?.data?.message
-                ?? (err?.code === 'ERR_NETWORK' ? 'No se pudo conectar al servidor.' : null)
-                ?? 'Error al procesar la solicitud';
+                ?? (err?.code === 'ERR_NETWORK' ? t('auth.networkErrorShort') : null)
+                ?? t('auth.genericError');
             setError(msg);
         } finally {
             setLoading(false);
@@ -76,8 +78,8 @@ const ResetPassword: React.FC = () => {
                     type="button"
                     className="theme-toggle"
                     onClick={() => setIsDark(v => !v)}
-                    title={isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
-                    aria-label="Cambiar tema"
+                    title={isDark ? t('dashboard.toLightMode') : t('dashboard.toDarkMode')}
+                    aria-label={t('dashboard.toggleTheme')}
                 >
                     <MorphIcon icon={isDark ? Sun : Moon} size={18} spring="snappy" className="theme-icon" />
                 </button>
@@ -85,19 +87,19 @@ const ResetPassword: React.FC = () => {
                 {!token ? (
                     <div className="reg-success">
                         <MorphIcon icon={KeyRound} size={44} className="reg-success-icon reset-invalid-icon" />
-                        <h2>Enlace inválido</h2>
-                        <p>Este enlace de recuperación no es válido o está incompleto. Solicita uno nuevo desde el login.</p>
+                        <h2>{t('resetPassword.invalidTitle')}</h2>
+                        <p>{t('resetPassword.invalidDesc')}</p>
                         <div className="login-footer">
                             <button type="button" className="btn-link" onClick={() => navigate('/login')}>
-                                ← Volver al inicio de sesión
+                                {t('auth.backToLogin')}
                             </button>
                         </div>
                     </div>
                 ) : success ? (
                     <div className="reg-success">
                         <MorphIcon icon={CheckCircle} size={44} className="reg-success-icon" />
-                        <h2>¡Contraseña actualizada!</h2>
-                        <p>Redirigiendo al inicio de sesión...</p>
+                        <h2>{t('resetPassword.successTitle')}</h2>
+                        <p>{t('resetPassword.successDesc')}</p>
                     </div>
                 ) : (
                     <>
@@ -107,19 +109,19 @@ const ResetPassword: React.FC = () => {
                                 <span className="auth-brand-name">CloudCore</span>
                             </div>
                             <div className="auth-divider" />
-                            <p className="auth-subtitle">Nueva contraseña</p>
-                            <p className="auth-desc">Este enlace es válido por 5 minutos.</p>
+                            <p className="auth-subtitle">{t('resetPassword.title')}</p>
+                            <p className="auth-desc">{t('resetPassword.desc')}</p>
                         </div>
 
                         <form onSubmit={handleSubmit} className="reg-form">
                             <div className="form-group pw-group">
-                                <label><MorphIcon icon={Lock} size={15} /> Nueva contraseña</label>
+                                <label><MorphIcon icon={Lock} size={15} /> {t('resetPassword.newPassword')}</label>
                                 <div className="password-field-wrapper">
                                     <input
                                         type={showPassword ? 'text' : 'password'}
                                         value={newPassword}
                                         onChange={e => setNewPassword(e.target.value)}
-                                        placeholder="Mínimo 8 caracteres"
+                                        placeholder={t('auth.minCharsPlaceholder')}
                                         minLength={8}
                                         required
                                         autoFocus
@@ -129,7 +131,7 @@ const ResetPassword: React.FC = () => {
                                         className="pw-toggle-btn"
                                         tabIndex={-1}
                                         onClick={() => setShowPassword(v => !v)}
-                                        aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                                        aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
                                     >
                                         <MorphIcon icon={showPassword ? EyeOff : Eye} size={17} spring="snappy" />
                                     </button>
@@ -143,30 +145,30 @@ const ResetPassword: React.FC = () => {
                                             />
                                         </div>
                                         <span className={`pw-strength-label level-${passwordStrength.level}`}>
-                                            Seguridad: {passwordStrength.label}
+                                            {t('auth.strength.label', { level: passwordStrength.label })}
                                         </span>
 
                                         <div className="pw-requirements">
                                             <ul>
                                                 <li className={pwChecks.length ? 'pw-req-met' : ''}>
                                                     <MorphIcon icon={pwChecks.length ? CheckCircle : Circle} size={13} spring="snappy" />
-                                                    <span>Mínimo 8 caracteres</span>
+                                                    <span>{t('auth.requirements.length')}</span>
                                                 </li>
                                                 <li className={pwChecks.upper ? 'pw-req-met' : ''}>
                                                     <MorphIcon icon={pwChecks.upper ? CheckCircle : Circle} size={13} spring="snappy" />
-                                                    <span>Una letra mayúscula</span>
+                                                    <span>{t('auth.requirements.upper')}</span>
                                                 </li>
                                                 <li className={pwChecks.lower ? 'pw-req-met' : ''}>
                                                     <MorphIcon icon={pwChecks.lower ? CheckCircle : Circle} size={13} spring="snappy" />
-                                                    <span>Una letra minúscula</span>
+                                                    <span>{t('auth.requirements.lower')}</span>
                                                 </li>
                                                 <li className={pwChecks.number ? 'pw-req-met' : ''}>
                                                     <MorphIcon icon={pwChecks.number ? CheckCircle : Circle} size={13} spring="snappy" />
-                                                    <span>Un número</span>
+                                                    <span>{t('auth.requirements.number')}</span>
                                                 </li>
                                                 <li className={pwChecks.special ? 'pw-req-met' : ''}>
                                                     <MorphIcon icon={pwChecks.special ? CheckCircle : Circle} size={13} spring="snappy" />
-                                                    <span>Un carácter especial</span>
+                                                    <span>{t('auth.requirements.special')}</span>
                                                 </li>
                                             </ul>
                                         </div>
@@ -175,13 +177,13 @@ const ResetPassword: React.FC = () => {
                             </div>
 
                             <div className="form-group">
-                                <label><MorphIcon icon={Lock} size={15} /> Confirmar contraseña</label>
+                                <label><MorphIcon icon={Lock} size={15} /> {t('resetPassword.confirmPassword')}</label>
                                 <div className="password-field-wrapper">
                                     <input
                                         type={showConfirmPassword ? 'text' : 'password'}
                                         value={confirmPassword}
                                         onChange={e => setConfirmPassword(e.target.value)}
-                                        placeholder="Repite la contraseña"
+                                        placeholder={t('resetPassword.confirmPlaceholder')}
                                         minLength={8}
                                         required
                                     />
@@ -190,7 +192,7 @@ const ResetPassword: React.FC = () => {
                                         className="pw-toggle-btn"
                                         tabIndex={-1}
                                         onClick={() => setShowConfirmPassword(v => !v)}
-                                        aria-label={showConfirmPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                                        aria-label={showConfirmPassword ? t('auth.hidePassword') : t('auth.showPassword')}
                                     >
                                         <MorphIcon icon={showConfirmPassword ? EyeOff : Eye} size={17} spring="snappy" />
                                     </button>
@@ -198,12 +200,12 @@ const ResetPassword: React.FC = () => {
                             </div>
 
                             <button type="submit" disabled={loading}>
-                                {loading ? 'Actualizando...' : <><MorphIcon icon={KeyRound} size={17} /> Restablecer contraseña</>}
+                                {loading ? t('resetPassword.updating') : <><MorphIcon icon={KeyRound} size={17} /> {t('resetPassword.submit')}</>}
                             </button>
 
                             <div className="login-footer">
                                 <button type="button" className="btn-link" onClick={() => navigate('/login')}>
-                                    ¿Ya la recordaste? Inicia sesión <MorphIcon icon={ArrowRight} size={14} />
+                                    {t('resetPassword.rememberedLink')} <MorphIcon icon={ArrowRight} size={14} />
                                 </button>
                             </div>
 

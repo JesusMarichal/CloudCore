@@ -1,7 +1,7 @@
 import { JwtService } from '@nestjs/jwt';
 import { DatabaseService } from '../database/database.service';
 import { MailService } from '../mail/mail.service';
-import { LoginDto, Verify2FALoginDto, RegisterDto, VerifyRegisterDto, ForgotPasswordDto, ResetPasswordDto, ChangePasswordDto, Enable2FADto, Disable2FADto } from './dto/auth.dto';
+import { LoginDto, Verify2FALoginDto, RegisterDto, VerifyRegisterDto, ForgotPasswordDto, ResetPasswordDto, ChangePasswordDto, Enable2FADto, Disable2FADto, UpdateAvatarDto } from './dto/auth.dto';
 export declare class AuthController {
     private readonly db;
     private readonly jwtService;
@@ -31,6 +31,7 @@ export declare class AuthController {
             name: any;
             email: any;
             role: any;
+            avatar: any;
         };
         message?: undefined;
         require2FA?: undefined;
@@ -49,6 +50,7 @@ export declare class AuthController {
             name: any;
             email: any;
             role: any;
+            avatar: any;
         };
         message?: undefined;
     }>;
@@ -75,6 +77,7 @@ export declare class AuthController {
             name: any;
             email: any;
             role: any;
+            avatar: any;
         };
     }>;
     forgotPassword(body: ForgotPasswordDto): Promise<{
@@ -111,5 +114,36 @@ export declare class AuthController {
     get2FAStatus(userId: string): Promise<{
         success: boolean;
         enabled: boolean;
+    }>;
+    me(userId: string): Promise<{
+        success: boolean;
+        message: string;
+        user?: undefined;
+    } | {
+        success: boolean;
+        user: {
+            id: string;
+            name: any;
+            email: any;
+            role: any;
+            avatar: any;
+            createdAt: any;
+        };
+        message?: undefined;
+    }>;
+    updateAvatar(userId: string, body: UpdateAvatarDto): Promise<{
+        success: boolean;
+        message: string;
+        user?: undefined;
+    } | {
+        success: boolean;
+        message: string;
+        user: {
+            id: string;
+            name: any;
+            email: any;
+            role: any;
+            avatar: any;
+        };
     }>;
 }

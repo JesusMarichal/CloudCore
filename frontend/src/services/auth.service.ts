@@ -11,7 +11,7 @@ export const AuthService = {
         return response.data;
     },
 
-    async register(data: { name: string; email: string; password: string }) {
+    async register(data: { name: string; email: string; password: string; avatar?: string }) {
         const response = await httpClient.post('/auth/register', data);
         return response.data;
     },
@@ -55,6 +55,17 @@ export const AuthService = {
 
     async disable2FA(password: string) {
         const response = await httpClient.post('/auth/2fa/disable', { password });
+        return response.data;
+    },
+
+    async me() {
+        const response = await httpClient.post('/auth/me', {});
+        return response.data;
+    },
+
+    /** Guarda solo el ID del avatar elegido del pack predeterminado. */
+    async updateAvatar(avatar: string) {
+        const response = await httpClient.post('/auth/avatar', { avatar });
         return response.data;
     },
 };

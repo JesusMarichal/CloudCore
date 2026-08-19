@@ -388,3 +388,60 @@
     .twofa-qr { width: 150px; height: 150px; }
     .totp-verify-input { width: 140px; font-size: 1.4rem; }
 }
+/* ── Selector de idioma ──────────────────────────────────────────────────── */
+.lang-options {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.lang-option {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1 1 180px;
+    padding: 12px 14px;
+    background: var(--card-bg);
+    border: 1px solid var(--gh-border);
+    color: var(--text-main);
+    font: inherit;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.lang-option:hover {
+    border-color: var(--gh-text-muted);
+}
+
+.lang-option.active {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--primary-glow);
+}
+
+.lang-flag {
+    font-size: 22px;
+    line-height: 1;
+}
+
+.lang-names {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    flex: 1;
+}
+
+.lang-native {
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.lang-code {
+    font-size: 11px;
+    color: var(--text-muted);
+    letter-spacing: 0.5px;
+}
+
+.lang-check {
+    color: var(--primary);
+    flex-shrink: 0;
+}

@@ -7,6 +7,7 @@ import { MorphIcon } from 'morphicons/react';
 import { API_URL } from '../../config';
 import { authFetch } from '../../services/apiFetch';
 import { tokenStorage } from '../../services/tokenStorage';
+import { useT } from '../../i18n';
 import './Websites.css';
 
 const AUTO_DEPLOYED_STORAGE_KEY = 'cc_auto_deployed_v1';
@@ -42,6 +43,7 @@ interface WebsiteFormData {
 
 const Websites = () => {
     const navigate = useNavigate();
+    const t = useT();
     const [servers, setServers] = useState<CreateServerData[]>([]);
     const [showForm, setShowForm] = useState(false);
     const [deploying, setDeploying] = useState(false);
@@ -102,7 +104,7 @@ const Websites = () => {
                 pushNotification({
                     type: 'success',
                     title: `${siteName} actualizado`,
-                    message: commitMsg ? `Nuevo deploy: ${commitMsg}` : 'Commit nuevo desplegado automáticamente.',
+                    message: commitMsg ? `Nuevo deploy: ${commitMsg}` : t('websites.msg.newCommit'),
                 });
                 const commitRes = await serverService.getWebsiteCommit(serverId, websiteId);
                 if (commitRes.success && commitRes.commit) {
@@ -231,13 +233,13 @@ const Websites = () => {
             const currentUserId = tokenStorage.getUser()?.id || '';
 
             if (editingSite) {
-                setDeployLogs('Iniciando actualización de configuración...\n');
+                setDeployLogs(t('websites.msg.startingUpdate'));
                 await serverService.updateWebsite(formData.serverId, editingSite.id, formData, (chunk) => {
                     setDeployLogs(prev => prev + chunk);
                 });
                 setShowForm(false);
             } else {
-                setDeployLogs('Iniciando despliegue de sitio web...\n');
+                setDeployLogs(t('websites.msg.startingDeploy'));
                 await serverService.deployWebsite(formData.serverId, { ...formData, userId: currentUserId }, (chunk) => {
                     setDeployLogs(prev => prev + chunk);
                 });
@@ -262,7 +264,7 @@ const Websites = () => {
             setEditingSite(null);
         } catch (error) {
             console.error('Error desplegando el sitio:', error);
-            showToast('Hubo un error al procesar el sitio.', 'error');
+            showToast(t('websites.msg.deployError'), 'error');
         } finally {
             setDeploying(false);
             if (tokenStorage.getToken()) {
@@ -345,11 +347,11 @@ const Websites = () => {
                 userId: editingSite.user_id
             };
 
-            setDeployLogs(`Iniciando actualización de variables para ${editingSite.name}...\n`);
+            setDeployLogs(t('websites.startingEnvUpdate', { name: editingSite.name }));
             await serverService.updateWebsite(editingSite.server_id, editingSite.id, updatedData, (chunk) => {
                 setDeployLogs(prev => prev + chunk);
             });
-            showToast('¡Variables de entorno actualizadas!', 'success');
+            showToast(t('websites.env.saved'), 'success');
             setShowEnvModal(false);
             setEditingSite(null); // Limpiar para que el modal de progreso se vea si se desea, o para resetear estado
 
@@ -359,7 +361,7 @@ const Websites = () => {
             }
         } catch (error) {
             console.error('Error saving env:', error);
-            showToast('Error al guardar variables', 'error');
+            showToast(t('websites.env.error'), 'error');
         } finally {
             setDeploying(false);
         }
@@ -367,16 +369,16 @@ const Websites = () => {
 
     const handleDelete = async (serverId: string, websiteId: string) => {
         setConfirmDialog({
-            message: '¿Estás seguro de que deseas eliminar este sitio web?',
+            message: t('websites.confirm.deleteSite'),
             onConfirm: async () => {
                 setConfirmDialog(null);
                 try {
                     await serverService.deleteWebsite(serverId, websiteId);
                     setWebsites(websites.filter(w => w.id !== websiteId));
-                    showToast('Sitio web eliminado correctamente.', 'success');
+                    showToast(t('websites.msg.deleted'), 'success');
                 } catch (error) {
                     console.error('Error eliminando sitio:', error);
-                    showToast('No se pudo eliminar el sitio web.', 'error');
+                    showToast(t('websites.msg.deleteError'), 'error');
                 }
             }
         });
@@ -388,18 +390,18 @@ const Websites = () => {
         }
         setViewingLogs(websiteId);
         setLogsSiteName(siteName);
-        setLogsContent((prev: any) => ({ ...prev, out: 'Cargando logs...', error: 'Cargando logs...', nginx: 'Cargando logs...' }));
+        setLogsContent((prev: any) => ({ ...prev, out: t('websites.logs.loading'), error: t('websites.logs.loading'), nginx: t('websites.logs.loading') }));
         setClosingLogsModal(false);
         try {
             const res = await serverService.getWebsiteLogs(serverId, websiteId);
             setLogsContent((prev: any) => ({
                 ...prev,
-                out: res.logs?.out || 'Logs de salida vacíos.',
-                error: res.logs?.error || 'Logs de errores vacíos.',
-                nginx: res.logs?.nginx || 'Logs de nginx vacíos.'
+                out: res.logs?.out || t('websites.logs.emptyOut'),
+                error: res.logs?.error || t('websites.logs.emptyErr'),
+                nginx: res.logs?.nginx || t('websites.logs.emptyNginx')
             }));
         } catch (error) {
-            setLogsContent((prev: any) => ({ ...prev, out: 'Error al obtener logs.', error: 'Error al obtener logs.', nginx: 'Error al obtener logs.' }));
+            setLogsContent((prev: any) => ({ ...prev, out: t('websites.logs.error'), error: t('websites.logs.error'), nginx: t('websites.logs.error') }));
         }
     };
 
@@ -412,47 +414,50 @@ const Websites = () => {
     };
 
     const handleRunDiagnostic = async (serverId: string) => {
-        setLogsContent((prev: any) => ({ ...prev, diag: 'Ejecutando diagnóstico del servidor...\n\n' }));
+        setLogsContent((prev: any) => ({ ...prev, diag: t('websites.logs.diagnosing') }));
+        // Los encabezados en mayúsculas se dejan en inglés a propósito: la salida
+        // real de docker/pm2/nginx también lo está. Solo se traducen los mensajes
+        // de fallback, que sí son texto nuestro.
         const diagCmd = `echo "=== DOCKER CONTAINERS ==="
 echo "---"
-sudo docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" 2>/dev/null || echo "Docker no instalado o sin contenedores."
+sudo docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" 2>/dev/null || echo "${t('websites.logs.diagNoDocker')}"
 echo ""
 echo "=== PM2 STATUS ==="
 echo "---"
-pm2 list 2>/dev/null || echo "PM2 no instalado."
+pm2 list 2>/dev/null || echo "${t('websites.logs.diagNoPm2')}"
 echo ""
 echo "=== NGINX CONFIG TEST ==="
 echo "---"
-sudo nginx -t 2>&1 || echo "Error en configuración de Nginx."
+sudo nginx -t 2>&1 || echo "${t('websites.logs.diagNginxError')}"
 echo ""
 echo "=== SSL CERTIFICATES (Let's Encrypt) ==="
 echo "---"
-sudo certbot certificates 2>/dev/null || echo "No se encontraron certificados de Certbot."
-ls -la /etc/nginx/sites-enabled/ || echo "No hay sitios habilitados en Nginx."
+sudo certbot certificates 2>/dev/null || echo "${t('websites.logs.diagNoCerts')}"
+ls -la /etc/nginx/sites-enabled/ || echo "${t('websites.logs.diagNoSites')}"
 echo ""
-echo "=== PUERTOS ABIERTOS ==="
+echo "=== ${t('websites.logs.diagPorts')} ==="
 echo "---"
-sudo netstat -tlnp | grep -E ':(80|443|3000)' || ss -tlnp | grep -E ':(80|443|3000)' || echo "No hay servicios escuchando en 80, 443 o 3000."
+sudo netstat -tlnp | grep -E ':(80|443|3000)' || ss -tlnp | grep -E ':(80|443|3000)' || echo "${t('websites.logs.diagNoPorts')}"
 echo ""
-echo "=== DIAGNÓSTICO COMPLETADO ==="`;
+echo "=== ${t('websites.logs.diagDone')} ==="`;
         try {
             const res = await serverService.executeCommand(serverId, diagCmd);
-            setLogsContent((prev: any) => ({ ...prev, diag: res.output || res.message || 'Sin resultado.' }));
+            setLogsContent((prev: any) => ({ ...prev, diag: res.output || res.message || t('websites.logs.noResult') }));
         } catch (error) {
-            setLogsContent((prev: any) => ({ ...prev, diag: 'Error ejecutando diagnóstico.' }));
+            setLogsContent((prev: any) => ({ ...prev, diag: t('websites.logs.diagnoseError') }));
         }
     };
 
     const handleDeployLatest = async (serverId: string, websiteId: string) => {
         setConfirmDialog({
-            message: '¿Obtener el último commit de tu repositorio y hacer un re-despliegue ahora mismo?',
+            message: t('websites.confirm.deployLatest'),
             onConfirm: async () => {
                 setConfirmDialog(null);
                 setDeployingSites(prev => ({ ...prev, [websiteId]: true }));
                 try {
                     const res = await serverService.deployLatestCommit(serverId, websiteId);
                     if (res.success) {
-                        showToast('¡Sitio reconstruido y actualizado exitosamente al último commit!', 'success');
+                        showToast(t('websites.msg.rebuilt'), 'success');
                         const commitRes = await serverService.getWebsiteCommit(serverId, websiteId);
                         if (commitRes.success && commitRes.commit) {
                             setCommits(prev => ({ ...prev, [websiteId]: commitRes.commit }));
@@ -460,11 +465,11 @@ echo "=== DIAGNÓSTICO COMPLETADO ==="`;
                             if (hash) persistAutoDeployedKey(`${websiteId}:${hash}`);
                         }
                     } else {
-                        showToast('Error al desplegar commit: ' + (res.message || 'Error desconocido'), 'error');
+                        showToast(t('websites.msg.deployLatestError') + ' ' + (res.message || t('websites.msg.unknownError')), 'error');
                     }
                 } catch (error) {
                     console.error('Error deploy latest:', error);
-                    showToast('Error al ejecutar el despliegue del último commit.', 'error');
+                    showToast(t('websites.msg.deployLatestError'), 'error');
                 } finally {
                     setDeployingSites(prev => ({ ...prev, [websiteId]: false }));
                 }
@@ -476,23 +481,23 @@ echo "=== DIAGNÓSTICO COMPLETADO ==="`;
         <div className="websites-container">
             <header className="page-header">
                 <div>
-                    <h1><MorphIcon icon={Globe} size={24} className="icon-blue" /> Gestión de Sitios Web</h1>
-                    <p className="text-muted">Despliega tus proyectos Node.js, React o estáticos fácilmente.</p>
+                    <h1><MorphIcon icon={Globe} size={24} className="icon-blue" /> {t('websites.title')}</h1>
+                    <p className="text-muted">{t('websites.subtitle')}</p>
                 </div>
                 {servers.length > 0 && (
                     <button className="btn-primary" onClick={() => setShowForm(true)}>
-                        <MorphIcon icon={Plus} size={16} /> Desplegar Proyecto
+                        <MorphIcon icon={Plus} size={16} /> {t('websites.deployProject')}
                     </button>
                 )}
             </header>
 
             {loading ? (
-                <div className="empty-state"><p>Cargando...</p></div>
+                <div className="empty-state"><p>{t('common.loading')}</p></div>
             ) : servers.length === 0 ? (
                 <div className="empty-state-list">
                     <div className="empty-icon">🖥️</div>
-                    <h3>No tienes servidores conectados</h3>
-                    <p className="text-muted">Para desplegar un sitio web, primero debes agregar un servidor en la sección de Instancias.</p>
+                    <h3>{t('websites.noServers')}</h3>
+                    <p className="text-muted">{t('websites.noServersDesc')}</p>
                     <button className="btn-primary" onClick={() => navigate('/dashboard/servers')}>
                         Ir a Servidores
                     </button>
@@ -500,12 +505,12 @@ echo "=== DIAGNÓSTICO COMPLETADO ==="`;
             ) : websites.length === 0 ? (
                 <div className="empty-state-list">
                     <div className="empty-icon"><MorphIcon icon={Globe} size={40} /></div>
-                    <h3>No hay sitios web desplegados</h3>
+                    <h3>{t('websites.empty')}</h3>
                     <p className="text-muted">
-                        Tienes {servers.length} servidor(es) listo(s). ¡Es hora de poner tu primera aplicación en línea!
+                        {t('websites.emptyDesc', { count: servers.length })}
                     </p>
                     <button className="btn-primary" onClick={() => setShowForm(true)}>
-                        <MorphIcon icon={Plus} size={16} /> Desplegar mi primer Proyecto
+                        <MorphIcon icon={Plus} size={16} /> {t('websites.deployFirst')}
                     </button>
                 </div>
             ) : (
@@ -525,8 +530,8 @@ echo "=== DIAGNÓSTICO COMPLETADO ==="`;
                                     {site.domain ? (
                                         <div className="meta-item"><MorphIcon icon={Globe} size={13} /> {site.domain}</div>
                                     ) : (
-                                        <div className="meta-item no-domain" onClick={() => handleEdit(site)} title="Clic para agregar dominio">
-                                            <MorphIcon icon={Globe} size={13} /> <span>Sin dominio</span>
+                                        <div className="meta-item no-domain" onClick={() => handleEdit(site)} title={t('websites.addDomainHint')}>
+                                            <MorphIcon icon={Globe} size={13} /> <span>{t('websites.noDomain')}</span>
                                         </div>
                                     )}
                                     {site.use_letsencrypt && site.domain && (
@@ -544,7 +549,7 @@ echo "=== DIAGNÓSTICO COMPLETADO ==="`;
                             <div className="website-commit-info">
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
                                     <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '5px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                                        <MorphIcon icon={GitCommit} size={12} /> Último Commit
+                                        <MorphIcon icon={GitCommit} size={12} /> {t('websites.lastCommit')}
                                         {checkingCommits[site.id] && (
                                             <span className="commit-checking-dots">
                                                 <span /><span /><span />
@@ -557,11 +562,11 @@ echo "=== DIAGNÓSTICO COMPLETADO ==="`;
                                         disabled={deployingSites[site.id]}
                                     >
                                         {deployingSites[site.id] ? (
-                                            <><MorphIcon icon={RefreshCw} size={11} className="spinning" /> Desplegando...</>
+                                            <><MorphIcon icon={RefreshCw} size={11} className="spinning" /> {t('websites.form.deploying')}</>
                                         ) : commits[site.id]?.isOutdated ? (
-                                            <><MorphIcon icon={CloudUpload} size={11} /> Actualizar Sitio</>
+                                            <><MorphIcon icon={CloudUpload} size={11} /> {t('websites.form.update')}</>
                                         ) : (
-                                            <><MorphIcon icon={CloudUpload} size={11} /> Desplegar Último</>
+                                            <><MorphIcon icon={CloudUpload} size={11} /> {t('websites.deployLatest')}</>
                                         )}
                                     </button>
                                 </div>
@@ -601,10 +606,10 @@ echo "=== DIAGNÓSTICO COMPLETADO ==="`;
                                 )}
                             </div>
                             <div className="website-actions">
-                                <button className="btn-action" onClick={() => handleViewLogs(site.server_id, site.id, site.name)} title="Ver Logs"><MorphIcon icon={Terminal} size={16} /></button>
-                                <button className="btn-action" onClick={() => handleOpenEnvModal(site)} title="Variables .env"><MorphIcon icon={Globe} size={16} /></button>
-                                <button className="btn-action" onClick={() => handleEdit(site)} title="Configuración"><MorphIcon icon={Settings} size={16} /></button>
-                                <button className="btn-action-danger" onClick={() => handleDelete(site.server_id, site.id)} title="Eliminar"><MorphIcon icon={X} size={16} /></button>
+                                <button className="btn-action" onClick={() => handleViewLogs(site.server_id, site.id, site.name)} title={t('websites.viewLogs')}><MorphIcon icon={Terminal} size={16} /></button>
+                                <button className="btn-action" onClick={() => handleOpenEnvModal(site)} title={t('websites.envVars')}><MorphIcon icon={Globe} size={16} /></button>
+                                <button className="btn-action" onClick={() => handleEdit(site)} title={t('websites.config')}><MorphIcon icon={Settings} size={16} /></button>
+                                <button className="btn-action-danger" onClick={() => handleDelete(site.server_id, site.id)} title={t('common.delete')}><MorphIcon icon={X} size={16} /></button>
                             </div>
                         </div>
                     ))}
@@ -622,10 +627,10 @@ echo "=== DIAGNÓSTICO COMPLETADO ==="`;
                                 </div>
                                 <div>
                                     <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 600, color: 'var(--text-main)' }}>
-                                        {editingSite ? `Editando: ${editingSite.name}` : 'Desplegar Proyecto'}
+                                        {editingSite ? `${editingSite.name}` : t('websites.deployProject')}
                                     </h3>
                                     <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-muted)' }}>
-                                        {editingSite ? 'Actualiza la configuración del sitio web.' : 'Configura y despliega en tu servidor VPS.'}
+                                        {editingSite ? t('websites.form.updateConfig') : t('websites.form.configureDeploy')}
                                     </p>
                                 </div>
                             </div>
@@ -638,68 +643,68 @@ echo "=== DIAGNÓSTICO COMPLETADO ==="`;
                                 <div className="form-section">
                                     <div className="form-row">
                                         <div className="form-group">
-                                            <label>Servidor</label>
+                                            <label>{t('websites.form.server')}</label>
                                             <select value={formData.serverId} onChange={(e) => setFormData({ ...formData, serverId: e.target.value })} required disabled={!!editingSite}>
-                                                <option value="" disabled>Seleccionar...</option>
+                                                <option value="" disabled>{t('websites.form.selectServer')}</option>
                                                 {servers.map(s => <option key={s.id} value={s.id}>{s.name} ({s.ip})</option>)}
                                             </select>
                                         </div>
                                         <div className="form-group">
-                                            <label>Nombre de la App</label>
-                                            <input type="text" placeholder="mi-app" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required />
+                                            <label>{t('websites.form.appName')}</label>
+                                            <input type="text" placeholder={t('websites.form.appNamePlaceholder')} value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required />
                                         </div>
                                     </div>
                                     <div className="form-group">
-                                        <label>Repositorio Git</label>
+                                        <label>{t('websites.form.gitRepo')}</label>
                                         {hasGithub ? (
                                             <select value={formData.repo} onChange={(e) => setFormData({ ...formData, repo: e.target.value })} required>
-                                                <option value="" disabled>Seleccionar repositorio...</option>
+                                                <option value="" disabled>{t('websites.form.selectRepo')}</option>
                                                 {githubRepos.map(r => <option key={r.id} value={r.clone_url}>{r.full_name}</option>)}
                                                 <option value="custom">↳ URL manual</option>
                                             </select>
                                         ) : null}
                                         {(!hasGithub || formData.repo === 'custom') && (
-                                            <input type="url" placeholder="https://github.com/usuario/repo.git" value={formData.repo === 'custom' ? '' : formData.repo} onChange={(e) => setFormData({ ...formData, repo: e.target.value })} required />
+                                            <input type="url" placeholder={t('websites.form.repoPlaceholder')} value={formData.repo === 'custom' ? '' : formData.repo} onChange={(e) => setFormData({ ...formData, repo: e.target.value })} required />
                                         )}
                                     </div>
                                 </div>
                                 <div className="form-section">
-                                    <h3>Comandos</h3>
+                                    <h3>{t('websites.form.commands')}</h3>
                                     <div className="form-row">
                                         <div className="form-group">
-                                            <label>Instalación</label>
+                                            <label>{t('websites.form.install')}</label>
                                             <input type="text" placeholder="npm install" value={formData.installCommand} onChange={(e) => setFormData({ ...formData, installCommand: e.target.value })} />
                                         </div>
                                         <div className="form-group">
-                                            <label>Build (opcional)</label>
+                                            <label>{t('websites.form.build')}</label>
                                             <input type="text" placeholder="npm run build" value={formData.buildCommand} onChange={(e) => setFormData({ ...formData, buildCommand: e.target.value })} />
                                         </div>
                                         <div className="form-group">
-                                            <label>Archivo de Entrada</label>
+                                            <label>{t('websites.form.entryFile')}</label>
                                             <input type="text" placeholder="index.js" value={formData.entryPoint} onChange={(e) => setFormData({ ...formData, entryPoint: e.target.value })} required />
                                         </div>
                                         <div className="form-group">
-                                            <label>Inicio (PM2)</label>
+                                            <label>{t('websites.form.start')}</label>
                                             <input type="text" placeholder="npm start" value={formData.startCommand} onChange={(e) => setFormData({ ...formData, startCommand: e.target.value })} />
                                         </div>
                                     </div>
                                 </div>
                                 <div className="form-section">
-                                    <h3>Red y Dominio</h3>
+                                    <h3>{t('websites.form.networkDomain')}</h3>
                                     <div className="form-row">
                                         <div className="form-group">
-                                            <label>Puerto</label>
+                                            <label>{t('websites.form.port')}</label>
                                             <input type="number" placeholder="3000" value={formData.port} onChange={(e) => setFormData({ ...formData, port: e.target.value })} required />
                                         </div>
                                         <div className="form-group">
-                                            <label>Dominio (opcional)</label>
-                                            <input type="text" placeholder="ejemplo.com" value={formData.domain} onChange={(e) => setFormData({ ...formData, domain: e.target.value })} />
+                                            <label>{t('websites.form.domain')}</label>
+                                            <input type="text" placeholder={t('websites.form.domainPlaceholder')} value={formData.domain} onChange={(e) => setFormData({ ...formData, domain: e.target.value })} />
                                         </div>
                                     </div>
                                     {formData.domain && formData.domain.trim() !== '' && formData.domain !== '_' && (
                                         <div className="form-group-checkbox" onClick={() => setFormData({ ...formData, useLetsEncrypt: !formData.useLetsEncrypt })}>
                                             <input type="checkbox" checked={formData.useLetsEncrypt} onChange={() => { }} />
-                                            <label>Habilitar Let's Encrypt (SSL gratis)</label>
+                                            <label>{t('websites.form.ssl')}</label>
                                         </div>
                                     )}
                                     {formData.domain && formData.domain.trim() !== '' && formData.domain !== '_' && (
@@ -710,7 +715,7 @@ echo "=== DIAGNÓSTICO COMPLETADO ==="`;
                                     )}
                                 </div>
                                 <div className="form-section" style={{ marginBottom: 0 }}>
-                                    <h3>Variables de Entorno</h3>
+                                    <h3>{t('websites.env.title')}</h3>
                                     <div className="form-group">
                                         <textarea
                                             rows={4}
@@ -720,7 +725,7 @@ echo "=== DIAGNÓSTICO COMPLETADO ==="`;
                                             onChange={(e) => setFormData({ ...formData, envVars: e.target.value })}
                                         />
                                         <span style={{ fontSize: '11px', color: 'var(--text-dim)', marginTop: '4px', display: 'block' }}>
-                                            Contenido de tu archivo .env — se aplica solo en el despliegue inicial.
+                                            {t('websites.envFileHint')}
                                         </span>
                                     </div>
                                 </div>
@@ -730,7 +735,7 @@ echo "=== DIAGNÓSTICO COMPLETADO ==="`;
                                     Cancelar
                                 </button>
                                 <button type="submit" className="btn-primary" disabled={deploying}>
-                                    {deploying ? 'Procesando...' : (editingSite ? 'Guardar Cambios' : 'Desplegar')}
+                                    {deploying ? t('servers.apps.processing') : (editingSite ? t('websites.env.save') : t('websites.form.deploy'))}
                                 </button>
                             </div>
                         </form>
@@ -768,9 +773,9 @@ echo "=== DIAGNÓSTICO COMPLETADO ==="`;
                             </div>
                         </div>
                         <div className="env-modal-footer">
-                            <button className="btn-secondary" onClick={() => setShowEnvModal(false)}>Cancelar</button>
+                            <button className="btn-secondary" onClick={() => setShowEnvModal(false)}>{t('common.cancel')}</button>
                             <button className="btn-primary" onClick={handleSaveEnv} disabled={deploying}>
-                                {deploying ? 'Guardando...' : 'Aplicar'}
+                                {deploying ? t('common.saving') : t('websites.confirm.apply')}
                             </button>
                         </div>
                     </div>
@@ -784,9 +789,9 @@ echo "=== DIAGNÓSTICO COMPLETADO ==="`;
                         <div className="site-deploy-modal-header">
                             <h3>
                                 {deploying ? (
-                                    <><div className="db-spinner" style={{ display: 'inline-block', marginRight: '10px' }}></div> Desplegando {formData.name || 'Proyecto'}...</>
+                                    <><div className="db-spinner" style={{ display: 'inline-block', marginRight: '10px' }}></div> {t('websites.deployingName', { name: formData.name || t('websites.defaultProject') })}</>
                                 ) : (
-                                    <>✅ ¡Despliegue Completado!</>
+                                    <>✅ {t('websites.deployDone')}</>
                                 )}
                             </h3>
                             {!deploying && (
@@ -799,7 +804,7 @@ echo "=== DIAGNÓSTICO COMPLETADO ==="`;
                                     <span className="dot" style={{ background: '#ff5f56' }}></span>
                                     <span className="dot" style={{ background: '#ffbd2e' }}></span>
                                     <span className="dot" style={{ background: '#27c93f' }}></span>
-                                    <span className="title">Terminal - Instalación</span>
+                                    <span className="title">{t('websites.terminalTitle')}</span>
                                 </div>
                                 <div className="site-deploy-logs console-scroll">
                                     {deployLogs}
@@ -838,11 +843,11 @@ echo "=== DIAGNÓSTICO COMPLETADO ==="`;
             {confirmDialog && (
                 <div className="site-deploy-modal-overlay">
                     <div className="confirm-modal-box">
-                        <h3>¿Estás seguro?</h3>
+                        <h3>{t('websites.confirm.areYouSure')}</h3>
                         <p>{confirmDialog.message}</p>
                         <div className="confirm-modal-actions">
-                            <button className="btn-ghost" onClick={() => setConfirmDialog(null)}>Cancelar</button>
-                            <button className="btn-primary" onClick={confirmDialog.onConfirm}>Confirmar Acción</button>
+                            <button className="btn-ghost" onClick={() => setConfirmDialog(null)}>{t('common.cancel')}</button>
+                            <button className="btn-primary" onClick={confirmDialog.onConfirm}>{t('websites.confirm.title')}</button>
                         </div>
                     </div>
                 </div>
@@ -863,11 +868,11 @@ echo "=== DIAGNÓSTICO COMPLETADO ==="`;
                                     <MorphIcon icon={Terminal} size={16} />
                                     <span className="logs-modal-name">{logsSiteName}</span>
                                     <span className="logs-modal-sep">—</span>
-                                    <span className="logs-modal-subtitle">Logs del Servidor</span>
+                                    <span className="logs-modal-subtitle">{t('websites.logs.title')}</span>
                                 </div>
                                 <div className="logs-modal-actions">
                                     {site && (
-                                        <button className="logs-refresh-btn" onClick={() => handleViewLogs(site.server_id, site.id, site.name)} title="Recargar logs">
+                                        <button className="logs-refresh-btn" onClick={() => handleViewLogs(site.server_id, site.id, site.name)} title={t('websites.reloadLogs')}>
                                             <MorphIcon icon={RotateCcw} size={14} />
                                         </button>
                                     )}
@@ -901,12 +906,12 @@ echo "=== DIAGNÓSTICO COMPLETADO ==="`;
                                     onClick={() => { setActiveLogTab('diag'); if (site) handleRunDiagnostic(site.server_id); }}
                                 >
                                     <span className="logs-tab-dot" style={{ background: '#f0883e' }}></span>
-                                    Diagnóstico
+                                    {t('websites.tabDiagnostic')}
                                 </button>
                             </div>
                             <div className="logs-modal-body">
                                 <pre className="logs-modal-pre" style={{ color: activeLogTab === 'error' ? '#ff7b72' : '#e6edf3' }}>
-                                    {typeof logsContent === 'string' ? logsContent : logsContent[activeLogTab] || 'No hay contenido para mostrar en esta pesta\u00f1a.'}
+                                    {typeof logsContent === 'string' ? logsContent : logsContent[activeLogTab] || t('websites.logs.noContent')}
                                 </pre>
                             </div>
                         </div>

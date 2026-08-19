@@ -10,6 +10,10 @@ export declare class RegisterDto {
     name: string;
     email: string;
     password: string;
+    avatar?: string;
+}
+export declare class UpdateAvatarDto {
+    avatar: string;
 }
 export declare class VerifyRegisterDto {
     email: string;

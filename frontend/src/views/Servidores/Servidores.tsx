@@ -6,6 +6,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { serverService } from '../../services/server.service';
 import type { CreateServerData } from '../../services/server.service';
 import { tokenStorage } from '../../services/tokenStorage';
+import { useT } from '../../i18n';
 import './Servidores.css';
 
 interface ServiceInfo {
@@ -16,6 +17,7 @@ interface ServiceInfo {
 
 const Servidores: React.FC = () => {
     const navigate = useNavigate();
+    const t = useT();
     const [showForm, setShowForm] = useState(false);
     const [selectedServer, setSelectedServer] = useState<CreateServerData | null>(null);
     const [services, setServices] = useState<ServiceInfo[]>([]);
@@ -90,7 +92,7 @@ const Servidores: React.FC = () => {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!tokenStorage.getToken()) {
-            alert('Error: No se encontró el usuario logueado');
+            alert(t('servers.noUser'));
             return;
         }
 
@@ -109,7 +111,7 @@ const Servidores: React.FC = () => {
             });
             loadServers();
         } catch (error) {
-            alert('Error: ' + (error as Error).message);
+            alert(t('servers.errorPrefix') + (error as Error).message);
         } finally {
             setLoading(false);
         }
@@ -155,19 +157,19 @@ const Servidores: React.FC = () => {
     const handleInstallService = async (serviceName: string) => {
         if (!selectedServer) return;
         setInstalling(serviceName);
-        setActionLogs(`Iniciando instalación de ${serviceName}...\n`);
+        setActionLogs(t('servers.startingInstall', { name: serviceName }));
         try {
             await serverService.installService(selectedServer.id!, serviceName, (chunk) => {
                 setActionLogs(prev => prev + chunk);
             });
-            alert(`${serviceName} instalado correctamente.`);
+            alert(t('servers.apps.installed', { name: serviceName }));
             // Recargar servicios
             const servicesData = await serverService.getServices(selectedServer.id!);
             setServices(servicesData);
             setActiveTab('services');
         } catch (error) {
             console.error(`Error instalando ${serviceName}:`, error);
-            alert(`Error al instalar ${serviceName}`);
+            alert(t('servers.apps.installError', { name: serviceName }));
         } finally {
             setInstalling(null);
             setActionLogs('');
@@ -176,20 +178,20 @@ const Servidores: React.FC = () => {
 
     const handleUninstallService = async (serviceName: string) => {
         if (!selectedServer) return;
-        if (!window.confirm(`¿Estás seguro de que quieres desinstalar ${serviceName}?`)) return;
+        if (!window.confirm(t('servers.apps.uninstallConfirm', { name: serviceName }))) return;
         setUninstalling(serviceName);
-        setActionLogs(`Iniciando desinstalación de ${serviceName}...\n`);
+        setActionLogs(t('servers.startingUninstall', { name: serviceName }));
         try {
             await serverService.uninstallService(selectedServer.id!, serviceName, (chunk) => {
                 setActionLogs(prev => prev + chunk);
             });
-            alert(`${serviceName} desinstalado correctamente.`);
+            alert(t('servers.apps.uninstalled', { name: serviceName }));
             // Recargar servicios
             const servicesData = await serverService.getServices(selectedServer.id!);
             setServices(servicesData);
         } catch (error) {
             console.error(`Error desinstalando ${serviceName}:`, error);
-            alert(`Error al desinstalar ${serviceName}`);
+            alert(t('servers.apps.uninstallError', { name: serviceName }));
         } finally {
             setUninstalling(null);
             setActionLogs('');
@@ -199,15 +201,15 @@ const Servidores: React.FC = () => {
     const handleUpdateSystem = async () => {
         if (!selectedServer) return;
         setUpdating(true);
-        setActionLogs('Iniciando actualización del sistema...\n');
+        setActionLogs(t('servers.update.starting'));
         try {
             await serverService.updateSystem(selectedServer.id!, (chunk) => {
                 setActionLogs(prev => prev + chunk);
             });
-            alert(`Sistema actualizado correctamente.`);
+            alert(t('servers.update.done'));
         } catch (error) {
             console.error(`Error actualizando el sistema:`, error);
-            alert(`Error al actualizar el sistema`);
+            alert(t('servers.update.error'));
         } finally {
             setUpdating(false);
             setActionLogs('');
@@ -233,11 +235,11 @@ const Servidores: React.FC = () => {
         <div className="servidores-container">
             <div className="header-actions">
                 <div>
-                    <h1><MorphIcon icon={Activity} size={24} style={{ marginRight: '10px', verticalAlign: 'middle' }} /> Mis Servidores</h1>
-                    <p className="text-muted">Gestiona y monitorea tu infraestructura en tiempo real</p>
+                    <h1><MorphIcon icon={Activity} size={24} style={{ marginRight: '10px', verticalAlign: 'middle' }} /> {t('servers.title')}</h1>
+                    <p className="text-muted">{t('servers.subtitle')}</p>
                 </div>
                 <button className="btn-primary" onClick={() => setShowForm(true)}>
-                    <span>+</span> Nuevo Servidor
+                    <span>+</span> {t('servers.newServer')}
                 </button>
             </div>
 
@@ -246,19 +248,19 @@ const Servidores: React.FC = () => {
                     <table className="servers-table">
                         <thead>
                             <tr>
-                                <th>Nombre / IP</th>
-                                <th>Estado</th>
-                                <th><MorphIcon icon={Cpu} size={14} /> CPU</th>
-                                <th><MorphIcon icon={Activity} size={14} /> RAM</th>
-                                <th><MorphIcon icon={HardDrive} size={14} /> Disco</th>
-                                <th><MorphIcon icon={Thermometer} size={14} /> Temp</th>
-                                <th style={{ textAlign: 'right' }}>Acciones</th>
+                                <th>{t('servers.table.nameIp')}</th>
+                                <th>{t('servers.table.status')}</th>
+                                <th><MorphIcon icon={Cpu} size={14} /> {t('servers.table.cpu')}</th>
+                                <th><MorphIcon icon={Activity} size={14} /> {t('servers.table.ram')}</th>
+                                <th><MorphIcon icon={HardDrive} size={14} /> {t('servers.table.disk')}</th>
+                                <th><MorphIcon icon={Thermometer} size={14} /> {t('servers.table.temp')}</th>
+                                <th style={{ textAlign: 'right' }}>{t('servers.table.actions')}</th>
                             </tr>
                         </thead>
                         <tbody>
                             {servers.map(server => (
                                 <tr key={server.id} className="server-row">
-                                    <td data-label="Nombre / IP" onClick={() => handleManageServer(server)} style={{ cursor: 'pointer' }}>
+                                    <td data-label={t('servers.table.nameIp')} onClick={() => handleManageServer(server)} style={{ cursor: 'pointer' }}>
                                         <div className="server-main-info">
                                             <span className="server-name">{server.name} <MorphIcon icon={ChevronRight} size={12} className="chevron" /></span>
                                             <code className="server-ip-mini">{server.ip}</code>
@@ -280,7 +282,7 @@ const Servidores: React.FC = () => {
                                             {server.status === 'provisioning' && (
                                                 <div className="provisioning-mini-status">
                                                     <div className="spinner-mini"></div>
-                                                    <span>{server.provisioningStep || 'Procesando...'}</span>
+                                                    <span>{server.provisioningStep || t('servers.apps.processing')}</span>
                                                 </div>
                                             )}
                                         </div>
@@ -344,11 +346,11 @@ const Servidores: React.FC = () => {
                                                         btn.classList.remove('spinning');
                                                     });
                                                 }}
-                                                title="Refrescar métricas"
+                                                title={t('servers.refreshMetrics')}
                                             >
                                                 <MorphIcon icon={RefreshCw} size={14} />
                                             </button>
-                                            <button className="btn-secondary btn-sm" onClick={() => handleManageServer(server)}>Gestionar</button>
+                                            <button className="btn-secondary btn-sm" onClick={() => handleManageServer(server)}>{t('servers.manage')}</button>
                                         </div>
                                     </td>
                                 </tr>
@@ -358,10 +360,10 @@ const Servidores: React.FC = () => {
                 ) : !loading && (
                     <div className="empty-state-list">
                         <div className="empty-icon">☁️</div>
-                        <h3>No hay servidores conectados</h3>
-                        <p>Agrega tu primer servidor VPS (AWS, Azure, DigitalOcean) para gestionar tu infraestructura de forma centralizada.</p>
+                        <h3>{t('servers.empty')}</h3>
+                        <p>{t('servers.emptyDesc')}</p>
                         <button className="btn-primary" onClick={() => setShowForm(true)}>
-                            <MorphIcon icon={Plus} size={16} /> Conectar mi primer Servidor
+                            <MorphIcon icon={Plus} size={16} /> {t('servers.connectFirst')}
                         </button>
                     </div>
                 )}
@@ -373,7 +375,7 @@ const Servidores: React.FC = () => {
                     <div className="server-detail-card">
                         <div className="detail-header">
                             <div>
-                                <h2><MorphIcon icon={Shield} size={20} className="icon-blue" /> Gestión de: {selectedServer.name}</h2>
+                                <h2><MorphIcon icon={Shield} size={20} className="icon-blue" /> {t('servers.manageOf', { name: selectedServer.name })}</h2>
                                 <p className="text-muted">{selectedServer.ip}</p>
                             </div>
                             <button className="btn-close" onClick={() => setSelectedServer(null)}>
@@ -386,19 +388,19 @@ const Servidores: React.FC = () => {
                                 className={`tab ${activeTab === 'stats' ? 'active' : ''}`}
                                 onClick={() => setActiveTab('stats')}
                             >
-                                Estadísticas
+                                {t('servers.tabStats')}
                             </div>
                             <div
                                 className={`tab ${activeTab === 'services' ? 'active' : ''}`}
                                 onClick={() => setActiveTab('services')}
                             >
-                                Servicios del Sistema
+                                {t('servers.tabServices')}
                             </div>
                             <div
                                 className={`tab ${activeTab === 'install' ? 'active' : ''}`}
                                 onClick={() => setActiveTab('install')}
                             >
-                                Instalador de Aplicaciones
+                                {t('servers.tabInstaller')}
                             </div>
                         </div>
 
@@ -408,7 +410,7 @@ const Servidores: React.FC = () => {
                                     <div className="stats-grid">
                                         <div className="stat-card">
                                             <div className="stat-header">
-                                                <h4><MorphIcon icon={Cpu} size={16} /> Uso de CPU</h4>
+                                                <h4><MorphIcon icon={Cpu} size={16} /> {t('servers.metrics.cpuUsage')}</h4>
                                                 <div className="stat-value-mini">{Number(selectedServer.cpuUsage || 0).toFixed(2)}%</div>
                                             </div>
                                             <div className="chart-container">
@@ -435,7 +437,7 @@ const Servidores: React.FC = () => {
                                         </div>
                                         <div className="stat-card">
                                             <div className="stat-header">
-                                                <h4><MorphIcon icon={Activity} size={16} /> Uso de RAM</h4>
+                                                <h4><MorphIcon icon={Activity} size={16} /> {t('servers.metrics.ramUsage')}</h4>
                                                 <div className="stat-value-mini">{Number(selectedServer.ramUsage || 0).toFixed(2)}%</div>
                                             </div>
                                             <div className="chart-container">
@@ -466,7 +468,7 @@ const Servidores: React.FC = () => {
                                         <div className="stat-box">
                                             <div className="stat-box-icon"><MorphIcon icon={HardDrive} size={20} className="icon-blue" /></div>
                                             <div className="stat-box-content">
-                                                <span className="stat-label">Almacenamiento (Disco)</span>
+                                                <span className="stat-label">{t('servers.metrics.diskUsage')}</span>
                                                 <span className="stat-number">{Number(selectedServer.diskUsage || 0).toFixed(1)}%</span>
                                                 <div className="stat-progress">
                                                     <div className="stat-progress-fill" style={{ width: `${Number(selectedServer.diskUsage || 0)}%`, backgroundColor: getMetricColor(Number(selectedServer.diskUsage || 0)) }}></div>
@@ -476,7 +478,7 @@ const Servidores: React.FC = () => {
                                         <div className="stat-box">
                                             <div className="stat-box-icon"><MorphIcon icon={Thermometer} size={20} className={selectedServer.temp && selectedServer.temp > 70 ? 'icon-red' : 'icon-green'} style={{ color: selectedServer.temp && selectedServer.temp > 70 ? '#f85149' : '#3fb950' }} /></div>
                                             <div className="stat-box-content">
-                                                <span className="stat-label">Temperatura del CPU</span>
+                                                <span className="stat-label">{t('servers.metrics.cpuTemp')}</span>
                                                 <span className="stat-number">{selectedServer.temp ? `${Number(selectedServer.temp).toFixed(1)}°C` : 'N/A'}</span>
                                                 <div className="stat-progress">
                                                     <div className="stat-progress-fill" style={{ width: `${selectedServer.temp ? Math.min(100, (selectedServer.temp / 100) * 100) : 0}%`, backgroundColor: selectedServer.temp && selectedServer.temp > 70 ? '#f85149' : '#3fb950' }}></div>
@@ -491,15 +493,15 @@ const Servidores: React.FC = () => {
                                 loadingServices ? (
                                     <div className="loading-state">
                                         <div className="spinner"></div>
-                                        <p>Cargando servicios vía SSH...</p>
+                                        <p>{t('servers.services.loading')}</p>
                                     </div>
                                 ) : services.length > 0 ? (
                                     <table className="services-table">
                                         <thead>
                                             <tr>
-                                                <th>Servicio</th>
-                                                <th>Estado</th>
-                                                <th style={{ textAlign: 'right' }}>Acciones</th>
+                                                <th>{t('servers.services.service')}</th>
+                                                <th>{t('servers.services.status')}</th>
+                                                <th style={{ textAlign: 'right' }}>{t('servers.table.actions')}</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -554,7 +556,7 @@ const Servidores: React.FC = () => {
                                         </tbody>
                                     </table>
                                 ) : (
-                                    <p className="empty-services">No se encontraron servicios activos.</p>
+                                    <p className="empty-services">{t('servers.services.none')}</p>
                                 )
                             )}
 
@@ -562,28 +564,28 @@ const Servidores: React.FC = () => {
                                 <div className="install-section">
                                     <div className="update-system-box" style={{ padding: '20px', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid var(--gh-border)' }}>
                                         <div>
-                                            <h3 style={{ margin: '0 0 5px 0', fontSize: '15px' }}>Actualizar Sistema Base</h3>
-                                            <p className="text-muted" style={{ margin: 0, fontSize: '13px' }}>Ejecutar update & upgrade para tener los paquetes al día.</p>
+                                            <h3 style={{ margin: '0 0 5px 0', fontSize: '15px' }}>{t('servers.update.title')}</h3>
+                                            <p className="text-muted" style={{ margin: 0, fontSize: '13px' }}>{t('servers.update.desc')}</p>
                                         </div>
                                         <button
                                             className="btn-secondary"
                                             onClick={handleUpdateSystem}
                                             disabled={updating || installing !== null || uninstalling !== null}
                                         >
-                                            {updating ? 'Actualizando...' : 'Actualizar Servidor'}
+                                            {updating ? t('servers.update.updating') : t('servers.update.button')}
                                         </button>
                                     </div>
 
-                                    <h3 style={{ fontSize: '14px', color: 'var(--text-dim)', textTransform: 'uppercase', marginBottom: '15px' }}>Catálogo de Aplicaciones</h3>
+                                    <h3 style={{ fontSize: '14px', color: 'var(--text-dim)', textTransform: 'uppercase', marginBottom: '15px' }}>{t('servers.apps.catalog')}</h3>
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
                                         {[
-                                            { name: 'Nginx', desc: 'Servidor Web / Reverse Proxy' },
-                                            { name: 'NodeJS', desc: 'Entorno de ejecución de JS' },
-                                            { name: 'PM2', desc: 'Gestor de procesos para Node' },
-                                            { name: 'Docker', desc: 'Plataforma para contenedores' },
-                                            { name: 'MySQL', desc: 'Sistema de Base de Datos' },
-                                            { name: 'PostgreSQL', desc: 'Sistema de Base de Datos Open Source' },
-                                            { name: 'Redis', desc: 'Almacén de estructura de datos en memoria' },
+                                            { name: 'Nginx', desc: t('servers.apps.desc.nginx') },
+                                            { name: 'NodeJS', desc: t('servers.apps.desc.nodejs') },
+                                            { name: 'PM2', desc: t('servers.apps.desc.pm2') },
+                                            { name: 'Docker', desc: t('servers.apps.desc.docker') },
+                                            { name: 'MySQL', desc: t('servers.apps.desc.mysql') },
+                                            { name: 'PostgreSQL', desc: t('servers.apps.desc.postgresql') },
+                                            { name: 'Redis', desc: t('servers.apps.desc.redis') },
                                         ].map(app => {
                                             const isInstalled = services.some(s => s.name.toLowerCase() === app.name.toLowerCase());
                                             return (
@@ -607,7 +609,7 @@ const Servidores: React.FC = () => {
                                                                 onClick={() => handleInstallService(app.name)}
                                                                 disabled={installing !== null || uninstalling !== null || updating}
                                                             >
-                                                                {installing === app.name ? 'Instalando...' : 'Instalar'}
+                                                                {installing === app.name ? t('servers.apps.installing') : t('servers.apps.install')}
                                                             </button>
                                                         ) : (
                                                             <button
@@ -616,7 +618,7 @@ const Servidores: React.FC = () => {
                                                                 onClick={() => handleUninstallService(app.name)}
                                                                 disabled={installing !== null || uninstalling !== null || updating}
                                                             >
-                                                                {uninstalling === app.name ? 'Desinstalando...' : 'Desinstalar'}
+                                                                {uninstalling === app.name ? t('servers.apps.uninstalling') : t('servers.apps.uninstall')}
                                                             </button>
                                                         )}
                                                     </div>
@@ -630,7 +632,7 @@ const Servidores: React.FC = () => {
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                                                 <h4 style={{ margin: 0, fontSize: '13px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                     <div className="spinner-mini"></div>
-                                                    {installing ? `Instalando ${installing}...` : uninstalling ? `Desinstalando ${uninstalling}...` : 'Actualizando Sistema...'}
+                                                    {installing ? t('servers.apps.installing') : uninstalling ? t('servers.apps.uninstalling') : t('servers.update.inProgress')}
                                                 </h4>
                                             </div>
                                             <pre className="mono" style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
@@ -655,8 +657,8 @@ const Servidores: React.FC = () => {
                                     <MorphIcon icon={Server} size={16} />
                                 </div>
                                 <div>
-                                    <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: 'var(--text-main)' }}>Agregar Servidor</h3>
-                                    <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-muted)' }}>Conecta un VPS a la plataforma</p>
+                                    <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: 'var(--text-main)' }}>{t('servers.addServer')}</h3>
+                                    <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-muted)' }}>{t('servers.connectVps')}</p>
                                 </div>
                             </div>
                             <button type="button" className="btn-close" onClick={() => setShowForm(false)}>
@@ -666,27 +668,27 @@ const Servidores: React.FC = () => {
                         <form onSubmit={handleSubmit} className="server-form-body">
                             <div className="server-conn-grid">
                                 <div className="form-group">
-                                    <label>Nombre del Servidor</label>
+                                    <label>{t('servers.form.serverName')}</label>
                                     <input
                                         type="text"
-                                        placeholder="Mi VPS"
+                                        placeholder={t('servers.form.serverNamePlaceholder')}
                                         value={formData.name}
                                         onChange={e => setFormData({ ...formData, name: e.target.value })}
                                         required
                                     />
                                 </div>
                                 <div className="form-group">
-                                    <label>Dirección IP o Hostname</label>
+                                    <label>{t('servers.form.ipOrHost')}</label>
                                     <input
                                         type="text"
-                                        placeholder="1.2.3.4 o ec2-52-15..."
+                                        placeholder={t('servers.form.ipPlaceholder')}
                                         value={formData.ip}
                                         onChange={e => setFormData({ ...formData, ip: e.target.value })}
                                         required
                                     />
                                 </div>
                                 <div className="form-group">
-                                    <label>Puerto SSH</label>
+                                    <label>{t('servers.form.sshPort')}</label>
                                     <input
                                         type="number"
                                         value={formData.sshPort}
@@ -695,7 +697,7 @@ const Servidores: React.FC = () => {
                                     />
                                 </div>
                                 <div className="form-group">
-                                    <label>Usuario SSH</label>
+                                    <label>{t('servers.form.sshUser')}</label>
                                     <input
                                         type="text"
                                         placeholder="root"
@@ -705,21 +707,21 @@ const Servidores: React.FC = () => {
                                     />
                                 </div>
                                 <div className="form-group full-width">
-                                    <label>Método de Autenticación</label>
+                                    <label>{t('servers.form.authMethod')}</label>
                                     <div className="auth-toggle">
                                         <div
                                             className={`auth-toggle-option ${formData.authType === 'key' ? 'active' : ''}`}
                                             onClick={() => setFormData({ ...formData, authType: 'key' })}
                                         >
                                             <MorphIcon icon={KeyRound} size={14} />
-                                            <span>Private Key</span>
+                                            <span>{t('servers.form.privateKey')}</span>
                                         </div>
                                         <div
                                             className={`auth-toggle-option ${formData.authType === 'password' ? 'active' : ''}`}
                                             onClick={() => setFormData({ ...formData, authType: 'password' })}
                                         >
                                             <MorphIcon icon={Lock} size={14} />
-                                            <span>Password</span>
+                                            <span>{t('servers.form.password')}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -727,7 +729,7 @@ const Servidores: React.FC = () => {
                                 {formData.authType === 'key' ? (
                                     <div className="form-group full-width">
                                         <div className="label-with-action">
-                                            <label>Private Key</label>
+                                            <label>{t('servers.form.privateKey')}</label>
                                             <label className="file-upload-link">
                                                 <MorphIcon icon={Upload} size={12} /> Cargar .pem
                                                 <input
@@ -750,7 +752,7 @@ const Servidores: React.FC = () => {
                                         <textarea
                                             rows={2}
                                             style={{ resize: 'none' }}
-                                            placeholder="-----BEGIN RSA PRIVATE KEY-----..."
+                                            placeholder={t('servers.form.privateKeyPlaceholder')}
                                             className="mono"
                                             value={formData.privateKey}
                                             onChange={e => setFormData({ ...formData, privateKey: e.target.value })}
@@ -759,7 +761,7 @@ const Servidores: React.FC = () => {
                                     </div>
                                 ) : (
                                     <div className="form-group full-width">
-                                        <label>Password</label>
+                                        <label>{t('servers.form.password')}</label>
                                         <input
                                             type="password"
                                             placeholder="••••••••"
@@ -776,7 +778,7 @@ const Servidores: React.FC = () => {
                                 Cancelar
                             </button>
                             <button type="button" className="btn-primary" onClick={handleSubmit} disabled={loading}>
-                                {loading ? 'Conectando...' : 'Conectar Servidor'}
+                                {loading ? t('servers.form.connecting') : t('servers.form.connectServer')}
                             </button>
                         </div>
                     </div>

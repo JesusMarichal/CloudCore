@@ -80,3 +80,21 @@ body {
 ::-webkit-scrollbar-thumb:hover {
     background: #484f58;
 }
+
+/* ── Tema claro del panel (lo activa el Dashboard en <html>) ──────────────── */
+html[data-cc-theme="light"] body {
+    background-color: #ffffff;
+    color: #1f2328;
+}
+
+html[data-cc-theme="light"] ::-webkit-scrollbar-track {
+    background: #f6f8fa;
+}
+
+html[data-cc-theme="light"] ::-webkit-scrollbar-thumb {
+    background: #d0d7de;
+}
+
+html[data-cc-theme="light"] ::-webkit-scrollbar-thumb:hover {
+    background: #afb8c1;
+}
