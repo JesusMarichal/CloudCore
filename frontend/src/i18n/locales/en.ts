@@ -678,6 +678,13 @@ export const en: Dictionary = {
             envHint: 'Variables for your .env file',
             copy: 'Copy',
             copied: 'Copied',
+            database: 'Database',
+            sectionParams: 'Connection parameters',
+            connectionString: 'Connection string',
+            showPassword: 'Show password',
+            hidePassword: 'Hide password',
+            copyValue: 'Copy value',
+            hostedOn: 'Hosted on',
         },
         msg: {
             scanFound: 'Found and registered {count} database(s) running on your servers.',

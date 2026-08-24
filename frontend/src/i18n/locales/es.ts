@@ -674,6 +674,13 @@ export const es = {
             envHint: 'Variables para tu archivo .env',
             copy: 'Copiar',
             copied: 'Copiado',
+            database: 'Base de datos',
+            sectionParams: 'Parámetros de conexión',
+            connectionString: 'Cadena de conexión',
+            showPassword: 'Mostrar contraseña',
+            hidePassword: 'Ocultar contraseña',
+            copyValue: 'Copiar valor',
+            hostedOn: 'Alojada en',
         },
         msg: {
             scanFound: 'Se encontraron y registraron {count} base(s) de datos montada(s) en tus servidores.',

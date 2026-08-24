@@ -734,217 +734,605 @@
     transform: translateY(-1px);
 }
 
-/* Connection Modal Overlay */
-.db-conn-modal-overlay {
+/* ── Panel lateral de datos de conexión ───────────────────────────────────
+   Drawer anclado a la derecha: el fondo se atenúa y el panel entra deslizando.
+   La cortina es la que centra el panel contra el borde derecho (flex-end),
+   así el panel solo se ocupa de su propio ancho y de su animación. */
+.db-conn-scrim {
     position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
+    inset: 0;
+    background: rgba(1, 4, 9, 0.58);
+    backdrop-filter: blur(3px);
+    display: flex;
+    justify-content: flex-end;
+    z-index: 1000;
+    animation: dbConnScrimIn 0.28s ease-out;
+}
+
+.db-conn-scrim.closing {
+    animation: dbConnScrimOut 0.26s ease-in forwards;
+}
+
+@keyframes dbConnScrimIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes dbConnScrimOut {
+    from { opacity: 1; }
+    to { opacity: 0; }
+}
+
+.db-conn-drawer {
+    /* Verde/ámbar/rojo del panel como tokens: los tonos vivos de GitHub Dark
+       no llegan a 4.5:1 sobre blanco, así que el tema claro los oscurece. */
+    --conn-ok: #3fb950;
+    --conn-ok-bg: rgba(63, 185, 80, 0.15);
+    --conn-ok-border: rgba(63, 185, 80, 0.4);
+    --conn-warn: #d29922;
+    --conn-danger: #f85149;
+    --conn-danger-bg: rgba(248, 81, 73, 0.12);
+    --conn-danger-border: rgba(248, 81, 73, 0.35);
+    --conn-accent-bg: rgba(0, 183, 181, 0.12);
+    --conn-accent-border: rgba(0, 183, 181, 0.3);
+    --conn-row-hover: rgba(255, 255, 255, 0.04);
+
+    display: flex;
+    flex-direction: column;
+    width: 470px;
+    max-width: 100vw;
     height: 100%;
-    background: rgba(0, 0, 0, 0.65);
-    backdrop-filter: blur(4px);
+    background: var(--gh-bg);
+    border-left: 1px solid var(--gh-border);
+    box-shadow: -28px 0 64px rgba(0, 0, 0, 0.42);
+    /* Curva de salida rápida y frenada larga: es lo que hace que el panel
+       se sienta "pesado" en vez de saltar a su sitio. */
+    animation: dbDrawerIn 0.38s cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: transform;
+}
+
+.dashboard-layout.theme-light .db-conn-drawer {
+    --conn-ok: #1a7f37;
+    --conn-ok-bg: rgba(26, 127, 55, 0.10);
+    --conn-ok-border: rgba(26, 127, 55, 0.32);
+    --conn-warn: #9a6700;
+    --conn-danger: #cf222e;
+    --conn-danger-bg: rgba(207, 34, 46, 0.08);
+    --conn-danger-border: rgba(207, 34, 46, 0.28);
+    --conn-accent-bg: rgba(1, 135, 144, 0.09);
+    --conn-accent-border: rgba(1, 135, 144, 0.28);
+    --conn-row-hover: rgba(31, 35, 40, 0.04);
+    box-shadow: -28px 0 64px rgba(140, 149, 159, 0.32);
+}
+
+.db-conn-drawer.closing {
+    animation: dbDrawerOut 0.26s cubic-bezier(0.55, 0, 0.65, 0.2) forwards;
+}
+
+@keyframes dbDrawerIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0.4;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes dbDrawerOut {
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateX(100%);
+        opacity: 0.4;
+    }
+}
+
+/* Cada bloque del cuerpo entra un pelín después que el anterior (--stagger).
+   Es el detalle que hace que el panel parezca "montarse" en vez de aparecer. */
+@keyframes dbConnRise {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Cabecera */
+.db-conn-drawer-header {
     display: flex;
     align-items: center;
-    justify-content: center;
-    z-index: 1000;
-    animation: dbConnFadeIn 0.2s ease-out;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 20px 22px 18px;
+    border-bottom: 1px solid var(--gh-border);
+    flex-shrink: 0;
 }
 
-@keyframes dbConnFadeIn {
-    from {
-        opacity: 0;
-    }
-
-    to {
-        opacity: 1;
-    }
+.db-conn-identity {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
 }
 
-@keyframes dbConnFadeOut {
-    from {
-        opacity: 1;
-    }
-
-    to {
-        opacity: 0;
-    }
+.db-conn-avatar {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    display: grid;
+    place-items: center;
+    font-size: 24px;
+    flex-shrink: 0;
+    background: var(--gh-canvas-subtle);
 }
 
-.db-conn-modal-overlay.closing {
-    animation: dbConnFadeOut 0.25s ease-in forwards;
+.db-conn-avatar.mysql {
+    background: rgba(0, 183, 181, 0.1);
 }
 
-.db-conn-modal {
-    background: var(--gh-canvas);
+.db-conn-avatar.postgres {
+    background: rgba(51, 103, 145, 0.12);
+}
+
+.db-conn-identity-text {
+    min-width: 0;
+}
+
+.db-conn-identity-text h3 {
+    margin: 0 0 5px;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-main);
+    letter-spacing: -0.2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.db-conn-identity-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.db-conn-identity-meta .db-engine-tag {
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-main);
+    background: var(--conn-row-hover);
     border: 1px solid var(--gh-border);
-    width: 480px;
-    max-width: 95vw;
-    animation: dbConnSlide 0.25s ease-out;
+}
+
+.db-conn-state {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+
+.db-conn-state.running {
+    color: var(--conn-ok);
+}
+
+.db-conn-state.deploying {
+    color: var(--conn-warn);
+}
+
+.db-conn-state.stopped {
+    color: var(--text-dim);
+}
+
+.db-conn-close {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+}
+
+.db-conn-close:hover {
+    background: var(--conn-danger-bg);
+    border-color: var(--conn-danger-border);
+    color: var(--conn-danger);
+}
+
+/* Franja del servidor que aloja la base de datos */
+.db-conn-host-strip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 11px 22px;
+    background: var(--gh-canvas-subtle);
+    border-bottom: 1px solid var(--gh-border);
+    font-size: 12px;
+    color: var(--text-muted);
+    flex-shrink: 0;
     overflow: hidden;
 }
 
-@keyframes dbConnSlide {
-    from {
-        opacity: 0;
-        transform: translateY(30px) scale(0.95);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateY(0) scale(1);
-    }
+.db-conn-host-label {
+    text-transform: uppercase;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.7px;
+    color: var(--text-dim);
 }
 
-@keyframes dbConnSlideOut {
-    from {
-        opacity: 1;
-        transform: translateY(0) scale(1);
-    }
-
-    to {
-        opacity: 0;
-        transform: translateY(20px) scale(0.96);
-    }
+.db-conn-host-strip strong {
+    color: var(--text-main);
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-.db-conn-modal.closing {
-    animation: dbConnSlideOut 0.25s ease-in forwards;
+.db-conn-host-strip code {
+    margin-left: auto;
+    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 11.5px;
+    color: var(--text-main);
+    background: var(--conn-row-hover);
+    border: 1px solid var(--gh-border);
+    border-radius: 5px;
+    padding: 2px 8px;
+    white-space: nowrap;
 }
 
-.db-conn-modal-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 20px 24px;
-    border-bottom: 1px solid var(--gh-border);
-    background: rgba(255, 255, 255, 0.02);
-}
-
-.db-conn-modal-body {
-    padding: 24px;
-}
-
-/* Connection Grid */
-.db-conn-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
-    margin-bottom: 24px;
-}
-
-.db-conn-item {
+/* Cuerpo desplazable */
+.db-conn-drawer-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 22px;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 24px;
 }
 
-.db-conn-label {
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--text-dim);
-    text-transform: uppercase;
-    letter-spacing: 0.8px;
+.db-conn-drawer-body::-webkit-scrollbar {
+    width: 8px;
 }
 
-.db-conn-value {
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--text-main);
-    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
-    background: rgba(255, 255, 255, 0.04);
-    padding: 8px 12px;
-    border: 1px solid var(--gh-border);
-    word-break: break-all;
+.db-conn-drawer-body::-webkit-scrollbar-track {
+    background: transparent;
 }
 
-/* Env Section */
-.db-conn-env-section {
-    margin-bottom: 16px;
+.db-conn-drawer-body::-webkit-scrollbar-thumb {
+    background: var(--gh-border);
+    border-radius: 4px;
 }
 
-.db-conn-env-header {
+.db-conn-drawer-body::-webkit-scrollbar-thumb:hover {
+    background: var(--text-dim);
+}
+
+.db-conn-section {
+    animation: dbConnRise 0.4s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+    animation-delay: calc(var(--stagger, 1) * 55ms + 90ms);
+}
+
+.db-conn-section-head {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 12px;
     margin-bottom: 10px;
 }
 
-.db-conn-env-header span {
-    font-size: 12px;
+.db-conn-section-title {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin: 0 0 10px;
+    font-size: 11px;
     font-weight: 700;
-    color: var(--text-muted);
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.9px;
+    color: var(--text-dim);
 }
 
-/* Copy Button */
+.db-conn-section-head .db-conn-section-title {
+    margin-bottom: 0;
+}
+
+/* Tabla de parámetros */
+.db-conn-fields {
+    border: 1px solid var(--gh-border);
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--gh-canvas-subtle);
+}
+
+.db-conn-field {
+    display: grid;
+    grid-template-columns: 118px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 12px;
+    border-bottom: 1px solid var(--gh-border);
+    transition: background 0.18s ease;
+}
+
+.db-conn-field:last-child {
+    border-bottom: none;
+}
+
+.db-conn-field:hover {
+    background: var(--conn-row-hover);
+}
+
+.db-conn-field-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+}
+
+.db-conn-field-value {
+    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-main);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.db-conn-field-value.masked {
+    color: var(--text-muted);
+    letter-spacing: 2px;
+}
+
+/* Las acciones se atenúan hasta que la fila recibe el cursor o el foco:
+   la vista queda limpia pero siguen siendo alcanzables por teclado. */
+.db-conn-field-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    opacity: 0.5;
+    transition: opacity 0.18s ease;
+}
+
+.db-conn-field:hover .db-conn-field-actions,
+.db-conn-field:focus-within .db-conn-field-actions {
+    opacity: 1;
+}
+
+.db-conn-icon-btn {
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+}
+
+.db-conn-icon-btn:hover {
+    background: var(--conn-accent-bg);
+    border-color: var(--conn-accent-border);
+    color: var(--primary);
+}
+
+.db-conn-icon-btn.ok {
+    background: var(--conn-ok-bg);
+    border-color: var(--conn-ok-border);
+    color: var(--conn-ok);
+}
+
+/* Cadena de conexión */
+.db-conn-uri {
+    display: block;
+    background: var(--gh-canvas-subtle);
+    border: 1px solid var(--gh-border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 12px;
+    line-height: 1.7;
+    color: var(--text-main);
+    word-break: break-all;
+}
+
+.db-conn-uri-scheme {
+    color: var(--text-main);
+    font-weight: 700;
+}
+
+/* Variables .env como pares clave/valor, no como volcado de consola:
+   misma superficie que la tabla de parámetros para que el panel lea igual
+   en tema claro y en oscuro. */
+.db-conn-env-list {
+    border: 1px solid var(--gh-border);
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--gh-canvas-subtle);
+}
+
+.db-conn-env-row {
+    display: grid;
+    grid-template-columns: auto auto minmax(0, 1fr);
+    align-items: baseline;
+    gap: 6px;
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--gh-border);
+    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 12.5px;
+}
+
+.db-conn-env-row:last-child {
+    border-bottom: none;
+}
+
+.db-conn-env-key {
+    color: var(--text-main);
+    font-weight: 700;
+}
+
+.db-conn-env-eq {
+    color: var(--text-dim);
+}
+
+.db-conn-env-val {
+    color: var(--text-main);
+    word-break: break-all;
+}
+
+.db-conn-env-val.masked {
+    color: var(--text-muted);
+    letter-spacing: 2px;
+}
+
+/* Botón de copiar de sección */
 .db-conn-copy-btn {
     display: flex;
     align-items: center;
     gap: 6px;
-    padding: 6px 14px;
+    padding: 5px 12px;
     border: 1px solid var(--gh-border);
-    background: rgba(255, 255, 255, 0.04);
+    border-radius: 6px;
+    background: var(--gh-canvas-subtle);
     color: var(--text-muted);
-    font-size: 12px;
+    font-size: 11.5px;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
 }
 
 .db-conn-copy-btn:hover {
-    background: rgba(56, 139, 253, 0.12);
+    background: var(--conn-accent-bg);
     border-color: var(--primary);
     color: var(--primary);
 }
 
 .db-conn-copy-btn.copied {
-    background: rgba(63, 185, 80, 0.15);
-    border-color: #3fb950;
-    color: #3fb950;
+    background: var(--conn-ok-bg);
+    border-color: var(--conn-ok-border);
+    color: var(--conn-ok);
 }
 
-.db-connection-pre {
-    background: #0d1117;
-    color: #7ee787;
-    padding: 14px 18px;
-    font-size: 12.5px;
-    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
-    line-height: 2;
-    margin: 0;
-    white-space: pre-wrap;
-    word-break: break-all;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    letter-spacing: 0.3px;
-}
-
-/* Hint */
+/* Aviso */
 .db-conn-hint {
     display: flex;
     align-items: flex-start;
     gap: 10px;
     padding: 12px 14px;
-    background: rgba(56, 139, 253, 0.06);
-    border: 1px solid rgba(56, 139, 253, 0.15);
+    border-radius: 8px;
+    background: var(--conn-accent-bg);
+    border: 1px solid var(--conn-accent-border);
     border-left: 3px solid var(--primary);
+    animation: dbConnRise 0.4s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+    animation-delay: calc(var(--stagger, 1) * 55ms + 90ms);
 }
 
 .db-conn-hint-icon {
     font-size: 16px;
     flex-shrink: 0;
-    margin-top: 1px;
+    line-height: 1.3;
 }
 
 .db-conn-hint p {
     margin: 0;
     font-size: 12px;
-    color: var(--text-muted);
-    line-height: 1.5;
+    color: var(--text-main);
+    line-height: 1.6;
 }
 
+.db-conn-hint b,
 .db-conn-hint strong {
-    color: var(--primary);
+    color: var(--text-main);
+    font-weight: 700;
 }
+
+/* Pie */
+.db-conn-drawer-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 22px;
+    border-top: 1px solid var(--gh-border);
+    background: var(--gh-canvas-subtle);
+    flex-shrink: 0;
+}
+
+/* En el pie el enlace a phpMyAdmin convive con "Cerrar", asi que se comporta
+   como un boton secundario mas: mismo alto, superficie neutra y texto normal.
+   El degradado teal de `.db-admin-link` se queda solo en la tarjeta. */
+.db-conn-drawer-footer .db-admin-link {
+    padding: 6px 14px;
+    border-radius: 6px;
+    background: var(--gh-bg);
+    border: 1px solid var(--gh-border);
+    color: var(--text-main);
+    font-size: 13px;
+    font-weight: 500;
+    box-shadow: none;
+}
+
+.db-conn-drawer-footer .db-admin-link:hover {
+    background: var(--conn-row-hover);
+    border-color: var(--text-dim);
+    transform: none;
+    box-shadow: none;
+}
+
+@media (max-width: 560px) {
+    .db-conn-drawer {
+        width: 100%;
+    }
+
+    .db-conn-field {
+        grid-template-columns: minmax(0, 1fr) auto;
+        row-gap: 4px;
+    }
+
+    .db-conn-field-label {
+        grid-column: 1 / -1;
+    }
+
+    .db-conn-field-actions {
+        opacity: 1;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+    .db-conn-scrim,
+    .db-conn-scrim.closing,
+    .db-conn-drawer,
+    .db-conn-drawer.closing,
+    .db-conn-section,
+    .db-conn-hint {
+        animation: none;
+    }
+}
+
 /* Header actions (buscar BD existentes + nueva BD) */
 .db-header-actions {
     display: flex;

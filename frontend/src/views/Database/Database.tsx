@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { serverService } from '../../services/server.service';
 import type { CreateServerData } from '../../services/server.service';
 import { tokenStorage } from '../../services/tokenStorage';
-import { Database as DatabaseIcon, Plus, Play, Square, RotateCcw, Trash2, ExternalLink, Eye, EyeOff, X, HardDrive, Copy, Check, Link, Search, CheckCircle2 } from 'lucide';
+import { Database as DatabaseIcon, Plus, Play, Square, RotateCcw, Trash2, ExternalLink, Eye, EyeOff, X, HardDrive, Copy, Check, Link, Search, CheckCircle2, Server, KeyRound, Terminal } from 'lucide';
 import { MorphIcon } from 'morphicons/react';
 import { useT } from '../../i18n';
 import './Database.css';
@@ -35,6 +35,35 @@ interface DbFormData {
     adminPort: string; // phpMyAdmin port for MySQL
 }
 
+// El contenedor publica el puerto en el propio VPS, asi que las apps que
+// corren en esa maquina se conectan por loopback y no por la IP publica.
+const DB_LOCAL_HOST = '127.0.0.1';
+
+const buildEnvFile = (db: DatabaseInstance) => (
+    db.engine === 'mysql'
+        ? `DB_HOST=${DB_LOCAL_HOST}
+DB_PORT=${db.port}
+DB_USERNAME=${db.dbUser}
+DB_PASSWORD=${db.dbPassword}
+DB_DATABASE=${db.dbName}`
+        : `DATABASE_HOST=${DB_LOCAL_HOST}
+DATABASE_PORT=${db.port}
+DATABASE_USER=${db.dbUser}
+DATABASE_PASSWORD=${db.dbPassword}
+DATABASE_NAME=${db.dbName}`
+);
+
+const SECRET_MASK = '••••••••';
+
+// La contrasena va codificada: un '@' o un ':' sin escapar parte la URI.
+// `maskPassword` solo afecta a lo que se pinta; lo que se copia siempre es real.
+const buildConnectionUri = (db: DatabaseInstance, maskPassword = false) => {
+    const scheme = db.engine === 'mysql' ? 'mysql' : 'postgresql';
+    const user = encodeURIComponent(db.dbUser);
+    const pass = maskPassword ? SECRET_MASK : encodeURIComponent(db.dbPassword);
+    return `${scheme}://${user}:${pass}@${DB_LOCAL_HOST}:${db.port}/${db.dbName}`;
+};
+
 const DatabaseView = () => {
     const navigate = useNavigate();
     const t = useT();
@@ -47,7 +76,10 @@ const DatabaseView = () => {
     const [actionLoading, setActionLoading] = useState<string | null>(null);
     const [showPasswords, setShowPasswords] = useState<{ [key: string]: boolean }>({});
     const [connectionModal, setConnectionModal] = useState<DatabaseInstance | null>(null);
-    const [copied, setCopied] = useState(false);
+    // Una clave por campo copiable: asi el check de "copiado" se enciende solo
+    // en la fila que el usuario acaba de pulsar, no en todas a la vez.
+    const [copiedKey, setCopiedKey] = useState<string | null>(null);
+    const [connPasswordVisible, setConnPasswordVisible] = useState(false);
     const [closingConnModal, setClosingConnModal] = useState(false);
     const [scanning, setScanning] = useState(false);
     const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' | 'info' } | null>(null);
@@ -62,7 +94,24 @@ const DatabaseView = () => {
         setTimeout(() => {
             setConnectionModal(null);
             setClosingConnModal(false);
-        }, 250);
+        }, 280);
+    };
+
+    const openConnectionModal = (db: DatabaseInstance) => {
+        setConnectionModal(db);
+        setCopiedKey(null);
+        setConnPasswordVisible(false);
+        setClosingConnModal(false);
+    };
+
+    const copyValue = async (key: string, value: string) => {
+        try {
+            await navigator.clipboard.writeText(value);
+        } catch {
+            return;
+        }
+        setCopiedKey(key);
+        setTimeout(() => setCopiedKey(prev => (prev === key ? null : prev)), 2000);
     };
 
     const logsEndRef = useRef<HTMLDivElement>(null);
@@ -109,6 +158,16 @@ const DatabaseView = () => {
             logsEndRef.current.scrollIntoView({ behavior: 'smooth' });
         }
     }, [deployLogs]);
+
+    // Escape cierra el panel lateral, como cualquier drawer del sistema.
+    useEffect(() => {
+        if (!connectionModal) return;
+        const onKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') closeConnectionModal();
+        };
+        window.addEventListener('keydown', onKeyDown);
+        return () => window.removeEventListener('keydown', onKeyDown);
+    }, [connectionModal]);
 
     const handleEngineChange = (engine: 'mysql' | 'postgres') => {
         setFormData(prev => ({
@@ -344,7 +403,7 @@ const DatabaseView = () => {
                                             <div className="db-info-item db-info-connect">
                                                 <button
                                                     className="db-connect-btn"
-                                                    onClick={() => { setConnectionModal(db); setCopied(false); setClosingConnModal(false); }}
+                                                    onClick={() => openConnectionModal(db)}
                                                 >
                                                     <MorphIcon icon={Link} size={14} />
                                                     {t('databases.credentials.connectionData')}
@@ -560,78 +619,199 @@ const DatabaseView = () => {
                     </div>
                 </div>
             )}
-            {/* Connection Info Modal */}
-            {connectionModal && (
-                <div className={`db-conn-modal-overlay ${closingConnModal ? 'closing' : ''}`} onClick={closeConnectionModal}>
-                    <div className={`db-conn-modal ${closingConnModal ? 'closing' : ''}`} onClick={(e) => e.stopPropagation()}>
-                        <div className="db-conn-modal-header">
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                <div className={`db-engine-icon ${connectionModal.engine}`} style={{ width: '36px', height: '36px', fontSize: '20px' }}>
-                                    {connectionModal.engine === 'mysql' ? '🐬' : '🐘'}
+            {/* Panel lateral de datos de conexion */}
+            {connectionModal && (() => {
+                const db = connectionModal;
+                const envFile = buildEnvFile(db);
+                const envRows = envFile.split('\n').map(line => {
+                    const eq = line.indexOf('=');
+                    return { key: line.slice(0, eq), value: line.slice(eq + 1) };
+                });
+                const uri = buildConnectionUri(db);
+                const uriShown = buildConnectionUri(db, !connPasswordVisible);
+                const adminUrl = getAdminUrl(db);
+                const engineLabel = db.engine === 'mysql' ? 'MySQL' : 'PostgreSQL';
+                const fields = [
+                    { key: 'host', label: t('databases.credentials.host'), value: DB_LOCAL_HOST },
+                    { key: 'port', label: t('databases.form.port'), value: db.port },
+                    { key: 'dbname', label: t('databases.credentials.database'), value: db.dbName },
+                    { key: 'user', label: t('databases.form.user'), value: db.dbUser },
+                    { key: 'password', label: t('databases.form.password'), value: db.dbPassword, secret: true },
+                ];
+
+                return (
+                    <div
+                        className={`db-conn-scrim ${closingConnModal ? 'closing' : ''}`}
+                        onClick={closeConnectionModal}
+                    >
+                        <aside
+                            className={`db-conn-drawer ${closingConnModal ? 'closing' : ''}`}
+                            onClick={(e) => e.stopPropagation()}
+                            role="dialog"
+                            aria-modal="true"
+                            aria-label={t('databases.credentials.connectionData')}
+                        >
+                            <header className="db-conn-drawer-header">
+                                <div className="db-conn-identity">
+                                    <div className={`db-conn-avatar ${db.engine}`}>
+                                        {db.engine === 'mysql' ? '🐬' : '🐘'}
+                                    </div>
+                                    <div className="db-conn-identity-text">
+                                        <h3>{db.name}</h3>
+                                        <div className="db-conn-identity-meta">
+                                            <span className={`db-engine-tag ${db.engine}`}>{engineLabel}</span>
+                                            <span className={`db-conn-state ${db.status}`}>
+                                                <span className="db-status-dot"></span>
+                                                {db.status === 'running'
+                                                    ? t('databases.active')
+                                                    : db.status === 'deploying'
+                                                        ? t('databases.deploying')
+                                                        : t('databases.stopped')}
+                                            </span>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div>
-                                    <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700 }}>{t('databases.credentials.connectionData')}</h3>
-                                    <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-muted)' }}>{connectionModal.name} • {connectionModal.engine === 'mysql' ? 'MySQL' : 'PostgreSQL'}</p>
+                                <button
+                                    className="db-conn-close"
+                                    onClick={closeConnectionModal}
+                                    aria-label={t('common.close')}
+                                >
+                                    <MorphIcon icon={X} size={18} />
+                                </button>
+                            </header>
+
+                            <div className="db-conn-host-strip">
+                                <MorphIcon icon={Server} size={14} />
+                                <span className="db-conn-host-label">{t('databases.credentials.hostedOn')}</span>
+                                <strong>{db.serverName}</strong>
+                                <code>{db.serverIp}</code>
+                            </div>
+
+                            <div className="db-conn-drawer-body">
+                                <section className="db-conn-section" style={{ '--stagger': 1 } as React.CSSProperties}>
+                                    <h4 className="db-conn-section-title">
+                                        <MorphIcon icon={KeyRound} size={13} />
+                                        {t('databases.credentials.sectionParams')}
+                                    </h4>
+                                    <div className="db-conn-fields">
+                                        {fields.map(field => {
+                                            const hidden = field.secret && !connPasswordVisible;
+                                            return (
+                                                <div className="db-conn-field" key={field.key}>
+                                                    <span className="db-conn-field-label">{field.label}</span>
+                                                    <span className={`db-conn-field-value ${hidden ? 'masked' : ''}`}>
+                                                        {hidden ? '•'.repeat(Math.min(field.value.length || 8, 18)) : field.value}
+                                                    </span>
+                                                    <div className="db-conn-field-actions">
+                                                        {field.secret && (
+                                                            <button
+                                                                className="db-conn-icon-btn"
+                                                                onClick={() => setConnPasswordVisible(v => !v)}
+                                                                title={connPasswordVisible
+                                                                    ? t('databases.credentials.hidePassword')
+                                                                    : t('databases.credentials.showPassword')}
+                                                                aria-label={connPasswordVisible
+                                                                    ? t('databases.credentials.hidePassword')
+                                                                    : t('databases.credentials.showPassword')}
+                                                            >
+                                                                <MorphIcon icon={connPasswordVisible ? EyeOff : Eye} size={14} spring="snappy" />
+                                                            </button>
+                                                        )}
+                                                        <button
+                                                            className={`db-conn-icon-btn ${copiedKey === field.key ? 'ok' : ''}`}
+                                                            onClick={() => copyValue(field.key, field.value)}
+                                                            title={t('databases.credentials.copyValue')}
+                                                            aria-label={t('databases.credentials.copyValue')}
+                                                        >
+                                                            <MorphIcon icon={copiedKey === field.key ? Check : Copy} size={14} spring="snappy" />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </section>
+
+                                <section className="db-conn-section" style={{ '--stagger': 2 } as React.CSSProperties}>
+                                    <div className="db-conn-section-head">
+                                        <h4 className="db-conn-section-title">
+                                            <MorphIcon icon={Link} size={13} />
+                                            {t('databases.credentials.connectionString')}
+                                        </h4>
+                                        <button
+                                            className={`db-conn-copy-btn ${copiedKey === 'uri' ? 'copied' : ''}`}
+                                            onClick={() => copyValue('uri', uri)}
+                                        >
+                                            {copiedKey === 'uri'
+                                                ? <><MorphIcon icon={Check} size={13} /> {t('databases.credentials.copied')}</>
+                                                : <><MorphIcon icon={Copy} size={13} /> {t('databases.credentials.copy')}</>}
+                                        </button>
+                                    </div>
+                                    <code className="db-conn-uri">
+                                        <span className="db-conn-uri-scheme">{uriShown.slice(0, uriShown.indexOf('://') + 3)}</span>
+                                        {uriShown.slice(uriShown.indexOf('://') + 3)}
+                                    </code>
+                                </section>
+
+                                <section className="db-conn-section" style={{ '--stagger': 3 } as React.CSSProperties}>
+                                    <div className="db-conn-section-head">
+                                        <h4 className="db-conn-section-title">
+                                            <MorphIcon icon={Terminal} size={13} />
+                                            {t('databases.credentials.envHint')}
+                                        </h4>
+                                        <button
+                                            className={`db-conn-copy-btn ${copiedKey === 'env' ? 'copied' : ''}`}
+                                            onClick={() => copyValue('env', envFile)}
+                                        >
+                                            {copiedKey === 'env'
+                                                ? <><MorphIcon icon={Check} size={13} /> {t('databases.credentials.copied')}</>
+                                                : <><MorphIcon icon={Copy} size={13} /> {t('databases.credentials.copy')}</>}
+                                        </button>
+                                    </div>
+                                    <div className="db-conn-env-list">
+                                        {envRows.map(row => {
+                                            const secret = row.key.endsWith('PASSWORD') && !connPasswordVisible;
+                                            return (
+                                                <div className="db-conn-env-row" key={row.key}>
+                                                    <span className="db-conn-env-key">{row.key}</span>
+                                                    <span className="db-conn-env-eq">=</span>
+                                                    <span className={`db-conn-env-val ${secret ? 'masked' : ''}`}>
+                                                        {secret ? SECRET_MASK : row.value}
+                                                    </span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </section>
+
+                                <div className="db-conn-hint" style={{ '--stagger': 4 } as React.CSSProperties}>
+                                    <span className="db-conn-hint-icon">💡</span>
+                                    {/* El HTML sale de nuestros archivos de idioma (constantes en
+                                        el bundle), nunca de datos del usuario ni del servidor. */}
+                                    <p dangerouslySetInnerHTML={{ __html: t('databases.credentials.hostHintFull') }} />
                                 </div>
                             </div>
-                            <button className="btn-close" onClick={closeConnectionModal}><MorphIcon icon={X} size={18} /></button>
-                        </div>
-                        <div className="db-conn-modal-body">
-                            <div className="db-conn-grid">
-                                <div className="db-conn-item">
-                                    <span className="db-conn-label">{t('databases.credentials.host')}</span>
-                                    <span className="db-conn-value">127.0.0.1</span>
-                                </div>
-                                <div className="db-conn-item">
-                                    <span className="db-conn-label">{t('databases.form.port')}</span>
-                                    <span className="db-conn-value">{connectionModal.port}</span>
-                                </div>
-                                <div className="db-conn-item">
-                                    <span className="db-conn-label">{t('databases.form.engine')}</span>
-                                    <span className="db-conn-value">{connectionModal.dbName}</span>
-                                </div>
-                                <div className="db-conn-item">
-                                    <span className="db-conn-label">{t('databases.form.user')}</span>
-                                    <span className="db-conn-value">{connectionModal.dbUser}</span>
-                                </div>
-                                <div className="db-conn-item" style={{ gridColumn: '1 / -1' }}>
-                                    <span className="db-conn-label">{t('databases.form.password')}</span>
-                                    <span className="db-conn-value">{connectionModal.dbPassword}</span>
-                                </div>
-                            </div>
-                            <div className="db-conn-env-section">
-                                <div className="db-conn-env-header">
-                                    <span>{t('databases.credentials.envHint')}</span>
-                                    <button
-                                        className={`db-conn-copy-btn ${copied ? 'copied' : ''}`}
-                                        onClick={() => {
-                                            const envText = connectionModal.engine === 'mysql'
-                                                ? `DB_HOST=127.0.0.1\nDB_PORT=${connectionModal.port}\nDB_USERNAME=${connectionModal.dbUser}\nDB_PASSWORD=${connectionModal.dbPassword}\nDB_DATABASE=${connectionModal.dbName}`
-                                                : `DATABASE_HOST=127.0.0.1\nDATABASE_PORT=${connectionModal.port}\nDATABASE_USER=${connectionModal.dbUser}\nDATABASE_PASSWORD=${connectionModal.dbPassword}\nDATABASE_NAME=${connectionModal.dbName}`;
-                                            navigator.clipboard.writeText(envText);
-                                            setCopied(true);
-                                            setTimeout(() => setCopied(false), 2500);
-                                        }}
+
+                            <footer className="db-conn-drawer-footer">
+                                {adminUrl ? (
+                                    <a
+                                        href={adminUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="db-admin-link"
                                     >
-                                        {copied ? <><MorphIcon icon={Check} size={13} /> {t('databases.credentials.copied')}</> : <><MorphIcon icon={Copy} size={13} /> {t('databases.credentials.copy')}</>}
-                                    </button>
-                                </div>
-                                <pre className="db-connection-pre">{
-                                    connectionModal.engine === 'mysql'
-                                        ? `DB_HOST=127.0.0.1\nDB_PORT=${connectionModal.port}\nDB_USERNAME=${connectionModal.dbUser}\nDB_PASSWORD=${connectionModal.dbPassword}\nDB_DATABASE=${connectionModal.dbName}`
-                                        : `DATABASE_HOST=127.0.0.1\nDATABASE_PORT=${connectionModal.port}\nDATABASE_USER=${connectionModal.dbUser}\nDATABASE_PASSWORD=${connectionModal.dbPassword}\nDATABASE_NAME=${connectionModal.dbName}`
-                                }</pre>
-                            </div>
-                            <div className="db-conn-hint">
-                                <span className="db-conn-hint-icon">💡</span>
-                                {/* El HTML sale de nuestros archivos de idioma (constantes en
-                                    el bundle), nunca de datos del usuario ni del servidor. */}
-                                <p dangerouslySetInnerHTML={{ __html: t('databases.credentials.hostHintFull') }} />
-                            </div>
-                        </div>
+                                        <MorphIcon icon={ExternalLink} size={14} />
+                                        phpMyAdmin
+                                    </a>
+                                ) : <span />}
+                                <button className="btn-secondary" onClick={closeConnectionModal}>
+                                    {t('common.close')}
+                                </button>
+                            </footer>
+                        </aside>
                     </div>
-                </div>
-            )}
+                );
+            })()}
 
             {toast && (
                 <div className={`modern-toast toast-${toast.type}`}>
