@@ -25,13 +25,23 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
             password: process.env.DB_PASSWORD || process.env.SUPABASE_BASE_DE_DATOS,
             ssl: { rejectUnauthorized: false },
             max: 20,
-            idleTimeoutMillis: 120000,
+            // Neon corta las conexiones ociosas por su cuenta. Reciclarlas antes
+            // (30s) evita quedarnos con sockets que el servidor ya dio por muertos.
+            idleTimeoutMillis: 30000,
             connectionTimeoutMillis: 60000,
             allowExitOnIdle: true,
             keepAlive: true,
             keepAliveInitialDelayMillis: 10000,
             statement_timeout: 60000,
             application_name: 'cloudcore_engine'
+        });
+
+        // Sin este listener, un corte de una conexion ociosa (Neon las cierra:
+        // ECONNRESET / "Connection terminated unexpectedly") emite un evento
+        // 'error' sin manejar en el Pool y Node tumba todo el proceso.
+        // El pool descarta ese cliente y abre otro solo; basta con registrarlo.
+        this.pool.on('error', (err) => {
+            this.logger.warn(`Conexion ociosa del pool cerrada por el servidor: ${err.message}`);
         });
     }
 
