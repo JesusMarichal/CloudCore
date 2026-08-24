@@ -1,8 +1,30 @@
 .database-container {
+    /* Superficies y colores de estado como tokens. En claro los verdes/rojos
+       vivos de GitHub Dark no llegan a 4.5:1 sobre blanco, y los velos
+       `rgba(255,255,255,...)` desaparecen: ambos se redefinen abajo. */
+    --db-surface: var(--card-bg);
+    --db-veil: rgba(255, 255, 255, 0.025);
+    --db-veil-strong: rgba(255, 255, 255, 0.05);
+    --db-shadow: rgba(0, 0, 0, 0.35);
+    --db-ok: #3fb950;
+    --db-warn: #d29922;
+    --db-danger: #f85149;
+    --db-accent-veil: rgba(0, 183, 181, 0.1);
+
     padding: 32px;
     max-width: 1000px;
     margin: 0 auto;
     animation: dbFadeIn 0.5s ease-out;
+}
+
+.dashboard-layout.theme-light .database-container {
+    --db-veil: rgba(31, 35, 40, 0.03);
+    --db-veil-strong: rgba(31, 35, 40, 0.06);
+    --db-shadow: rgba(140, 149, 159, 0.22);
+    --db-ok: #1a7f37;
+    --db-warn: #9a6700;
+    --db-danger: #cf222e;
+    --db-accent-veil: rgba(1, 135, 144, 0.09);
 }
 
 @keyframes dbFadeIn {
@@ -45,25 +67,27 @@
 }
 
 .db-card {
-    background: #161b22;
+    background: var(--db-surface);
     border: 1px solid var(--gh-border);
-    border-radius: 0;
+    border-radius: 12px;
     overflow: hidden;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
 }
 
 .db-card:hover {
     border-color: var(--primary);
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 6px 20px var(--db-shadow);
+    transform: translateY(-1px);
 }
 
 .db-card-header {
-    padding: 12px 16px;
+    padding: 14px 16px;
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 12px;
     border-bottom: 1px solid var(--gh-border);
-    background: rgba(255, 255, 255, 0.02);
+    background: var(--db-veil);
 }
 
 .db-card-header-left {
@@ -72,26 +96,16 @@
     gap: 14px;
 }
 
+/* El emoji del motor es un identificador visual, no un boton: va suelto,
+   sin caja ni borde. El ancho fijo solo mantiene alineados los titulos. */
 .db-engine-icon {
     width: 32px;
-    height: 32px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 18px;
-    border-radius: 0;
-}
-
-.db-engine-icon.mysql {
-    background: rgba(0, 120, 212, 0.1);
-    border: 1px solid rgba(0, 120, 212, 0.2);
-    color: #00B7B5;
-}
-
-.db-engine-icon.postgres {
-    background: rgba(59, 130, 246, 0.1);
-    border: 1px solid rgba(59, 130, 246, 0.2);
-    color: #018790;
+    font-size: 26px;
+    line-height: 1;
+    flex-shrink: 0;
 }
 
 .db-card-title h3 {
@@ -110,23 +124,15 @@
 }
 
 .db-card-subtitle .db-engine-tag {
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--db-veil-strong);
+    border: 1px solid var(--gh-border);
+    color: var(--text-main);
     padding: 2px 8px;
     border-radius: 10px;
-    font-weight: 600;
+    font-weight: 700;
     text-transform: uppercase;
     font-size: 10px;
     letter-spacing: 0.5px;
-}
-
-.db-card-subtitle .db-engine-tag.mysql {
-    color: #00B7B5;
-    border: 1px solid rgba(0, 120, 212, 0.2);
-}
-
-.db-card-subtitle .db-engine-tag.postgres {
-    color: #018790;
-    border: 1px solid rgba(59, 130, 246, 0.2);
 }
 
 .db-card-actions {
@@ -183,21 +189,21 @@
 }
 
 .db-status-badge.running {
-    background: rgba(63, 185, 80, 0.1);
-    color: #3fb950;
-    border: 1px solid rgba(63, 185, 80, 0.2);
+    background: color-mix(in srgb, var(--db-ok) 12%, transparent);
+    color: var(--db-ok);
+    border: 1px solid color-mix(in srgb, var(--db-ok) 30%, transparent);
 }
 
 .db-status-badge.stopped {
-    background: rgba(248, 81, 73, 0.1);
-    color: #f85149;
-    border: 1px solid rgba(248, 81, 73, 0.2);
+    background: color-mix(in srgb, var(--db-danger) 12%, transparent);
+    color: var(--db-danger);
+    border: 1px solid color-mix(in srgb, var(--db-danger) 30%, transparent);
 }
 
 .db-status-badge.deploying {
-    background: rgba(210, 153, 34, 0.1);
-    color: #d29922;
-    border: 1px solid rgba(210, 153, 34, 0.2);
+    background: color-mix(in srgb, var(--db-warn) 14%, transparent);
+    color: var(--db-warn);
+    border: 1px solid color-mix(in srgb, var(--db-warn) 32%, transparent);
 }
 
 .db-status-dot {
@@ -212,23 +218,21 @@
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    padding: 8px 16px;
-    background: linear-gradient(135deg, rgba(0, 183, 181, 0.12) 0%, rgba(0, 183, 181, 0.05) 100%);
-    border: 1px solid rgba(0, 183, 181, 0.25);
-    color: var(--primary);
+    padding: 7px 14px;
+    background: var(--db-veil-strong);
+    border: 1px solid var(--gh-border);
+    color: var(--text-main);
     font-size: 13px;
-    font-weight: 600;
+    font-weight: 500;
     text-decoration: none;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: background 0.2s ease, border-color 0.2s ease;
     cursor: pointer;
-    border-radius: 0;
+    border-radius: 8px;
 }
 
 .db-admin-link:hover {
-    background: linear-gradient(135deg, rgba(0, 183, 181, 0.2) 0%, rgba(0, 183, 181, 0.1) 100%);
+    background: var(--db-accent-veil);
     border-color: var(--primary);
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0, 183, 181, 0.2);
 }
 
 .db-admin-link svg {
@@ -241,11 +245,11 @@
 
 /* Form styles */
 .db-form-card {
-    background: var(--gh-canvas-subtle);
+    background: var(--db-surface);
     border: 1px solid var(--gh-border);
-    border-radius: 0;
+    border-radius: 12px;
     padding: 32px;
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 12px 40px var(--db-shadow);
     animation: dbFadeIn 0.3s ease;
 }
 
@@ -280,16 +284,16 @@
     align-items: center;
     gap: 10px;
     padding: 20px;
-    background: rgba(255, 255, 255, 0.02);
+    background: var(--db-veil);
     border: 2px solid var(--gh-border);
-    border-radius: 0;
+    border-radius: 12px;
     cursor: pointer;
     transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .db-engine-option:hover {
     border-color: var(--text-muted);
-    background: rgba(255, 255, 255, 0.04);
+    background: var(--db-veil-strong);
 }
 
 .db-engine-option.selected {
@@ -315,16 +319,16 @@
 }
 
 .db-form-section {
-    background: rgba(255, 255, 255, 0.01);
+    background: var(--db-veil);
     border: 1px solid var(--gh-border);
-    border-radius: 0;
+    border-radius: 12px;
     padding: 24px;
     margin-bottom: 24px;
 }
 
 .db-form-section h3 {
     font-size: 14px;
-    color: var(--primary);
+    color: var(--text-main);
     text-transform: uppercase;
     letter-spacing: 0.5px;
     margin-bottom: 16px;
@@ -364,11 +368,11 @@
 
 /* Action Buttons */
 .db-btn-action {
-    width: 36px;
-    height: 36px;
-    border-radius: 0;
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
     border: 1px solid var(--gh-border);
-    background: rgba(255, 255, 255, 0.03);
+    background: var(--db-veil);
     color: var(--text-muted);
     display: flex;
     align-items: center;
@@ -383,27 +387,22 @@
 }
 
 .db-btn-action.start:hover {
-    color: #3fb950;
-    border-color: #3fb950;
-    background: rgba(63, 185, 80, 0.1);
+    color: var(--db-ok);
+    border-color: var(--db-ok);
+    background: color-mix(in srgb, var(--db-ok) 12%, transparent);
 }
 
-.db-btn-action.stop:hover {
-    color: #f85149;
-    border-color: #f85149;
-    background: rgba(248, 81, 73, 0.1);
+.db-btn-action.stop:hover,
+.db-btn-action.delete:hover {
+    color: var(--db-danger);
+    border-color: var(--db-danger);
+    background: color-mix(in srgb, var(--db-danger) 12%, transparent);
 }
 
 .db-btn-action.restart:hover {
     color: var(--primary);
     border-color: var(--primary);
-    background: rgba(0, 183, 181, 0.1);
-}
-
-.db-btn-action.delete:hover {
-    color: #f85149;
-    border-color: #f85149;
-    background: rgba(248, 81, 73, 0.15);
+    background: var(--db-accent-veil);
 }
 
 /* Credentials section */
@@ -418,10 +417,10 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    background: rgba(255, 255, 255, 0.04);
+    background: var(--db-veil-strong);
     border: 1px solid var(--gh-border);
     padding: 4px 10px;
-    border-radius: 0;
+    border-radius: 6px;
     font-size: 12px;
     font-family: 'JetBrains Mono', monospace;
     color: var(--text-muted);
@@ -443,9 +442,9 @@
     justify-content: center;
     padding: 80px 40px;
     text-align: center;
-    background: rgba(255, 255, 255, 0.01);
+    background: var(--db-veil);
     border: 1px dashed var(--gh-border);
-    border-radius: 0;
+    border-radius: 12px;
 }
 
 .db-empty-icon {
@@ -512,7 +511,7 @@
     border: 1px solid var(--gh-border);
     color: var(--text-muted);
     padding: 4px 10px;
-    border-radius: 0;
+    border-radius: 6px;
     cursor: pointer;
     font-size: 11px;
     font-weight: 600;
@@ -532,7 +531,7 @@
 /* phpMyAdmin card footer */
 .db-card-footer {
     padding: 10px 16px;
-    background: rgba(255, 255, 255, 0.015);
+    background: var(--db-veil);
     border-top: 1px solid var(--gh-border);
     display: flex;
     justify-content: space-between;
@@ -601,7 +600,7 @@
 }
 
 .db-deploy-modal {
-    background: #161b22;
+    background: var(--db-surface);
     border: 1px solid var(--gh-border);
     border-radius: 8px;
     width: 90%;
@@ -618,7 +617,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: rgba(255, 255, 255, 0.02);
+    background: var(--db-veil);
 }
 
 .db-deploy-modal-header h3 {
@@ -702,7 +701,7 @@
     display: flex;
     justify-content: flex-end;
     gap: 12px;
-    background: rgba(255, 255, 255, 0.02);
+    background: var(--db-veil);
 }
 
 /* Connection Info Button */
@@ -716,22 +715,21 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    background: rgba(56, 139, 253, 0.08);
-    border: 1px solid rgba(56, 139, 253, 0.25);
-    color: var(--primary);
+    background: var(--db-veil-strong);
+    border: 1px solid var(--gh-border);
+    border-radius: 8px;
+    color: var(--text-main);
     font-size: 12px;
     font-weight: 600;
     padding: 8px 14px;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: background 0.2s ease, border-color 0.2s ease;
     letter-spacing: 0.2px;
 }
 
 .db-connect-btn:hover {
-    background: rgba(56, 139, 253, 0.18);
+    background: var(--db-accent-veil);
     border-color: var(--primary);
-    color: #00B7B5;
-    transform: translateY(-1px);
 }
 
 /* ── Panel lateral de datos de conexión ───────────────────────────────────
@@ -863,22 +861,12 @@
 }
 
 .db-conn-avatar {
-    width: 42px;
-    height: 42px;
-    border-radius: 10px;
+    width: 38px;
     display: grid;
     place-items: center;
-    font-size: 24px;
+    font-size: 31px;
+    line-height: 1;
     flex-shrink: 0;
-    background: var(--gh-canvas-subtle);
-}
-
-.db-conn-avatar.mysql {
-    background: rgba(0, 183, 181, 0.1);
-}
-
-.db-conn-avatar.postgres {
-    background: rgba(51, 103, 145, 0.12);
 }
 
 .db-conn-identity-text {
@@ -1288,18 +1276,7 @@
     padding: 6px 14px;
     border-radius: 6px;
     background: var(--gh-bg);
-    border: 1px solid var(--gh-border);
-    color: var(--text-main);
     font-size: 13px;
-    font-weight: 500;
-    box-shadow: none;
-}
-
-.db-conn-drawer-footer .db-admin-link:hover {
-    background: var(--conn-row-hover);
-    border-color: var(--text-dim);
-    transform: none;
-    box-shadow: none;
 }
 
 @media (max-width: 560px) {
@@ -1376,10 +1353,10 @@
     gap: 12px;
     padding: 12px 16px;
     border: 1px solid var(--gh-border);
-    background: #161b22;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    background: var(--db-surface);
+    box-shadow: 0 8px 24px var(--db-shadow);
     max-width: 340px;
-    border-radius: 0;
+    border-radius: 10px;
     animation: toastSlide 0.2s ease-out;
 }
 
