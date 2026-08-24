@@ -12,6 +12,8 @@ export declare class ServerController {
     private assertDatabaseOwnership;
     findAll(userId: string): Promise<Server[]>;
     create(userId: string, serverDto: CreateServerDto): Promise<Server>;
+    private createProvisioningTracker;
+    getProvisioning(id: string, userId: string): Promise<any>;
     deleteServer(id: string, userId: string): Promise<any>;
     refreshHealth(id: string, userId: string): Promise<any>;
     getServices(id: string, userId: string): Promise<any[]>;

@@ -15,6 +15,12 @@ export interface CreateServerData {
     userId?: string;
     status?: string;
     provisioningStep?: string;
+    provisioningStepKey?: string;
+    provisioningIndex?: number;
+    provisioningTotal?: number;
+    provisioningPercent?: number;
+    provisioningDetail?: string;
+    provisioningStartedAt?: string;
     cpuUsage?: number;
     ramUsage?: number;
     diskUsage?: number;
@@ -23,6 +29,21 @@ export interface CreateServerData {
 
 
 
+
+export interface ProvisioningStatus {
+    status: string;
+    step: string | null;
+    stepKey: string | null;
+    index: number;
+    total: number;
+    percent: number;
+    detail: string;
+    log: string;
+    startedAt: string | null;
+    finishedAt: string | null;
+    elapsedSeconds: number;
+    steps: { key: string; name: string }[];
+}
 
 const cache: Record<string, { value: any; expiry: number }> = {};
 const CACHE_TTL = 3 * 60 * 1000; // 3 minutos
@@ -69,6 +90,13 @@ export const serverService = {
             if (!response.ok) return [];
             return response.json();
         }, 5000);
+    },
+
+    // Progreso del aprovisionamiento. Sin caché: es un seguimiento en vivo.
+    async getProvisioning(id: string): Promise<ProvisioningStatus | null> {
+        const response = await authFetch(`${API_URL}/${id}/provisioning`);
+        if (!response.ok) return null;
+        return response.json();
     },
 
     async deleteServer(id: string) {

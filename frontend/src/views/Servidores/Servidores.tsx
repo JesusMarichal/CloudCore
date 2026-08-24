@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { RefreshCw, Play, Square, RotateCcw, Activity, Shield, Cpu, HardDrive, Thermometer, ChevronRight, X, KeyRound, Lock, Upload, Server } from 'lucide';
+import { RefreshCw, Play, Square, RotateCcw, Activity, Shield, Cpu, HardDrive, Thermometer, ChevronRight, X, KeyRound, Lock, Upload, Server, Check, TriangleAlert, Terminal, Clock, Rocket, Trash2 } from 'lucide';
 import { MorphIcon } from 'morphicons/react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { serverService } from '../../services/server.service';
-import type { CreateServerData } from '../../services/server.service';
+import type { CreateServerData, ProvisioningStatus } from '../../services/server.service';
 import { tokenStorage } from '../../services/tokenStorage';
 import { useT } from '../../i18n';
 import './Servidores.css';
@@ -31,6 +31,11 @@ const Servidores: React.FC = () => {
     const [metricsHistory, setMetricsHistory] = useState<Record<string, { time: string, cpu: number, ram: number }[]>>({});
 
     const [servers, setServers] = useState<CreateServerData[]>([]);
+    // Seguimiento en vivo del aprovisionamiento (se abre solo al conectar un servidor nuevo)
+    const [provServer, setProvServer] = useState<CreateServerData | null>(null);
+    const [provStatus, setProvStatus] = useState<ProvisioningStatus | null>(null);
+    const [showProvLog, setShowProvLog] = useState(false);
+    const provLogEndRef = useRef<HTMLDivElement>(null);
     const [formData, setFormData] = useState<CreateServerData>({
         name: '',
         ip: '',
@@ -42,6 +47,11 @@ const Servidores: React.FC = () => {
     });
     const [loading, setLoading] = useState(false);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
+    const [deletingId, setDeletingId] = useState<string | null>(null);
+    // El borrado limpia recursos remotos por SSH y puede tardar más que el
+    // intervalo de refresco; un ref (y no el estado) para que el setInterval,
+    // que captura la primera versión de loadServers, vea el valor actual.
+    const deletingIdRef = useRef<string | null>(null);
 
     const loadServers = async () => {
         if (!tokenStorage.getToken()) {
@@ -51,7 +61,10 @@ const Servidores: React.FC = () => {
 
         try {
             const data = await serverService.list();
-            setServers(data);
+            // No reinsertar el servidor que se está eliminando
+            setServers(deletingIdRef.current
+                ? data.filter((s: CreateServerData) => s.id !== deletingIdRef.current)
+                : data);
         } catch (error) {
             console.error('Error cargando servidores:', error);
         }
@@ -62,6 +75,58 @@ const Servidores: React.FC = () => {
         const interval = setInterval(loadServers, 5000);
         return () => clearInterval(interval);
     }, []);
+
+    // Mientras el panel de aprovisionamiento esté abierto, refrescamos cada 2s
+    // (más rápido que la lista general) para que el log se vea casi en vivo.
+    useEffect(() => {
+        if (!provServer?.id) return;
+        let cancelled = false;
+
+        const poll = async () => {
+            try {
+                const data = await serverService.getProvisioning(provServer.id!);
+                if (!cancelled && data) setProvStatus(data);
+            } catch (error) {
+                console.error('Error consultando el progreso del aprovisionamiento:', error);
+            }
+        };
+
+        poll();
+        const id = setInterval(poll, 2000);
+        return () => { cancelled = true; clearInterval(id); };
+    }, [provServer?.id]);
+
+    // Auto-scroll del log en vivo
+    useEffect(() => {
+        if (showProvLog) provLogEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [provStatus?.log, showProvLog]);
+
+    const openProvisioning = (server: CreateServerData) => {
+        setProvServer(server);
+        setProvStatus(null);
+        setShowProvLog(false);
+    };
+
+    const closeProvisioning = () => {
+        setProvServer(null);
+        setProvStatus(null);
+        setShowProvLog(false);
+        loadServers();
+    };
+
+    // Nombre traducido del paso: usamos la `key` estable del backend y caemos
+    // al texto que envía el servidor si algún día se añade un paso sin traducir.
+    const stepLabel = (key?: string | null, fallback?: string | null) => {
+        if (!key) return fallback || t('servers.provisioning.preparing');
+        const translated = t(`servers.provisioning.steps.${key}`);
+        return translated.startsWith('servers.provisioning.steps.') ? (fallback || key) : translated;
+    };
+
+    const formatElapsed = (seconds: number) => {
+        const m = Math.floor(seconds / 60);
+        const sec = seconds % 60;
+        return `${m}:${String(sec).padStart(2, '0')}`;
+    };
 
     useEffect(() => {
         setMetricsHistory(prev => {
@@ -98,8 +163,11 @@ const Servidores: React.FC = () => {
 
         setLoading(true);
         try {
-            await serverService.create(formData);
+            const created = await serverService.create(formData);
             setShowForm(false);
+            // Abrimos el seguimiento en vivo: el aprovisionamiento tarda varios
+            // minutos y el usuario debe ver qué está pasando en su servidor.
+            if (created?.id) openProvisioning(created);
             setFormData({
                 name: '',
                 ip: '',
@@ -216,6 +284,39 @@ const Servidores: React.FC = () => {
         }
     };
 
+    // Eliminar un servidor. El backend limpia primero los recursos remotos
+    // (contenedores, sitios, Nginx) y luego borra en cascada en la base de datos,
+    // así que la petición puede tardar: mantenemos la fila en estado "eliminando".
+    const handleDeleteServer = async (server: CreateServerData) => {
+        if (!server.id) return;
+        if (!window.confirm(t('dashboard.deleteConfirm', { name: server.name }))) return;
+
+        setDeletingId(server.id);
+        deletingIdRef.current = server.id;
+        try {
+            await serverService.deleteServer(server.id);
+            setServers(prev => prev.filter(s => s.id !== server.id));
+            // Cerrar los paneles que estuvieran mostrando ese servidor
+            if (selectedServer?.id === server.id) setSelectedServer(null);
+            if (provServer?.id === server.id) {
+                setProvServer(null);
+                setProvStatus(null);
+            }
+            setMetricsHistory(prev => {
+                const next = { ...prev };
+                delete next[server.id!];
+                return next;
+            });
+        } catch (error) {
+            console.error('Error eliminando el servidor:', error);
+            alert(t('dashboard.deleteError'));
+        } finally {
+            setDeletingId(null);
+            deletingIdRef.current = null;
+            loadServers();
+        }
+    };
+
     const getStatusColor = (status: string) => {
         switch (status) {
             case 'online': return '#3fb950';
@@ -280,10 +381,33 @@ const Servidores: React.FC = () => {
                                                 {server.status}
                                             </span>
                                             {server.status === 'provisioning' && (
-                                                <div className="provisioning-mini-status">
-                                                    <div className="spinner-mini"></div>
-                                                    <span>{server.provisioningStep || t('servers.apps.processing')}</span>
-                                                </div>
+                                                <button
+                                                    type="button"
+                                                    className="provisioning-chip"
+                                                    onClick={(e) => { e.stopPropagation(); openProvisioning(server); }}
+                                                    title={t('servers.provisioning.viewDetail')}
+                                                >
+                                                    <div className="prov-chip-head">
+                                                        <div className="spinner-mini"></div>
+                                                        <span className="prov-chip-step">
+                                                            {stepLabel(server.provisioningStepKey, server.provisioningStep)}
+                                                        </span>
+                                                        <span className="prov-chip-count">
+                                                            {server.provisioningIndex && server.provisioningTotal
+                                                                ? `${server.provisioningIndex}/${server.provisioningTotal}`
+                                                                : ''}
+                                                        </span>
+                                                    </div>
+                                                    <div className="prov-chip-bar">
+                                                        <div
+                                                            className="prov-chip-fill"
+                                                            style={{ width: `${Math.min(100, Number(server.provisioningPercent) || 0)}%` }}
+                                                        ></div>
+                                                    </div>
+                                                    {server.provisioningDetail && (
+                                                        <span className="prov-chip-detail">{server.provisioningDetail}</span>
+                                                    )}
+                                                </button>
                                             )}
                                         </div>
                                     </td>
@@ -351,6 +475,20 @@ const Servidores: React.FC = () => {
                                                 <MorphIcon icon={RefreshCw} size={14} />
                                             </button>
                                             <button className="btn-secondary btn-sm" onClick={() => handleManageServer(server)}>{t('servers.manage')}</button>
+                                            <button
+                                                className="btn-icon delete-btn"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleDeleteServer(server);
+                                                }}
+                                                disabled={deletingId === server.id}
+                                                title={t('servers.deleteServer')}
+                                                aria-label={t('servers.deleteServer')}
+                                            >
+                                                {deletingId === server.id
+                                                    ? <div className="spinner-mini"></div>
+                                                    : <MorphIcon icon={Trash2} size={14} />}
+                                            </button>
                                         </div>
                                     </td>
                                 </tr>
@@ -365,6 +503,137 @@ const Servidores: React.FC = () => {
                     </div>
                 )}
             </div>
+
+            {/* Seguimiento en vivo del aprovisionamiento */}
+            {provServer && (() => {
+                const steps = provStatus?.steps || [];
+                const total = provStatus?.total || steps.length || 0;
+                const current = provStatus?.index || 0;
+                const percent = Math.min(100, provStatus?.percent ?? 0);
+                const failed = provStatus?.stepKey === 'error' || provStatus?.status === 'offline';
+                const finished = provStatus?.status === 'online' || provStatus?.stepKey === 'done';
+                const logLines = (provStatus?.log || '').split('\n').filter(Boolean);
+
+                return (
+                    <div className="modal-overlay" onClick={closeProvisioning}>
+                        <div className="provisioning-card" onClick={(e) => e.stopPropagation()}>
+                            <div className="prov-header">
+                                <div className="prov-header-main">
+                                    <div className={`prov-header-icon ${failed ? 'failed' : finished ? 'done' : ''}`}>
+                                        <MorphIcon icon={failed ? TriangleAlert : finished ? Check : Rocket} size={18} />
+                                    </div>
+                                    <div>
+                                        <h2>
+                                            {failed
+                                                ? t('servers.provisioning.failedTitle')
+                                                : finished
+                                                    ? t('servers.provisioning.doneTitle')
+                                                    : t('servers.provisioning.title', { name: provServer.name })}
+                                        </h2>
+                                        <p className="text-muted">
+                                            {failed
+                                                ? t('servers.provisioning.failedDesc')
+                                                : finished
+                                                    ? t('servers.provisioning.doneDesc', { name: provServer.name })
+                                                    : t('servers.provisioning.subtitle')}
+                                        </p>
+                                    </div>
+                                </div>
+                                <button className="btn-close" onClick={closeProvisioning}>
+                                    <MorphIcon icon={X} size={18} />
+                                </button>
+                            </div>
+
+                            <div className="prov-summary">
+                                <div className="prov-summary-top">
+                                    <span className="prov-percent">{percent}%</span>
+                                    <span className="prov-elapsed">
+                                        <MorphIcon icon={Clock} size={12} />
+                                        {formatElapsed(provStatus?.elapsedSeconds || 0)}
+                                    </span>
+                                </div>
+                                <div className="prov-bar">
+                                    <div
+                                        className={`prov-bar-fill ${failed ? 'failed' : finished ? 'done' : 'running'}`}
+                                        style={{ width: `${percent}%` }}
+                                    ></div>
+                                </div>
+                                <div className="prov-current">
+                                    {!failed && !finished && <div className="spinner-mini"></div>}
+                                    <span>{stepLabel(provStatus?.stepKey, provStatus?.step)}</span>
+                                    {total > 0 && !finished && !failed && (
+                                        <span className="prov-current-count">
+                                            {t('servers.provisioning.stepOf', { current: String(current), total: String(total) })}
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="prov-steps">
+                                {steps.map((st, i) => {
+                                    const state = failed && i === current - 1
+                                        ? 'failed'
+                                        : (finished || i < current - 1)
+                                            ? 'done'
+                                            : i === current - 1
+                                                ? 'running'
+                                                : 'pending';
+                                    return (
+                                        <div key={st.key} className={`prov-step ${state}`}>
+                                            <div className="prov-step-marker">
+                                                {state === 'done' && <MorphIcon icon={Check} size={12} />}
+                                                {state === 'running' && <div className="spinner-mini"></div>}
+                                                {state === 'failed' && <MorphIcon icon={TriangleAlert} size={12} />}
+                                            </div>
+                                            <span className="prov-step-name">{stepLabel(st.key, st.name)}</span>
+                                            {state === 'running' && provStatus?.detail && (
+                                                <span className="prov-step-detail">{provStatus.detail}</span>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                                {steps.length === 0 && (
+                                    <div className="prov-step running">
+                                        <div className="prov-step-marker"><div className="spinner-mini"></div></div>
+                                        <span className="prov-step-name">{t('servers.provisioning.connecting')}</span>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="prov-log-section">
+                                <button
+                                    type="button"
+                                    className="prov-log-toggle"
+                                    onClick={() => setShowProvLog(v => !v)}
+                                >
+                                    <MorphIcon icon={Terminal} size={13} />
+                                    {showProvLog ? t('servers.provisioning.hideLog') : t('servers.provisioning.showLog')}
+                                    <MorphIcon icon={ChevronRight} size={12} className={showProvLog ? 'chevron open' : 'chevron'} />
+                                </button>
+                                {showProvLog && (
+                                    <pre className="prov-log mono">
+                                        {logLines.length > 0 ? logLines.join('\n') : t('servers.provisioning.noLogYet')}
+                                        <div ref={provLogEndRef} />
+                                    </pre>
+                                )}
+                            </div>
+
+                            <div className="prov-footer">
+                                <p className="prov-hint">
+                                    {failed
+                                        ? provStatus?.detail
+                                        : finished
+                                            ? t('servers.provisioning.doneHint')
+                                            : t('servers.provisioning.backgroundHint')}
+                                </p>
+                                <button className={finished ? 'btn-primary' : 'btn-secondary'} onClick={closeProvisioning}>
+                                    {finished || failed ? t('servers.provisioning.close') : t('servers.provisioning.background')}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            })()}
 
             {/* Panel de Gestión de Servicios */}
             {selectedServer && (

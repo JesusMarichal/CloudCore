@@ -25,6 +25,8 @@ const crypto = require("crypto");
 const dns = require("dns");
 const util_1 = require("util");
 const resolve4 = (0, util_1.promisify)(dns.resolve4);
+const DISCOVER_STEP = { key: 'discover_websites', name: 'Detectando sitios existentes' };
+const PROVISION_TOTAL = ssh_service_1.PROVISION_STEPS.length + 1;
 let ServerController = class ServerController {
     constructor(sshService, dbService) {
         this.sshService = sshService;
@@ -56,6 +58,12 @@ let ServerController = class ServerController {
             const result = await this.dbService.query(`SELECT id, user_id as "userId", name, ip, ssh_port as "sshPort",
                 ssh_user as "sshUser", auth_type as "authType", status,
                 provisioning_step as "provisioningStep",
+                provisioning_step_key as "provisioningStepKey",
+                provisioning_index as "provisioningIndex",
+                provisioning_total as "provisioningTotal",
+                provisioning_percent as "provisioningPercent",
+                provisioning_detail as "provisioningDetail",
+                provisioning_started_at as "provisioningStartedAt",
                 cpu_usage as "cpuUsage", ram_usage as "ramUsage",
                 disk_usage as "diskUsage", temp,
                 last_health_check as "lastHealthCheck"
@@ -85,8 +93,11 @@ let ServerController = class ServerController {
             lastHealthCheck: new Date(),
         };
         try {
-            await this.dbService.query(`INSERT INTO servers (id, user_id, name, ip, ssh_port, ssh_user, auth_type, private_key, password, status)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`, [
+            await this.dbService.query(`INSERT INTO servers (id, user_id, name, ip, ssh_port, ssh_user, auth_type, private_key, password, status,
+                                      provisioning_step, provisioning_step_key, provisioning_index, provisioning_total,
+                                      provisioning_percent, provisioning_detail, provisioning_log, provisioning_started_at)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+                         $11, $12, 0, $13, 0, NULL, '', NOW())`, [
                 newServer.id,
                 newServer.userId,
                 newServer.name,
@@ -96,35 +107,158 @@ let ServerController = class ServerController {
                 newServer.authType,
                 newServer.privateKey,
                 newServer.password,
-                newServer.status
+                newServer.status,
+                'Conectando por SSH',
+                'connect',
+                PROVISION_TOTAL
             ]);
         }
         catch (error) {
             console.error('Error guardando servidor en BD:', error);
             throw new common_1.InternalServerErrorException('No se pudo guardar el servidor');
         }
-        this.sshService.provision(newServer, async (step) => {
-            await this.dbService.query('UPDATE servers SET provisioning_step = $1 WHERE id = $2', [step, serverId]);
-        })
+        const tracker = this.createProvisioningTracker(serverId);
+        this.sshService.provision(newServer, (event) => tracker.handle(event))
             .then(async () => {
             try {
-                await this.dbService.query('UPDATE servers SET provisioning_step = $1 WHERE id = $2', ['Detectando sitios existentes', serverId]);
+                await tracker.setStep({
+                    name: DISCOVER_STEP.name,
+                    key: DISCOVER_STEP.key,
+                    index: PROVISION_TOTAL,
+                    total: PROVISION_TOTAL,
+                    percent: Math.round(((PROVISION_TOTAL - 1) / PROVISION_TOTAL) * 100),
+                });
                 const imported = await this.importExistingWebsites(newServer, serverId, userId);
                 if (imported.length > 0) {
+                    tracker.pushLine(`Importados ${imported.length} sitios existentes: ${imported.map(s => s.name).join(', ')}`);
                     console.log(`Importados ${imported.length} sitios existentes desde ${newServer.ip}: ${imported.map(s => s.name).join(', ')}`);
+                }
+                else {
+                    tracker.pushLine('No se encontraron sitios previos en el servidor.');
                 }
             }
             catch (err) {
+                tracker.pushLine(`Aviso: no se pudieron importar los sitios existentes (${err.message})`);
                 console.error(`No se pudieron importar los sitios existentes de ${newServer.ip}:`, err.message);
             }
-            await this.dbService.query('UPDATE servers SET status = $1, provisioning_step = $2 WHERE id = $3', ['online', 'Completado', serverId]);
+            tracker.pushLine('Aprovisionamiento completado. El servidor está listo.');
+            await tracker.finish('online', 'Completado', 'done', 100);
         })
             .catch(async (err) => {
             console.error(`Error de aprovisionamiento para ${newServer.ip}:`, err);
-            await this.dbService.query('UPDATE servers SET status = $1, provisioning_step = $2 WHERE id = $3', ['offline', 'Error: ' + err.message, serverId]);
+            await tracker.finish('offline', 'Error: ' + err.message, 'error', null);
         });
         const { privateKey, password, ...safeServer } = newServer;
         return safeServer;
+    }
+    createProvisioningTracker(serverId) {
+        const LOG_FLUSH_MS = 2000;
+        const MAX_LOG_LINES = 200;
+        const lines = [];
+        let lastDetail = '';
+        let lastFlush = 0;
+        let flushTimer = null;
+        let finished = false;
+        const writeLog = async () => {
+            lastFlush = Date.now();
+            try {
+                await this.dbService.query('UPDATE servers SET provisioning_detail = $1, provisioning_log = $2 WHERE id = $3', [lastDetail, lines.join('\n'), serverId]);
+            }
+            catch (e) {
+            }
+        };
+        const scheduleFlush = () => {
+            if (finished || flushTimer)
+                return;
+            const wait = Math.max(0, LOG_FLUSH_MS - (Date.now() - lastFlush));
+            flushTimer = setTimeout(() => {
+                flushTimer = null;
+                void writeLog();
+            }, wait);
+            flushTimer.unref?.();
+        };
+        const pushLine = (line) => {
+            lines.push(line);
+            if (lines.length > MAX_LOG_LINES)
+                lines.splice(0, lines.length - MAX_LOG_LINES);
+            lastDetail = line;
+            scheduleFlush();
+        };
+        const setStep = async (step) => {
+            if (flushTimer) {
+                clearTimeout(flushTimer);
+                flushTimer = null;
+            }
+            lastFlush = Date.now();
+            try {
+                await this.dbService.query(`UPDATE servers SET provisioning_step = $1, provisioning_step_key = $2,
+                                       provisioning_index = $3, provisioning_total = $4,
+                                       provisioning_percent = $5, provisioning_log = $6
+                     WHERE id = $7`, [step.name, step.key, step.index, step.total, step.percent, lines.join('\n'), serverId]);
+            }
+            catch (e) { }
+        };
+        return {
+            pushLine,
+            setStep,
+            handle: (event) => {
+                if (event.type === 'log') {
+                    pushLine(event.line);
+                    return;
+                }
+                if (event.type === 'error') {
+                    pushLine(`ERROR: ${event.message}`);
+                    return;
+                }
+                pushLine(`\u25B8 ${event.name}`);
+                return setStep({
+                    name: event.name,
+                    key: event.key,
+                    index: event.index,
+                    total: PROVISION_TOTAL,
+                    percent: Math.round(((event.index - 1) / PROVISION_TOTAL) * 100),
+                });
+            },
+            finish: async (status, step, key, percent) => {
+                finished = true;
+                step = step.slice(0, 250);
+                if (flushTimer) {
+                    clearTimeout(flushTimer);
+                    flushTimer = null;
+                }
+                try {
+                    await this.dbService.query(`UPDATE servers SET status = $1, provisioning_step = $2, provisioning_step_key = $3,
+                                           provisioning_percent = COALESCE($4, provisioning_percent),
+                                           provisioning_detail = $5, provisioning_log = $6,
+                                           provisioning_finished_at = NOW()
+                         WHERE id = $7`, [status, step, key, percent, lines[lines.length - 1] || '', lines.join('\n'), serverId]);
+                }
+                catch (e) {
+                    console.error('No se pudo guardar el estado final del aprovisionamiento:', e.message);
+                }
+            },
+        };
+    }
+    async getProvisioning(id, userId) {
+        const data = await this.assertServerOwnership(id, userId);
+        const startedAt = data.provisioning_started_at ? new Date(data.provisioning_started_at) : null;
+        const finishedAt = data.provisioning_finished_at ? new Date(data.provisioning_finished_at) : null;
+        return {
+            status: data.status,
+            step: data.provisioning_step || null,
+            stepKey: data.provisioning_step_key || null,
+            index: Number(data.provisioning_index) || 0,
+            total: Number(data.provisioning_total) || PROVISION_TOTAL,
+            percent: Number(data.provisioning_percent) || 0,
+            detail: data.provisioning_detail || '',
+            log: data.provisioning_log || '',
+            startedAt,
+            finishedAt,
+            elapsedSeconds: startedAt
+                ? Math.max(0, Math.round(((finishedAt || new Date()).getTime() - startedAt.getTime()) / 1000))
+                : 0,
+            steps: [...ssh_service_1.PROVISION_STEPS, DISCOVER_STEP].map(st => ({ key: st.key, name: st.name })),
+        };
     }
     async deleteServer(id, userId) {
         const serverData = await this.assertServerOwnership(id, userId);
@@ -1224,6 +1358,14 @@ __decorate([
     __metadata("design:paramtypes", [String, create_server_dto_1.CreateServerDto]),
     __metadata("design:returntype", Promise)
 ], ServerController.prototype, "create", null);
+__decorate([
+    (0, common_1.Get)(':id/provisioning'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, current_user_decorator_1.CurrentUser)('sub')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], ServerController.prototype, "getProvisioning", null);
 __decorate([
     (0, common_1.Delete)(':id'),
     __param(0, (0, common_1.Param)('id')),

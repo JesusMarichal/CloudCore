@@ -7,10 +7,31 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 };
 var SshService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.SshService = void 0;
+exports.SshService = exports.PROVISION_STEPS = void 0;
+exports.splitLogLines = splitLogLines;
 const common_1 = require("@nestjs/common");
 const ssh2_1 = require("ssh2");
 const encryption_util_1 = require("../common/utils/encryption.util");
+exports.PROVISION_STEPS = [
+    { key: 'system_update', name: 'Actualizando el sistema', cmd: 'sudo DEBIAN_FRONTEND=noninteractive apt update && sudo DEBIAN_FRONTEND=noninteractive apt upgrade -y' },
+    { key: 'nginx', name: 'Instalando Nginx', cmd: 'sudo DEBIAN_FRONTEND=noninteractive apt install -y nginx python3-certbot-nginx' },
+    { key: 'nodejs', name: 'Instalando Node.js 20', cmd: 'curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - && sudo DEBIAN_FRONTEND=noninteractive apt install -y nodejs' },
+    { key: 'pm2', name: 'Instalando PM2', cmd: 'sudo npm install -y -g pm2' },
+    { key: 'docker_deps', name: 'Instalando dependencias de Docker', cmd: 'sudo DEBIAN_FRONTEND=noninteractive apt install -y ca-certificates curl gnupg lsb-release' },
+    { key: 'docker_repo', name: 'Configurando el repositorio de Docker', cmd: 'sudo mkdir -p /etc/apt/keyrings && curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor --yes -o /etc/apt/keyrings/docker.gpg && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null' },
+    { key: 'docker', name: 'Instalando Docker', cmd: 'sudo DEBIAN_FRONTEND=noninteractive apt update && sudo DEBIAN_FRONTEND=noninteractive apt install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin' },
+    { key: 'services', name: 'Habilitando servicios', cmd: 'sudo systemctl enable docker && sudo systemctl start docker' },
+    { key: 'firewall', name: 'Abriendo puertos del firewall (80, 443)', cmd: 'sudo ufw allow "Nginx Full" || (sudo iptables -A INPUT -p tcp --dport 80 -j ACCEPT && sudo iptables -A INPUT -p tcp --dport 443 -j ACCEPT)' },
+];
+function splitLogLines(chunk) {
+    return chunk
+        .replace(/\x1B\[[0-9;?]*[a-zA-Z]/g, '')
+        .replace(/\r/g, '\n')
+        .split('\n')
+        .map(l => l.trim())
+        .filter(l => l.length > 0)
+        .map(l => (l.length > 300 ? l.slice(0, 300) + '…' : l));
+}
 let SshService = SshService_1 = class SshService {
     constructor() {
         this.logger = new common_1.Logger(SshService_1.name);
@@ -82,30 +103,47 @@ let SshService = SshService_1 = class SshService {
                 .connect(connectionConfig);
         });
     }
-    async provision(server, onProgress) {
+    async provision(server, onEvent) {
         this.logger.log(`Iniciando aprovisionamiento completo para ${server.name} (${server.ip})...`);
-        const steps = [
-            { name: 'Actualizando sistema', cmd: 'sudo DEBIAN_FRONTEND=noninteractive apt update && sudo DEBIAN_FRONTEND=noninteractive apt upgrade -y' },
-            { name: 'Instalando Nginx', cmd: 'sudo DEBIAN_FRONTEND=noninteractive apt install -y nginx python3-certbot-nginx' },
-            { name: 'Instalando Node.js', cmd: 'curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - && sudo DEBIAN_FRONTEND=noninteractive apt install -y nodejs' },
-            { name: 'Instalando PM2', cmd: 'sudo npm install -y -g pm2' },
-            { name: 'Instalando dependencias de Docker', cmd: 'sudo DEBIAN_FRONTEND=noninteractive apt install -y ca-certificates curl gnupg lsb-release' },
-            { name: 'Configurando repositorio Docker', cmd: 'sudo mkdir -p /etc/apt/keyrings && curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor --yes -o /etc/apt/keyrings/docker.gpg && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null' },
-            { name: 'Instalando Docker', cmd: 'sudo DEBIAN_FRONTEND=noninteractive apt update && sudo DEBIAN_FRONTEND=noninteractive apt install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin' },
-            { name: 'Habilitando servicios', cmd: 'sudo systemctl enable docker && sudo systemctl start docker' },
-            { name: 'Abriendo puertos Firewall (80, 443)', cmd: 'sudo ufw allow "Nginx Full" || (sudo iptables -A INPUT -p tcp --dport 80 -j ACCEPT && sudo iptables -A INPUT -p tcp --dport 443 -j ACCEPT)' }
-        ];
+        const steps = exports.PROVISION_STEPS;
+        const total = steps.length;
+        const emit = (event) => {
+            if (!onEvent)
+                return Promise.resolve();
+            try {
+                return Promise.resolve(onEvent(event)).catch((e) => {
+                    this.logger.warn(`No se pudo reportar el progreso de aprovisionamiento: ${e.message}`);
+                });
+            }
+            catch (e) {
+                this.logger.warn(`No se pudo reportar el progreso de aprovisionamiento: ${e.message}`);
+                return Promise.resolve();
+            }
+        };
         try {
-            for (const step of steps) {
-                this.logger.log(`SSH [${server.ip}]: ${step.name}...`);
-                if (onProgress)
-                    await onProgress(step.name);
-                await this.executeCommand(server, step.cmd);
+            for (let i = 0; i < total; i++) {
+                const step = steps[i];
+                const index = i + 1;
+                this.logger.log(`SSH [${server.ip}] (${index}/${total}): ${step.name}...`);
+                await emit({
+                    type: 'step',
+                    index,
+                    total,
+                    key: step.key,
+                    name: step.name,
+                    percent: Math.round(((index - 1) / total) * 100),
+                });
+                await this.executeCommand(server, step.cmd, (chunk) => {
+                    for (const line of splitLogLines(chunk)) {
+                        void emit({ type: 'log', index, key: step.key, line });
+                    }
+                });
             }
             this.logger.log(`Aprovisionamiento completado con éxito para ${server.name}`);
         }
         catch (error) {
             this.logger.error(`Error crítico de aprovisionamiento en ${server.name}: ${error.message}`);
+            await emit({ type: 'error', message: error.message });
             throw error;
         }
     }

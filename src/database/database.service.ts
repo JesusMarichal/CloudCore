@@ -143,6 +143,19 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
                         ALTER TABLE servers ADD COLUMN provisioning_step VARCHAR(255);
                     END IF;
 
+                    -- Progreso detallado del aprovisionamiento (paso actual, porcentaje y log)
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                                 WHERE table_name='servers' AND column_name='provisioning_percent') THEN
+                        ALTER TABLE servers ADD COLUMN provisioning_step_key VARCHAR(64);
+                        ALTER TABLE servers ADD COLUMN provisioning_index INT DEFAULT 0;
+                        ALTER TABLE servers ADD COLUMN provisioning_total INT DEFAULT 0;
+                        ALTER TABLE servers ADD COLUMN provisioning_percent INT DEFAULT 0;
+                        ALTER TABLE servers ADD COLUMN provisioning_detail TEXT;
+                        ALTER TABLE servers ADD COLUMN provisioning_log TEXT;
+                        ALTER TABLE servers ADD COLUMN provisioning_started_at TIMESTAMP;
+                        ALTER TABLE servers ADD COLUMN provisioning_finished_at TIMESTAMP;
+                    END IF;
+
                     IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
                                  WHERE table_name='servers' AND column_name='user_id') THEN
                         ALTER TABLE servers ADD COLUMN user_id VARCHAR(255);
@@ -322,6 +335,14 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
                 password TEXT,
                 status VARCHAR(50) DEFAULT 'provisioning',
                 provisioning_step VARCHAR(255),
+                provisioning_step_key VARCHAR(64),
+                provisioning_index INT DEFAULT 0,
+                provisioning_total INT DEFAULT 0,
+                provisioning_percent INT DEFAULT 0,
+                provisioning_detail TEXT,
+                provisioning_log TEXT,
+                provisioning_started_at TIMESTAMP,
+                provisioning_finished_at TIMESTAMP,
                 cpu_usage NUMERIC(5,2),
                 ram_usage NUMERIC(5,2),
                 disk_usage NUMERIC(5,2),

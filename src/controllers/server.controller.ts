@@ -1,6 +1,7 @@
 import { Controller, Post, Body, Get, Param, Delete, InternalServerErrorException, NotFoundException, Res } from '@nestjs/common';
 import { Response } from 'express';
-import { SshService } from '../services/ssh.service';
+import { SshService, PROVISION_STEPS } from '../services/ssh.service';
+import type { ProvisionEvent } from '../services/ssh.service';
 import { CreateServerDto } from '../dto/create-server.dto';
 import { Server } from '../models/server.model';
 import { DatabaseService } from '../database/database.service';
@@ -11,6 +12,12 @@ import * as dns from 'dns';
 import { promisify } from 'util';
 
 const resolve4 = promisify(dns.resolve4);
+
+// El aprovisionamiento que ve el usuario son los pasos SSH más la detección de
+// sitios ya montados, que corre después y también tarda. El controlador es la
+// autoridad sobre el total y el porcentaje; SshService solo reporta su parte.
+const DISCOVER_STEP = { key: 'discover_websites', name: 'Detectando sitios existentes' };
+const PROVISION_TOTAL = PROVISION_STEPS.length + 1;
 
 @Controller('servers')
 export class ServerController {
@@ -53,6 +60,12 @@ export class ServerController {
                 `SELECT id, user_id as "userId", name, ip, ssh_port as "sshPort",
                 ssh_user as "sshUser", auth_type as "authType", status,
                 provisioning_step as "provisioningStep",
+                provisioning_step_key as "provisioningStepKey",
+                provisioning_index as "provisioningIndex",
+                provisioning_total as "provisioningTotal",
+                provisioning_percent as "provisioningPercent",
+                provisioning_detail as "provisioningDetail",
+                provisioning_started_at as "provisioningStartedAt",
                 cpu_usage as "cpuUsage", ram_usage as "ramUsage",
                 disk_usage as "diskUsage", temp,
                 last_health_check as "lastHealthCheck"
@@ -91,8 +104,11 @@ export class ServerController {
         // Guardar en la base de datos
         try {
             await this.dbService.query(
-                `INSERT INTO servers (id, user_id, name, ip, ssh_port, ssh_user, auth_type, private_key, password, status)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+                `INSERT INTO servers (id, user_id, name, ip, ssh_port, ssh_user, auth_type, private_key, password, status,
+                                      provisioning_step, provisioning_step_key, provisioning_index, provisioning_total,
+                                      provisioning_percent, provisioning_detail, provisioning_log, provisioning_started_at)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+                         $11, $12, 0, $13, 0, NULL, '', NOW())`,
                 [
                     newServer.id,
                     newServer.userId,
@@ -103,7 +119,10 @@ export class ServerController {
                     newServer.authType,
                     newServer.privateKey,
                     newServer.password,
-                    newServer.status
+                    newServer.status,
+                    'Conectando por SSH',
+                    'connect',
+                    PROVISION_TOTAL
                 ]
             );
         } catch (error) {
@@ -111,44 +130,166 @@ export class ServerController {
             throw new InternalServerErrorException('No se pudo guardar el servidor');
         }
 
-        // Lanzar aprovisionamiento en segundo plano
-        this.sshService.provision(newServer, async (step) => {
-            await this.dbService.query(
-                'UPDATE servers SET provisioning_step = $1 WHERE id = $2',
-                [step, serverId]
-            );
-        })
+        // Lanzar aprovisionamiento en segundo plano.
+        // El progreso se persiste en la fila del servidor para que cualquier
+        // pestaña abierta pueda seguirlo (paso actual, %, y las últimas líneas
+        // reales de la salida SSH).
+        const tracker = this.createProvisioningTracker(serverId);
+
+        this.sshService.provision(newServer, (event) => tracker.handle(event))
             .then(async () => {
                 // Detectar e importar sitios que ya estaban montados en el servidor
                 try {
-                    await this.dbService.query(
-                        'UPDATE servers SET provisioning_step = $1 WHERE id = $2',
-                        ['Detectando sitios existentes', serverId]
-                    );
+                    await tracker.setStep({
+                        name: DISCOVER_STEP.name,
+                        key: DISCOVER_STEP.key,
+                        index: PROVISION_TOTAL,
+                        total: PROVISION_TOTAL,
+                        percent: Math.round(((PROVISION_TOTAL - 1) / PROVISION_TOTAL) * 100),
+                    });
                     const imported = await this.importExistingWebsites(newServer, serverId, userId);
                     if (imported.length > 0) {
+                        tracker.pushLine(`Importados ${imported.length} sitios existentes: ${imported.map(s => s.name).join(', ')}`);
                         console.log(`Importados ${imported.length} sitios existentes desde ${newServer.ip}: ${imported.map(s => s.name).join(', ')}`);
+                    } else {
+                        tracker.pushLine('No se encontraron sitios previos en el servidor.');
                     }
                 } catch (err) {
+                    tracker.pushLine(`Aviso: no se pudieron importar los sitios existentes (${err.message})`);
                     console.error(`No se pudieron importar los sitios existentes de ${newServer.ip}:`, err.message);
                 }
 
-                await this.dbService.query(
-                    'UPDATE servers SET status = $1, provisioning_step = $2 WHERE id = $3',
-                    ['online', 'Completado', serverId]
-                );
+                tracker.pushLine('Aprovisionamiento completado. El servidor está listo.');
+                await tracker.finish('online', 'Completado', 'done', 100);
             })
             .catch(async (err) => {
                 console.error(`Error de aprovisionamiento para ${newServer.ip}:`, err);
-                await this.dbService.query(
-                    'UPDATE servers SET status = $1, provisioning_step = $2 WHERE id = $3',
-                    ['offline', 'Error: ' + err.message, serverId]
-                );
+                await tracker.finish('offline', 'Error: ' + err.message, 'error', null);
             });
 
         // Eliminar datos sensibles de la respuesta
         const { privateKey, password, ...safeServer } = newServer;
         return safeServer as Server;
+    }
+
+    /**
+     * Persiste el progreso del aprovisionamiento de un servidor.
+     *
+     * Los eventos de log llegan línea a línea (pueden ser cientos por minuto),
+     * así que se acumulan en memoria y se vuelcan a la base de datos como mucho
+     * una vez cada LOG_FLUSH_MS. Los cambios de paso sí se escriben al momento.
+     */
+    private createProvisioningTracker(serverId: string) {
+        const LOG_FLUSH_MS = 2000;
+        const MAX_LOG_LINES = 200;
+
+        const lines: string[] = [];
+        let lastDetail = '';
+        let lastFlush = 0;
+        let flushTimer: NodeJS.Timeout | null = null;
+        let finished = false;
+
+        const writeLog = async () => {
+            lastFlush = Date.now();
+            try {
+                await this.dbService.query(
+                    'UPDATE servers SET provisioning_detail = $1, provisioning_log = $2 WHERE id = $3',
+                    [lastDetail, lines.join('\n'), serverId]
+                );
+            } catch (e) {
+                // El progreso es informativo: si falla el UPDATE no se aborta el aprovisionamiento.
+            }
+        };
+
+        const scheduleFlush = () => {
+            if (finished || flushTimer) return;
+            const wait = Math.max(0, LOG_FLUSH_MS - (Date.now() - lastFlush));
+            flushTimer = setTimeout(() => {
+                flushTimer = null;
+                void writeLog();
+            }, wait);
+            flushTimer.unref?.();
+        };
+
+        const pushLine = (line: string) => {
+            lines.push(line);
+            if (lines.length > MAX_LOG_LINES) lines.splice(0, lines.length - MAX_LOG_LINES);
+            lastDetail = line;
+            scheduleFlush();
+        };
+
+        const setStep = async (step: { name: string; key: string; index: number; total: number; percent: number }) => {
+            if (flushTimer) { clearTimeout(flushTimer); flushTimer = null; }
+            lastFlush = Date.now();
+            try {
+                await this.dbService.query(
+                    `UPDATE servers SET provisioning_step = $1, provisioning_step_key = $2,
+                                       provisioning_index = $3, provisioning_total = $4,
+                                       provisioning_percent = $5, provisioning_log = $6
+                     WHERE id = $7`,
+                    [step.name, step.key, step.index, step.total, step.percent, lines.join('\n'), serverId]
+                );
+            } catch (e) { /* informativo */ }
+        };
+
+        return {
+            pushLine,
+            setStep,
+            handle: (event: ProvisionEvent) => {
+                if (event.type === 'log') { pushLine(event.line); return; }
+                if (event.type === 'error') { pushLine(`ERROR: ${event.message}`); return; }
+                pushLine(`\u25B8 ${event.name}`);
+                return setStep({
+                    name: event.name,
+                    key: event.key,
+                    index: event.index,
+                    total: PROVISION_TOTAL,
+                    percent: Math.round(((event.index - 1) / PROVISION_TOTAL) * 100),
+                });
+            },
+            finish: async (status: string, step: string, key: string, percent: number | null) => {
+                finished = true;
+                step = step.slice(0, 250);
+                if (flushTimer) { clearTimeout(flushTimer); flushTimer = null; }
+                try {
+                    await this.dbService.query(
+                        `UPDATE servers SET status = $1, provisioning_step = $2, provisioning_step_key = $3,
+                                           provisioning_percent = COALESCE($4, provisioning_percent),
+                                           provisioning_detail = $5, provisioning_log = $6,
+                                           provisioning_finished_at = NOW()
+                         WHERE id = $7`,
+                        [status, step, key, percent, lines[lines.length - 1] || '', lines.join('\n'), serverId]
+                    );
+                } catch (e) {
+                    console.error('No se pudo guardar el estado final del aprovisionamiento:', e.message);
+                }
+            },
+        };
+    }
+
+    /** Progreso detallado del aprovisionamiento, para el seguimiento en vivo. */
+    @Get(':id/provisioning')
+    async getProvisioning(@Param('id') id: string, @CurrentUser('sub') userId: string): Promise<any> {
+        const data = await this.assertServerOwnership(id, userId);
+        const startedAt = data.provisioning_started_at ? new Date(data.provisioning_started_at) : null;
+        const finishedAt = data.provisioning_finished_at ? new Date(data.provisioning_finished_at) : null;
+
+        return {
+            status: data.status,
+            step: data.provisioning_step || null,
+            stepKey: data.provisioning_step_key || null,
+            index: Number(data.provisioning_index) || 0,
+            total: Number(data.provisioning_total) || PROVISION_TOTAL,
+            percent: Number(data.provisioning_percent) || 0,
+            detail: data.provisioning_detail || '',
+            log: data.provisioning_log || '',
+            startedAt,
+            finishedAt,
+            elapsedSeconds: startedAt
+                ? Math.max(0, Math.round(((finishedAt || new Date()).getTime() - startedAt.getTime()) / 1000))
+                : 0,
+            steps: [...PROVISION_STEPS, DISCOVER_STEP].map(st => ({ key: st.key, name: st.name })),
+        };
     }
 
     @Delete(':id')
