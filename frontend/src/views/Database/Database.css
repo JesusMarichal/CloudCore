@@ -94,6 +94,84 @@
     display: flex;
     align-items: center;
     gap: 14px;
+    flex: 1;
+    min-width: 0;
+    padding: 4px 6px;
+    margin: -4px -6px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.18s ease;
+}
+
+.db-card-header-left:hover {
+    background: var(--db-veil-strong);
+}
+
+.db-card-header-left:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 1px;
+}
+
+/* Desplegable: `grid-template-rows` de 0fr a 1fr anima hasta la altura real
+   del contenido, sin tener que adivinar un max-height. */
+.db-card-details {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.db-card.expanded .db-card-details {
+    grid-template-rows: 1fr;
+}
+
+.db-card-details-inner {
+    min-height: 0;
+    overflow: hidden;
+}
+
+/* Plegada, la tarjeta es solo su cabecera: la linea inferior sobraria. */
+.db-card:not(.expanded) .db-card-header {
+    border-bottom-color: transparent;
+}
+
+.db-card-header {
+    transition: border-color 0.3s ease;
+}
+
+.db-card-toggle {
+    width: 34px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+}
+
+.db-card-toggle:hover {
+    background: var(--db-veil-strong);
+    border-color: var(--gh-border);
+    color: var(--text-main);
+}
+
+.db-card-toggle svg {
+    transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.db-card.expanded .db-card-toggle svg {
+    transform: rotate(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+    .db-card-details,
+    .db-card-toggle svg {
+        transition: none;
+    }
 }
 
 /* El emoji del motor es un identificador visual, no un boton: va suelto,
@@ -214,23 +292,32 @@
 }
 
 /* Admin Link Button */
-.db-admin-link {
+/* "Datos de Conexion" y "Abrir phpMyAdmin" son las dos acciones de la
+   tarjeta y aparecen una encima de la otra, alineadas a la derecha: comparten
+   alto y ancho para que se lean como un par y no como dos cosas distintas. */
+.db-admin-link,
+.db-connect-btn {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 8px;
-    padding: 7px 14px;
+    min-height: 36px;
+    min-width: 190px;
+    padding: 0 16px;
     background: var(--db-veil-strong);
     border: 1px solid var(--gh-border);
-    color: var(--text-main);
-    font-size: 13px;
-    font-weight: 500;
-    text-decoration: none;
-    transition: background 0.2s ease, border-color 0.2s ease;
-    cursor: pointer;
     border-radius: 8px;
+    color: var(--text-main);
+    font-size: 12.5px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 0.2s ease, border-color 0.2s ease;
 }
 
-.db-admin-link:hover {
+.db-admin-link:hover,
+.db-connect-btn:hover {
     background: var(--db-accent-veil);
     border-color: var(--primary);
 }
@@ -711,32 +798,12 @@
     margin-left: auto;
 }
 
-.db-connect-btn {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    background: var(--db-veil-strong);
-    border: 1px solid var(--gh-border);
-    border-radius: 8px;
-    color: var(--text-main);
-    font-size: 12px;
-    font-weight: 600;
-    padding: 8px 14px;
-    cursor: pointer;
-    transition: background 0.2s ease, border-color 0.2s ease;
-    letter-spacing: 0.2px;
-}
-
-.db-connect-btn:hover {
-    background: var(--db-accent-veil);
-    border-color: var(--primary);
-}
-
-/* ── Panel lateral de datos de conexión ───────────────────────────────────
+/* ── Paneles laterales ────────────────────────────────────────────────────
    Drawer anclado a la derecha: el fondo se atenúa y el panel entra deslizando.
-   La cortina es la que centra el panel contra el borde derecho (flex-end),
-   así el panel solo se ocupa de su propio ancho y de su animación. */
-.db-conn-scrim {
+   La cortina es la que lo centra contra el borde derecho (flex-end), así el
+   panel solo se ocupa de su propio ancho y de su animación. Estas clases son
+   el chasis compartido; cada panel añade luego su ancho y su contenido. */
+.db-drawer-scrim {
     position: fixed;
     inset: 0;
     background: rgba(1, 4, 9, 0.58);
@@ -747,7 +814,7 @@
     animation: dbConnScrimIn 0.28s ease-out;
 }
 
-.db-conn-scrim.closing {
+.db-drawer-scrim.closing {
     animation: dbConnScrimOut 0.26s ease-in forwards;
 }
 
@@ -761,7 +828,7 @@
     to { opacity: 0; }
 }
 
-.db-conn-drawer {
+.db-drawer {
     /* Verde/ámbar/rojo del panel como tokens: los tonos vivos de GitHub Dark
        no llegan a 4.5:1 sobre blanco, así que el tema claro los oscurece. */
     --conn-ok: #3fb950;
@@ -777,7 +844,6 @@
 
     display: flex;
     flex-direction: column;
-    width: 470px;
     max-width: 100vw;
     height: 100%;
     background: var(--gh-bg);
@@ -789,7 +855,7 @@
     will-change: transform;
 }
 
-.dashboard-layout.theme-light .db-conn-drawer {
+.dashboard-layout.theme-light .db-drawer {
     --conn-ok: #1a7f37;
     --conn-ok-bg: rgba(26, 127, 55, 0.10);
     --conn-ok-border: rgba(26, 127, 55, 0.32);
@@ -803,8 +869,16 @@
     box-shadow: -28px 0 64px rgba(140, 149, 159, 0.32);
 }
 
-.db-conn-drawer.closing {
+.db-drawer.closing {
     animation: dbDrawerOut 0.26s cubic-bezier(0.55, 0, 0.65, 0.2) forwards;
+}
+
+.db-conn-drawer {
+    width: 470px;
+}
+
+.db-form-drawer {
+    width: 540px;
 }
 
 @keyframes dbDrawerIn {
@@ -843,7 +917,7 @@
 }
 
 /* Cabecera */
-.db-conn-drawer-header {
+.db-drawer-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -926,7 +1000,7 @@
     color: var(--text-dim);
 }
 
-.db-conn-close {
+.db-drawer-close {
     display: grid;
     place-items: center;
     width: 32px;
@@ -940,7 +1014,7 @@
     transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
 }
 
-.db-conn-close:hover {
+.db-drawer-close:hover {
     background: var(--conn-danger-bg);
     border-color: var(--conn-danger-border);
     color: var(--conn-danger);
@@ -988,8 +1062,158 @@
     white-space: nowrap;
 }
 
+/* ── Panel lateral de alta ────────────────────────────────────────────────
+   Un unico punto de entrada con dos caminos: desplegar una base de datos
+   nueva o registrar una que ya corre en los servidores del usuario. */
+.db-form-drawer-title h3 {
+    margin: 0 0 4px;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-main);
+    letter-spacing: -0.2px;
+}
+
+.db-form-drawer-title p {
+    margin: 0;
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.5;
+}
+
+/* Selector de camino: dos fichas del mismo peso, para que se vea que hay
+   dos formas de anadir una base de datos y no solo la de crearla. */
+.db-mode-picker {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 24px;
+}
+
+.db-mode-option {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    padding: 14px;
+    text-align: left;
+    background: var(--gh-canvas-subtle);
+    border: 1px solid var(--gh-border);
+    border-radius: 10px;
+    cursor: pointer;
+    color: var(--text-muted);
+    transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.db-mode-option:hover {
+    border-color: var(--text-dim);
+}
+
+.db-mode-option.selected {
+    border-color: var(--primary);
+    background: var(--conn-accent-bg);
+    box-shadow: 0 0 0 1px var(--primary);
+    color: var(--primary);
+}
+
+.db-mode-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-main);
+}
+
+.db-mode-desc {
+    font-size: 11px;
+    line-height: 1.45;
+    color: var(--text-muted);
+}
+
+/* Camino "cargar existente" */
+.db-import-desc {
+    margin: 0 0 22px;
+    font-size: 13px;
+    line-height: 1.65;
+    color: var(--text-main);
+}
+
+.db-import-servers {
+    border: 1px solid var(--gh-border);
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--gh-canvas-subtle);
+}
+
+.db-import-server {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 11px 12px;
+    border-bottom: 1px solid var(--gh-border);
+    font-size: 13px;
+    color: var(--text-muted);
+}
+
+.db-import-server:last-child {
+    border-bottom: none;
+}
+
+.db-import-server strong {
+    color: var(--text-main);
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.db-import-server code {
+    margin-left: auto;
+    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 11.5px;
+    color: var(--text-main);
+    background: var(--conn-row-hover);
+    border: 1px solid var(--gh-border);
+    border-radius: 5px;
+    padding: 2px 8px;
+    white-space: nowrap;
+}
+
+/* Dentro del panel el formulario ya esta enmarcado: las secciones pierden
+   su caja para no anidar bordes dentro de bordes. */
+.db-form-drawer .db-form-section {
+    background: transparent;
+    border: none;
+    border-top: 1px solid var(--gh-border);
+    border-radius: 0;
+    padding: 20px 0 0;
+    margin-bottom: 20px;
+}
+
+.db-form-drawer .db-form-section h3 {
+    font-size: 11px;
+    letter-spacing: 0.9px;
+    color: var(--text-dim);
+    margin-bottom: 14px;
+}
+
+.db-form-drawer .db-engine-selector {
+    margin-bottom: 4px;
+}
+
+.db-form-drawer .db-engine-option {
+    padding: 16px 12px;
+    border-width: 1px;
+}
+
+.db-form-drawer .db-engine-option .engine-icon {
+    font-size: 26px;
+}
+
+/* Cancelar a la izquierda y la accion principal a la derecha. */
+.db-form-drawer .db-drawer-footer {
+    justify-content: flex-end;
+}
+
 /* Cuerpo desplazable */
-.db-conn-drawer-body {
+.db-drawer-body {
     flex: 1;
     overflow-y: auto;
     padding: 22px;
@@ -998,20 +1222,20 @@
     gap: 24px;
 }
 
-.db-conn-drawer-body::-webkit-scrollbar {
+.db-drawer-body::-webkit-scrollbar {
     width: 8px;
 }
 
-.db-conn-drawer-body::-webkit-scrollbar-track {
+.db-drawer-body::-webkit-scrollbar-track {
     background: transparent;
 }
 
-.db-conn-drawer-body::-webkit-scrollbar-thumb {
+.db-drawer-body::-webkit-scrollbar-thumb {
     background: var(--gh-border);
     border-radius: 4px;
 }
 
-.db-conn-drawer-body::-webkit-scrollbar-thumb:hover {
+.db-drawer-body::-webkit-scrollbar-thumb:hover {
     background: var(--text-dim);
 }
 
@@ -1258,7 +1482,7 @@
 }
 
 /* Pie */
-.db-conn-drawer-footer {
+.db-drawer-footer {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -1272,15 +1496,16 @@
 /* En el pie el enlace a phpMyAdmin convive con "Cerrar", asi que se comporta
    como un boton secundario mas: mismo alto, superficie neutra y texto normal.
    El degradado teal de `.db-admin-link` se queda solo en la tarjeta. */
-.db-conn-drawer-footer .db-admin-link {
-    padding: 6px 14px;
-    border-radius: 6px;
+.db-drawer-footer .db-admin-link {
+    min-width: 0;
+    padding: 0 16px;
     background: var(--gh-bg);
-    font-size: 13px;
 }
 
 @media (max-width: 560px) {
-    .db-conn-drawer {
+
+    .db-conn-drawer,
+    .db-form-drawer {
         width: 100%;
     }
 
@@ -1300,10 +1525,10 @@
 
 @media (prefers-reduced-motion: reduce) {
 
-    .db-conn-scrim,
-    .db-conn-scrim.closing,
-    .db-conn-drawer,
-    .db-conn-drawer.closing,
+    .db-drawer-scrim,
+    .db-drawer-scrim.closing,
+    .db-drawer,
+    .db-drawer.closing,
     .db-conn-section,
     .db-conn-hint {
         animation: none;

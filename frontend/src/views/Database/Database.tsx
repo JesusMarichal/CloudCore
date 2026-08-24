@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { serverService } from '../../services/server.service';
 import type { CreateServerData } from '../../services/server.service';
 import { tokenStorage } from '../../services/tokenStorage';
-import { Database as DatabaseIcon, Plus, Play, Square, RotateCcw, Trash2, ExternalLink, Eye, EyeOff, X, HardDrive, Copy, Check, Link, Search, CheckCircle2, Server, KeyRound, Terminal } from 'lucide';
+import { Database as DatabaseIcon, Plus, Play, Square, RotateCcw, Trash2, ExternalLink, Eye, EyeOff, X, HardDrive, Copy, Check, Link, Search, CheckCircle2, Server, KeyRound, Terminal, ChevronDown } from 'lucide';
 import { MorphIcon } from 'morphicons/react';
 import { useT } from '../../i18n';
 import './Database.css';
@@ -70,11 +70,18 @@ const DatabaseView = () => {
     const [servers, setServers] = useState<CreateServerData[]>([]);
     const [databases, setDatabases] = useState<DatabaseInstance[]>([]);
     const [showForm, setShowForm] = useState(false);
+    const [closingForm, setClosingForm] = useState(false);
+    // El alta tiene dos caminos que comparten panel: desplegar una BD nueva
+    // o registrar una que ya esta corriendo en los servidores del usuario.
+    const [formMode, setFormMode] = useState<'create' | 'import'>('create');
     const [deploying, setDeploying] = useState(false);
     const [deployLogs, setDeployLogs] = useState('');
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
     const [showPasswords, setShowPasswords] = useState<{ [key: string]: boolean }>({});
+    // Las tarjetas arrancan plegadas: la lista se lee de un vistazo y el
+    // detalle (puerto, credenciales, phpMyAdmin) se pide cuando hace falta.
+    const [expandedCards, setExpandedCards] = useState<{ [id: string]: boolean }>({});
     const [connectionModal, setConnectionModal] = useState<DatabaseInstance | null>(null);
     // Una clave por campo copiable: asi el check de "copiado" se enciende solo
     // en la fila que el usuario acaba de pulsar, no en todas a la vez.
@@ -95,6 +102,25 @@ const DatabaseView = () => {
             setConnectionModal(null);
             setClosingConnModal(false);
         }, 280);
+    };
+
+    const openForm = (mode: 'create' | 'import' = 'create') => {
+        setFormMode(mode);
+        setClosingForm(false);
+        setShowForm(true);
+    };
+
+    const closeForm = () => {
+        setClosingForm(true);
+        setTimeout(() => {
+            setShowForm(false);
+            setClosingForm(false);
+            setDeployLogs('');
+        }, 280);
+    };
+
+    const toggleCard = (id: string) => {
+        setExpandedCards(prev => ({ ...prev, [id]: !prev[id] }));
     };
 
     const openConnectionModal = (db: DatabaseInstance) => {
@@ -168,6 +194,17 @@ const DatabaseView = () => {
         window.addEventListener('keydown', onKeyDown);
         return () => window.removeEventListener('keydown', onKeyDown);
     }, [connectionModal]);
+
+    // El panel de alta no se cierra con Escape mientras despliega: hay una
+    // instalacion por SSH en curso y perder el log de vista despista.
+    useEffect(() => {
+        if (!showForm || deploying) return;
+        const onKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') closeForm();
+        };
+        window.addEventListener('keydown', onKeyDown);
+        return () => window.removeEventListener('keydown', onKeyDown);
+    }, [showForm, deploying]);
 
     const handleEngineChange = (engine: 'mysql' | 'postgres') => {
         setFormData(prev => ({
@@ -254,6 +291,7 @@ const DatabaseView = () => {
                 const dbData = await serverService.listDatabases();
                 setDatabases(dbData);
                 showToast(t('databases.msg.scanFound', { count: result.imported }), 'success');
+                closeForm();
             } else if (result.success) {
                 showToast(t('databases.scanNone'), 'info');
             } else {
@@ -283,17 +321,14 @@ const DatabaseView = () => {
                 </div>
                 {servers.length > 0 && (
                     <div className="db-header-actions">
-                        <button className="btn-secondary" onClick={handleScanExisting} disabled={scanning}>
-                            <MorphIcon icon={Search} size={16} /> {scanning ? t('databases.scanning') : t('databases.scan')}
-                        </button>
-                        <button className="btn-primary" onClick={() => setShowForm(true)}>
+                        <button className="btn-primary" onClick={() => openForm('create')}>
                             <MorphIcon icon={Plus} size={16} /> {t('databases.newDatabase')}
                         </button>
                     </div>
                 )}
             </header>
 
-            {!showForm ? (
+            {(
                 loading ? (
                     <div className="db-empty-state"><p>{t('common.loading')}</p></div>
                 ) : servers.length === 0 ? (
@@ -316,7 +351,7 @@ const DatabaseView = () => {
                         <p className="text-muted">
                             {t('databases.emptyDesc', { count: servers.length })}
                         </p>
-                        <button className="btn-primary" onClick={() => setShowForm(true)}>
+                        <button className="btn-primary" onClick={() => openForm('create')}>
                             <MorphIcon icon={Plus} size={16} /> {t('databases.createFirst')}
                         </button>
                     </div>
@@ -324,10 +359,25 @@ const DatabaseView = () => {
                     <div className="db-list">
                         {databases.map(db => {
                             const adminUrl = getAdminUrl(db);
+                            const expanded = !!expandedCards[db.id];
+                            const detailsId = `db-details-${db.id}`;
                             return (
-                                <div key={db.id} className="db-card">
+                                <div key={db.id} className={`db-card ${expanded ? 'expanded' : ''}`}>
                                     <div className="db-card-header">
-                                        <div className="db-card-header-left">
+                                        <div
+                                            className="db-card-header-left"
+                                            role="button"
+                                            tabIndex={0}
+                                            aria-expanded={expanded}
+                                            aria-controls={detailsId}
+                                            onClick={() => toggleCard(db.id)}
+                                            onKeyDown={e => {
+                                                if (e.key === 'Enter' || e.key === ' ') {
+                                                    e.preventDefault();
+                                                    toggleCard(db.id);
+                                                }
+                                            }}
+                                        >
                                             <div className={`db-engine-icon ${db.engine}`}>
                                                 {db.engine === 'mysql' ? '🐬' : '🐘'}
                                             </div>
@@ -383,196 +433,286 @@ const DatabaseView = () => {
                                             >
                                                 <MorphIcon icon={Trash2} size={14} />
                                             </button>
-                                        </div>
-                                    </div>
-
-                                    <div className="db-card-body">
-                                        <div className="db-info-grid">
-                                            <div className="db-info-item">
-                                                <span className="db-label">{t('databases.form.port')}</span>
-                                                <span className="db-value">{db.port}</span>
-                                            </div>
-                                            <div className="db-info-item">
-                                                <span className="db-label">{t('databases.form.engine')}</span>
-                                                <span className="db-value">{db.dbName}</span>
-                                            </div>
-                                            <div className="db-info-item">
-                                                <span className="db-label">{t('databases.form.user')}</span>
-                                                <span className="db-value">{db.dbUser}</span>
-                                            </div>
-                                            <div className="db-info-item db-info-connect">
-                                                <button
-                                                    className="db-connect-btn"
-                                                    onClick={() => openConnectionModal(db)}
-                                                >
-                                                    <MorphIcon icon={Link} size={14} />
-                                                    {t('databases.credentials.connectionData')}
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Admin panel link for MySQL (phpMyAdmin) */}
-                                    {adminUrl && (
-                                        <div className="db-card-footer">
-                                            <div className="db-card-footer-left">
-                                                <span style={{ fontSize: '12px', color: 'var(--text-dim)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                                                    {t('databases.adminPanel')}
-                                                </span>
-                                            </div>
-                                            <a
-                                                href={adminUrl}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="db-admin-link"
+                                            <button
+                                                className="db-card-toggle"
+                                                onClick={() => toggleCard(db.id)}
+                                                aria-expanded={expanded}
+                                                aria-controls={detailsId}
+                                                title={expanded ? t('databases.hideDetails') : t('databases.showDetails')}
+                                                aria-label={expanded ? t('databases.hideDetails') : t('databases.showDetails')}
                                             >
-                                                <MorphIcon icon={ExternalLink} size={14} />
-                                                Abrir phpMyAdmin
-                                            </a>
+                                                <MorphIcon icon={ChevronDown} size={16} spring="snappy" />
+                                            </button>
                                         </div>
-                                    )}
+                                    </div>
+
+                                    {/* `inert` mientras esta plegado: el contenido no solo se
+                                        oculta, tambien sale del recorrido del tabulador. */}
+                                    <div className="db-card-details" id={detailsId} inert={!expanded}>
+                                        <div className="db-card-details-inner">
+                                            <div className="db-card-body">
+                                                <div className="db-info-grid">
+                                                    <div className="db-info-item">
+                                                        <span className="db-label">{t('databases.form.port')}</span>
+                                                        <span className="db-value">{db.port}</span>
+                                                    </div>
+                                                    <div className="db-info-item">
+                                                        <span className="db-label">{t('databases.form.engine')}</span>
+                                                        <span className="db-value">{db.dbName}</span>
+                                                    </div>
+                                                    <div className="db-info-item">
+                                                        <span className="db-label">{t('databases.form.user')}</span>
+                                                        <span className="db-value">{db.dbUser}</span>
+                                                    </div>
+                                                    <div className="db-info-item db-info-connect">
+                                                        <button
+                                                            className="db-connect-btn"
+                                                            onClick={() => openConnectionModal(db)}
+                                                        >
+                                                            <MorphIcon icon={Link} size={14} />
+                                                            {t('databases.credentials.connectionData')}
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Admin panel link for MySQL (phpMyAdmin) */}
+                                            {adminUrl && (
+                                                <div className="db-card-footer">
+                                                    <div className="db-card-footer-left">
+                                                        <span style={{ fontSize: '12px', color: 'var(--text-dim)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                                            {t('databases.adminPanel')}
+                                                        </span>
+                                                    </div>
+                                                    <a
+                                                        href={adminUrl}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="db-admin-link"
+                                                    >
+                                                        <MorphIcon icon={ExternalLink} size={14} />
+                                                        Abrir phpMyAdmin
+                                                    </a>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
                                 </div>
                             );
                         })}
                     </div>
                 )
-            ) : (
-                <div className="db-form-card">
-                    <div className="db-form-header">
-                        <h2><MorphIcon icon={DatabaseIcon} size={20} className="icon-blue" /> {t('databases.newDatabase')}</h2>
-                        <button className="btn-close" onClick={() => { setShowForm(false); setDeployLogs(''); }}>
-                            <MorphIcon icon={X} size={20} />
-                        </button>
-                    </div>
-                    <form onSubmit={handleSubmit}>
-                        {/* Engine selector */}
-                        <div className="db-engine-selector">
-                            <div
-                                className={`db-engine-option ${formData.engine === 'mysql' ? 'selected' : ''}`}
-                                onClick={() => handleEngineChange('mysql')}
-                            >
-                                <span className="engine-icon">🐬</span>
-                                <span className="engine-name">MySQL</span>
-                                <span className="engine-desc">{t('databases.form.mysqlDesc')}</span>
-                            </div>
-                            <div
-                                className={`db-engine-option ${formData.engine === 'postgres' ? 'selected' : ''}`}
-                                onClick={() => handleEngineChange('postgres')}
-                            >
-                                <span className="engine-icon">🐘</span>
-                                <span className="engine-name">PostgreSQL</span>
-                                <span className="engine-desc">{t('databases.form.postgresDesc')}</span>
-                            </div>
-                        </div>
+            )}
 
-                        <div className="db-form-section">
-                            <h3>{t('databases.credentials.serverConfig')}</h3>
-                            <div className="form-group">
-                                <label>{t('databases.form.targetServer')}</label>
-                                <select
-                                    value={formData.serverId}
-                                    onChange={e => setFormData({ ...formData, serverId: e.target.value })}
-                                    required
+            {/* Panel lateral de alta: los dos caminos (crear / cargar) viven en
+                el mismo sitio, asi el usuario ve que existen ambos. */}
+            {showForm && (
+                <div
+                    className={`db-drawer-scrim ${closingForm ? 'closing' : ''}`}
+                    onClick={deploying ? undefined : closeForm}
+                >
+                    <aside
+                        className={`db-drawer db-form-drawer ${closingForm ? 'closing' : ''}`}
+                        onClick={(e) => e.stopPropagation()}
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label={t('databases.addTitle')}
+                    >
+                        <header className="db-drawer-header">
+                            <div className="db-form-drawer-title">
+                                <h3>{t('databases.addTitle')}</h3>
+                                <p>{t('databases.addSubtitle')}</p>
+                            </div>
+                            <button
+                                className="db-drawer-close"
+                                onClick={closeForm}
+                                aria-label={t('common.close')}
+                            >
+                                <MorphIcon icon={X} size={18} />
+                            </button>
+                        </header>
+
+                        <div className="db-drawer-body">
+                            <div className="db-mode-picker" role="tablist">
+                                <button
+                                    type="button"
+                                    role="tab"
+                                    aria-selected={formMode === 'create'}
+                                    className={`db-mode-option ${formMode === 'create' ? 'selected' : ''}`}
+                                    onClick={() => setFormMode('create')}
                                 >
-                                    <option value="" disabled>{t('databases.form.selectServer')}</option>
-                                    {servers.map(s => (
-                                        <option key={s.id} value={s.id}>{s.name} ({s.ip})</option>
-                                    ))}
-                                </select>
+                                    <MorphIcon icon={Plus} size={18} />
+                                    <span className="db-mode-name">{t('databases.modeCreate')}</span>
+                                    <span className="db-mode-desc">{t('databases.modeCreateDesc')}</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    role="tab"
+                                    aria-selected={formMode === 'import'}
+                                    className={`db-mode-option ${formMode === 'import' ? 'selected' : ''}`}
+                                    onClick={() => setFormMode('import')}
+                                >
+                                    <MorphIcon icon={Search} size={18} />
+                                    <span className="db-mode-name">{t('databases.modeImport')}</span>
+                                    <span className="db-mode-desc">{t('databases.modeImportDesc')}</span>
+                                </button>
                             </div>
-                            <div className="form-group">
-                                <label>{t('databases.form.instanceName')}</label>
-                                <input
-                                    type="text"
-                                    placeholder={t('databases.form.instancePlaceholder')}
-                                    value={formData.name}
-                                    onChange={e => setFormData({ ...formData, name: e.target.value })}
-                                    required
-                                />
-                            </div>
-                        </div>
 
-                        <div className="db-form-section">
-                            <h3>{t('databases.credentials.title')}</h3>
-                            <div className="form-row">
-                                <div className="form-group">
-                                    <label>{t('databases.form.dbName')}</label>
-                                    <input
-                                        type="text"
-                                        placeholder={t('databases.form.dbNamePlaceholder')}
-                                        value={formData.dbName}
-                                        onChange={e => setFormData({ ...formData, dbName: e.target.value })}
-                                        required
-                                    />
-                                </div>
-                                <div className="form-group">
-                                    <label>{t('databases.form.port')}</label>
-                                    <input
-                                        type="number"
-                                        value={formData.port}
-                                        onChange={e => setFormData({ ...formData, port: e.target.value })}
-                                        required
-                                    />
-                                </div>
-                            </div>
-                            <div className="form-row">
-                                <div className="form-group">
-                                    <label>{t('databases.form.user')}</label>
-                                    <input
-                                        type="text"
-                                        placeholder={t('databases.form.userPlaceholder')}
-                                        value={formData.dbUser}
-                                        onChange={e => setFormData({ ...formData, dbUser: e.target.value })}
-                                        required
-                                    />
-                                </div>
-                                <div className="form-group">
-                                    <label>{t('databases.form.password')}</label>
-                                    <div className="db-password-field">
-                                        <input
-                                            type={showPasswords['form'] ? 'text' : 'password'}
-                                            placeholder={t('databases.form.passwordPlaceholder')}
-                                            value={formData.dbPassword}
-                                            onChange={e => setFormData({ ...formData, dbPassword: e.target.value })}
-                                            required
-                                            style={{ paddingRight: '40px', width: '100%' }}
-                                        />
-                                        <button
-                                            type="button"
-                                            className="db-password-toggle"
-                                            onClick={() => setShowPasswords(prev => ({ ...prev, form: !prev.form }))}
-                                        >
-                                            <MorphIcon icon={showPasswords['form'] ? EyeOff : Eye} size={16} spring="snappy" />
-                                        </button>
+                            {formMode === 'import' ? (
+                                <div className="db-import-panel">
+                                    <p className="db-import-desc">{t('databases.importDesc')}</p>
+                                    <h4 className="db-conn-section-title">{t('databases.importTargets')}</h4>
+                                    <div className="db-import-servers">
+                                        {servers.map(srv => (
+                                            <div className="db-import-server" key={srv.id}>
+                                                <MorphIcon icon={Server} size={14} />
+                                                <strong>{srv.name}</strong>
+                                                <code>{srv.ip}</code>
+                                            </div>
+                                        ))}
                                     </div>
                                 </div>
-                            </div>
-                            {formData.engine === 'mysql' && (
-                                <div className="form-group">
-                                    <label>{t('databases.form.phpmyadminPort')}</label>
-                                    <input
-                                        type="number"
-                                        placeholder={t('databases.form.phpmyadminPortPlaceholder')}
-                                        value={formData.adminPort}
-                                        onChange={e => setFormData({ ...formData, adminPort: e.target.value })}
-                                        required
-                                    />
-                                    <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
-                                        {t('databases.phpmyadminHint', { port: formData.adminPort || '8080' })}
-                                    </span>
-                                </div>
+                            ) : (
+                                <form id="db-create-form" onSubmit={handleSubmit}>
+                                    {/* Engine selector */}
+                                    <div className="db-engine-selector">
+                                        <div
+                                            className={`db-engine-option ${formData.engine === 'mysql' ? 'selected' : ''}`}
+                                            onClick={() => handleEngineChange('mysql')}
+                                        >
+                                            <span className="engine-icon">🐬</span>
+                                            <span className="engine-name">MySQL</span>
+                                            <span className="engine-desc">{t('databases.form.mysqlDesc')}</span>
+                                        </div>
+                                        <div
+                                            className={`db-engine-option ${formData.engine === 'postgres' ? 'selected' : ''}`}
+                                            onClick={() => handleEngineChange('postgres')}
+                                        >
+                                            <span className="engine-icon">🐘</span>
+                                            <span className="engine-name">PostgreSQL</span>
+                                            <span className="engine-desc">{t('databases.form.postgresDesc')}</span>
+                                        </div>
+                                    </div>
+
+                                    <div className="db-form-section">
+                                        <h3>{t('databases.credentials.serverConfig')}</h3>
+                                        <div className="form-group">
+                                            <label>{t('databases.form.targetServer')}</label>
+                                            <select
+                                                value={formData.serverId}
+                                                onChange={e => setFormData({ ...formData, serverId: e.target.value })}
+                                                required
+                                            >
+                                                <option value="" disabled>{t('databases.form.selectServer')}</option>
+                                                {servers.map(s => (
+                                                    <option key={s.id} value={s.id}>{s.name} ({s.ip})</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div className="form-group">
+                                            <label>{t('databases.form.instanceName')}</label>
+                                            <input
+                                                type="text"
+                                                placeholder={t('databases.form.instancePlaceholder')}
+                                                value={formData.name}
+                                                onChange={e => setFormData({ ...formData, name: e.target.value })}
+                                                required
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="db-form-section">
+                                        <h3>{t('databases.credentials.title')}</h3>
+                                        <div className="form-row">
+                                            <div className="form-group">
+                                                <label>{t('databases.form.dbName')}</label>
+                                                <input
+                                                    type="text"
+                                                    placeholder={t('databases.form.dbNamePlaceholder')}
+                                                    value={formData.dbName}
+                                                    onChange={e => setFormData({ ...formData, dbName: e.target.value })}
+                                                    required
+                                                />
+                                            </div>
+                                            <div className="form-group">
+                                                <label>{t('databases.form.port')}</label>
+                                                <input
+                                                    type="number"
+                                                    value={formData.port}
+                                                    onChange={e => setFormData({ ...formData, port: e.target.value })}
+                                                    required
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="form-row">
+                                            <div className="form-group">
+                                                <label>{t('databases.form.user')}</label>
+                                                <input
+                                                    type="text"
+                                                    placeholder={t('databases.form.userPlaceholder')}
+                                                    value={formData.dbUser}
+                                                    onChange={e => setFormData({ ...formData, dbUser: e.target.value })}
+                                                    required
+                                                />
+                                            </div>
+                                            <div className="form-group">
+                                                <label>{t('databases.form.password')}</label>
+                                                <div className="db-password-field">
+                                                    <input
+                                                        type={showPasswords['form'] ? 'text' : 'password'}
+                                                        placeholder={t('databases.form.passwordPlaceholder')}
+                                                        value={formData.dbPassword}
+                                                        onChange={e => setFormData({ ...formData, dbPassword: e.target.value })}
+                                                        required
+                                                        style={{ paddingRight: '40px', width: '100%' }}
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        className="db-password-toggle"
+                                                        onClick={() => setShowPasswords(prev => ({ ...prev, form: !prev.form }))}
+                                                    >
+                                                        <MorphIcon icon={showPasswords['form'] ? EyeOff : Eye} size={16} spring="snappy" />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {formData.engine === 'mysql' && (
+                                            <div className="form-group">
+                                                <label>{t('databases.form.phpmyadminPort')}</label>
+                                                <input
+                                                    type="number"
+                                                    placeholder={t('databases.form.phpmyadminPortPlaceholder')}
+                                                    value={formData.adminPort}
+                                                    onChange={e => setFormData({ ...formData, adminPort: e.target.value })}
+                                                    required
+                                                />
+                                                <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
+                                                    {t('databases.phpmyadminHint', { port: formData.adminPort || '8080' })}
+                                                </span>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                </form>
                             )}
                         </div>
 
-                        <div className="form-actions">
-                            <button type="button" className="btn-secondary" onClick={() => { setShowForm(false); setDeployLogs(''); }}>
+                        <footer className="db-drawer-footer">
+                            <button type="button" className="btn-secondary" onClick={closeForm}>
                                 {t('common.cancel')}
                             </button>
-                            <button type="submit" className="btn-primary" disabled={deploying}>
-                                {deploying ? t('databases.form.deploying') : t('databases.form.deploy')}
-                            </button>
-                        </div>
-                    </form>
+                            {formMode === 'create' ? (
+                                <button type="submit" form="db-create-form" className="btn-primary" disabled={deploying}>
+                                    {deploying ? t('databases.form.deploying') : t('databases.form.deploy')}
+                                </button>
+                            ) : (
+                                <button type="button" className="btn-primary" onClick={handleScanExisting} disabled={scanning}>
+                                    <MorphIcon icon={Search} size={16} />
+                                    {scanning ? t('databases.scanning') : t('databases.importCta')}
+                                </button>
+                            )}
+                        </footer>
+                    </aside>
                 </div>
             )}
 
@@ -589,7 +729,7 @@ const DatabaseView = () => {
                                 )}
                             </h3>
                             {!deploying && (
-                                <button className="btn-close" onClick={() => { setShowForm(false); setDeployLogs(''); }}><MorphIcon icon={X} size={20} /></button>
+                                <button className="btn-close" onClick={() => { setShowForm(false); setClosingForm(false); setDeployLogs(''); }}><MorphIcon icon={X} size={20} /></button>
                             )}
                         </div>
                         <div className="db-deploy-modal-body">
@@ -611,7 +751,7 @@ const DatabaseView = () => {
                                 <button type="button" className="btn-secondary" onClick={() => setDeployLogs('')}>
                                     {t('databases.msg.clear')}
                                 </button>
-                                <button type="button" className="btn-primary" onClick={() => { setShowForm(false); setDeployLogs(''); }}>
+                                <button type="button" className="btn-primary" onClick={() => { setShowForm(false); setClosingForm(false); setDeployLogs(''); }}>
                                     {t('databases.msg.finish')}
                                 </button>
                             </div>
@@ -641,17 +781,17 @@ const DatabaseView = () => {
 
                 return (
                     <div
-                        className={`db-conn-scrim ${closingConnModal ? 'closing' : ''}`}
+                        className={`db-drawer-scrim ${closingConnModal ? 'closing' : ''}`}
                         onClick={closeConnectionModal}
                     >
                         <aside
-                            className={`db-conn-drawer ${closingConnModal ? 'closing' : ''}`}
+                            className={`db-drawer db-conn-drawer ${closingConnModal ? 'closing' : ''}`}
                             onClick={(e) => e.stopPropagation()}
                             role="dialog"
                             aria-modal="true"
                             aria-label={t('databases.credentials.connectionData')}
                         >
-                            <header className="db-conn-drawer-header">
+                            <header className="db-drawer-header">
                                 <div className="db-conn-identity">
                                     <div className={`db-conn-avatar ${db.engine}`}>
                                         {db.engine === 'mysql' ? '🐬' : '🐘'}
@@ -672,7 +812,7 @@ const DatabaseView = () => {
                                     </div>
                                 </div>
                                 <button
-                                    className="db-conn-close"
+                                    className="db-drawer-close"
                                     onClick={closeConnectionModal}
                                     aria-label={t('common.close')}
                                 >
@@ -687,7 +827,7 @@ const DatabaseView = () => {
                                 <code>{db.serverIp}</code>
                             </div>
 
-                            <div className="db-conn-drawer-body">
+                            <div className="db-drawer-body">
                                 <section className="db-conn-section" style={{ '--stagger': 1 } as React.CSSProperties}>
                                     <h4 className="db-conn-section-title">
                                         <MorphIcon icon={KeyRound} size={13} />
@@ -792,7 +932,7 @@ const DatabaseView = () => {
                                 </div>
                             </div>
 
-                            <footer className="db-conn-drawer-footer">
+                            <footer className="db-drawer-footer">
                                 {adminUrl ? (
                                     <a
                                         href={adminUrl}
