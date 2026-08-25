@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import { serverService } from '../../services/server.service';
 import type { CreateServerData } from '../../services/server.service';
-import { Globe, Plus, X, ExternalLink, HardDrive, Settings, GitCommit, RefreshCw, CloudUpload, Terminal, RotateCcw, CheckCircle2 } from 'lucide';
+import { Globe, Plus, X, ExternalLink, HardDrive, Settings, RefreshCw, CloudUpload, Terminal, RotateCcw, CheckCircle2, ChevronRight, Trash2, Database, Folder, Lock } from 'lucide';
 import { MorphIcon } from 'morphicons/react';
 import { API_URL } from '../../config';
 import { authFetch } from '../../services/apiFetch';
@@ -37,6 +37,13 @@ const WordPressIcon = ({ size = 16 }: { size?: number }) => (
 const NodeIcon = ({ size = 16 }: { size?: number }) => (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false">
         <path d="M11.998 24c-.321 0-.641-.084-.922-.247l-2.936-1.737c-.438-.245-.224-.332-.08-.383.585-.203.703-.25 1.328-.604.065-.037.151-.023.218.017l2.256 1.339c.082.045.197.045.272 0l8.795-5.076c.082-.047.134-.141.134-.238V6.921c0-.099-.053-.192-.137-.242l-8.791-5.072c-.081-.047-.189-.047-.271 0L3.075 6.68c-.085.049-.139.145-.139.241v10.15c0 .097.054.189.139.235l2.409 1.392c1.307.654 2.108-.116 2.108-.89V7.787c0-.142.114-.253.256-.253h1.115c.139 0 .255.112.255.253v10.021c0 1.745-.95 2.745-2.604 2.745-.508 0-.909 0-2.026-.551L2.28 18.675c-.57-.329-.922-.945-.922-1.604V6.921c0-.659.353-1.275.922-1.603l8.795-5.082c.557-.315 1.296-.315 1.848 0l8.794 5.082c.57.329.924.944.924 1.603v10.15c0 .659-.354 1.273-.924 1.604l-8.794 5.078c-.28.163-.599.247-.925.247zm7.101-10.007c0-1.9-1.284-2.406-3.987-2.763-2.731-.361-3.009-.548-3.009-1.187 0-.528.235-1.233 2.258-1.233 1.807 0 2.473.389 2.747 1.607.024.115.129.199.247.199h1.141c.071 0 .138-.031.186-.081.048-.054.074-.123.067-.196-.177-2.098-1.571-3.076-4.388-3.076-2.508 0-4.004 1.058-4.004 2.833 0 1.925 1.488 2.457 3.895 2.695 2.88.282 3.103.703 3.103 1.269 0 .983-.789 1.402-2.642 1.402-2.327 0-2.839-.584-3.011-1.742-.02-.124-.126-.215-.253-.215H9.314c-.141 0-.254.112-.254.253 0 1.482.806 3.248 4.655 3.248 2.786 0 4.384-1.097 4.384-3.014z" />
+    </svg>
+);
+
+/** Marca de GitHub, de donde sale el commit que sigue el panel. */
+const GitHubIcon = ({ size = 16 }: { size?: number }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false">
+        <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12" />
     </svg>
 );
 
@@ -111,6 +118,14 @@ const emptyForm = (serverId: string, userId: string): WebsiteFormData => ({
 /** Un sitio WordPress no se despliega desde git: no hay commits que seguir. */
 const tracksCommits = (site: any) => (site?.stack || 'node') !== 'wordpress';
 
+/** URL pública del sitio. En WordPress la guarda el panel con su esquema real. */
+const siteUrlOf = (site: any): string =>
+    site?.stack_config?.siteUrl || (site?.domain ? `http://${site.domain}` : `http://${site?.serverIp}`);
+
+/** URL del escritorio de WordPress. */
+const adminUrlOf = (site: any): string =>
+    site?.stack_config?.adminUrl || `${siteUrlOf(site)}/wp-admin`;
+
 
 
 const Websites = () => {
@@ -119,6 +134,10 @@ const Websites = () => {
     const [servers, setServers] = useState<CreateServerData[]>([]);
     const [showForm, setShowForm] = useState(false);
     const [closingForm, setClosingForm] = useState(false);
+    // Panel de detalle: guarda solo el id, para que lo que se pinta salga
+    // siempre de la lista viva y no de una copia congelada al abrirlo.
+    const [detailId, setDetailId] = useState<string | null>(null);
+    const [closingDetail, setClosingDetail] = useState(false);
     const [deploying, setDeploying] = useState(false);
     const [githubRepos, setGithubRepos] = useState<any[]>([]);
     const [hasGithub, setHasGithub] = useState(false);
@@ -244,6 +263,19 @@ const Websites = () => {
     const [wpDump, setWpDump] = useState<WpUpload | null>(null);
 
     const isWordpress = formData.stack === 'wordpress';
+
+    /** Sitio que muestra el panel de detalle, tomado de la lista actualizada. */
+    const detailSite = detailId ? websites.find(w => w.id === detailId) ?? null : null;
+
+    /** Cierra el panel de detalle dejando correr su animación de salida. */
+    const closeDetail = (then?: () => void) => {
+        setClosingDetail(true);
+        setTimeout(() => {
+            setDetailId(null);
+            setClosingDetail(false);
+            then?.();
+        }, 280);
+    };
 
     /**
      * Cierra el panel dejando correr la animación de salida antes de
@@ -488,6 +520,8 @@ const Websites = () => {
                 try {
                     await serverService.deleteWebsite(serverId, websiteId);
                     setWebsites(websites.filter(w => w.id !== websiteId));
+                    // El panel de detalle apunta a un sitio que ya no existe.
+                    if (detailId === websiteId) closeDetail();
                     showToast(t('websites.msg.deleted'), 'success');
                 } catch (error) {
                     console.error('Error eliminando sitio:', error);
@@ -628,139 +662,76 @@ echo "=== ${t('websites.logs.diagDone')} ==="`;
                 </div>
             ) : (
                 <div className="website-list">
-                    {websites.map(site => (
-                        <div key={site.id} className={`website-card ${deployingSites[site.id] ? 'deploying' : (commits[site.id]?.isOutdated ? 'outdated' : '')}`}>
-                            <div className="website-info">
-                                <div className="website-header-row">
-                                    <h3 title={site.name}>{site.name}</h3>
-                                    <span className={`stack-badge ${site.stack === 'wordpress' ? 'wordpress' : 'node'}`}>
-                                        {site.stack === 'wordpress'
-                                            ? <><WordPressIcon size={11} /> WordPress</>
-                                            : <><NodeIcon size={11} /> Node.js</>}
-                                    </span>
-                                    <span className={`status-badge ${site.status || 'online'}`}>
-                                        {site.status === 'error' ? 'Error' : 'Activo'}
-                                    </span>
-                                </div>
-                                <div className="website-meta">
-                                    <div className="meta-item"><MorphIcon icon={HardDrive} size={13} /> {site.serverIp}</div>
-                                    {/* WordPress no reserva puerto interno: Nginx lo sirve con PHP-FPM. */}
-                                    {site.port ? (
-                                        <div className="meta-item"><MorphIcon icon={ExternalLink} size={13} /> Port {site.port}</div>
-                                    ) : null}
-                                    {site.domain ? (
-                                        <div className="meta-item"><MorphIcon icon={Globe} size={13} /> {site.domain}</div>
-                                    ) : (
-                                        <div className="meta-item no-domain" onClick={() => handleEdit(site)} title={t('websites.addDomainHint')}>
-                                            <MorphIcon icon={Globe} size={13} /> <span>{t('websites.noDomain')}</span>
-                                        </div>
-                                    )}
-                                    {site.use_letsencrypt && site.domain && (
-                                        <div className="meta-item ssl-active">
-                                            <MorphIcon icon={RefreshCw} size={11} /> SSL activo
-                                        </div>
-                                    )}
-                                </div>
-                                <div className="card-links">
-                                    {/* En WordPress la URL real la guarda el panel: incluye el
-                                        esquema y el subdirectorio con los que se instaló. */}
-                                    <a href={site.stack_config?.siteUrl || (site.domain ? `http://${site.domain}` : `http://${site.serverIp}`)} target="_blank" rel="noopener noreferrer" className="site-link-premium">
-                                        <MorphIcon icon={ExternalLink} size={12} /> Abrir Sitio
-                                    </a>
-                                    {site.stack === 'wordpress' && (
-                                        <a href={site.stack_config?.adminUrl || `${site.stack_config?.siteUrl || `http://${site.domain || site.serverIp}`}/wp-admin`} target="_blank" rel="noopener noreferrer" className="site-link-premium">
-                                            <MorphIcon icon={Settings} size={12} /> {t('websites.wp.openAdmin')}
-                                        </a>
-                                    )}
-                                </div>
-                            </div>
-                            {!tracksCommits(site) ? (
-                            <div className="website-commit-info">
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px', color: '#4fa8d8' }}>
-                                    <WordPressIcon size={12} />
-                                    <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                                        WordPress
-                                    </span>
-                                </div>
-                                <div style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: 1.7 }}>
-                                    <div>{t('websites.wp.cardDatabase')}: <span className="mono">{site.stack_config?.dbName || '—'}</span></div>
-                                    <div>{t('websites.wp.cardPath')}: <span className="mono">{site.stack_config?.installPath || `/var/www/${site.name}`}</span></div>
-                                    <div style={{ color: 'var(--text-dim)', marginTop: '4px' }}>{t('websites.wp.cardHint')}</div>
-                                </div>
-                            </div>
-                            ) : (
-                            <div className="website-commit-info">
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                                    <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '5px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                                        <MorphIcon icon={GitCommit} size={12} /> {t('websites.lastCommit')}
-                                        {checkingCommits[site.id] && (
-                                            <span className="commit-checking-dots">
-                                                <span /><span /><span />
+                    {/* La lista solo identifica el sitio y su estado; todo lo que se
+                        puede hacer con él vive en el panel de detalle, para que la
+                        vista no sea una rejilla de botones diminutos. */}
+                    {websites.map(site => {
+                        const commit = commits[site.id];
+                        const deployingThis = !!deployingSites[site.id];
+                        const outdated = !deployingThis && !!commit?.isOutdated;
+                        return (
+                            <div
+                                key={site.id}
+                                className={`website-card ${deployingThis ? 'deploying' : (outdated ? 'outdated' : '')}`}
+                            >
+                                <span className={`ws-card-icon ${site.stack === 'wordpress' ? 'wordpress' : 'node'}`}>
+                                    {site.stack === 'wordpress' ? <WordPressIcon size={22} /> : <NodeIcon size={22} />}
+                                </span>
+
+                                <span className="ws-card-main">
+                                    <span className="ws-card-title">
+                                        {/* Este botón es el que abre el panel de detalle: su ::after
+                                            se estira sobre toda la fila, así se puede pulsar en
+                                            cualquier punto sin anidar controles unos dentro de otros. */}
+                                        <button
+                                            type="button"
+                                            className="ws-card-name"
+                                            title={site.name}
+                                            onClick={() => setDetailId(site.id)}
+                                        >
+                                            <span className="ws-card-name-text">{site.name}</span>
+                                        </button>
+                                        {deployingThis && (
+                                            <span className="ws-pill deploying">
+                                                <MorphIcon icon={RefreshCw} size={10} className="spinning" /> {t('websites.form.deploying')}
+                                            </span>
+                                        )}
+                                        {outdated && (
+                                            <span className="ws-pill outdated">
+                                                <MorphIcon icon={CloudUpload} size={10} /> {t('websites.pill.outdated')}
                                             </span>
                                         )}
                                     </span>
-                                    <button
-                                        className={`btn-ghost${commits[site.id]?.isOutdated && !deployingSites[site.id] ? ' btn-ghost-update' : ''}`}
-                                        onClick={() => handleDeployLatest(site.server_id, site.id)}
-                                        disabled={deployingSites[site.id]}
-                                    >
-                                        {deployingSites[site.id] ? (
-                                            <><MorphIcon icon={RefreshCw} size={11} className="spinning" /> {t('websites.form.deploying')}</>
-                                        ) : commits[site.id]?.isOutdated ? (
-                                            <><MorphIcon icon={CloudUpload} size={11} /> {t('websites.form.update')}</>
-                                        ) : (
-                                            <><MorphIcon icon={CloudUpload} size={11} /> {t('websites.deployLatest')}</>
+                                    <span className="ws-card-sub">
+                                        <span className="ws-card-host">{site.domain || site.serverIp}</span>
+                                        {site.use_letsencrypt && site.domain && (
+                                            <MorphIcon icon={Lock} size={11} className="ws-card-ssl" />
                                         )}
-                                    </button>
-                                </div>
-                                {commits[site.id] ? (
-                                    <div style={{ fontSize: '12px' }}>
-                                        <div title={commits[site.id]!.isOutdated && commits[site.id]!.latestMessage ? commits[site.id]!.latestMessage! : commits[site.id]!.message} style={{ fontWeight: 500, color: 'var(--text-main)', marginBottom: '5px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                            {commits[site.id]!.isOutdated && commits[site.id]!.latestMessage ? commits[site.id]!.latestMessage : commits[site.id]!.message}
-                                        </div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
-                                            <span className="mono" style={{ color: 'var(--gh-text-link)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                {commits[site.id]!.isOutdated && commits[site.id]!.latestHash ? commits[site.id]!.latestHash : commits[site.id]!.hash}
-                                                {commits[site.id]!.isOutdated && (
-                                                    deployingSites[site.id] ? (
-                                                        <span style={{ color: '#3fb950', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', background: 'rgba(63,185,80,0.1)', border: '1px solid rgba(63,185,80,0.25)', padding: '1px 6px' }}>
-                                                            <MorphIcon icon={RefreshCw} size={9} className="spinning" /> Actualizando
-                                                        </span>
-                                                    ) : (
-                                                        <span style={{ color: '#f0883e', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', background: 'rgba(240,136,62,0.1)', border: '1px solid rgba(240,136,62,0.25)', padding: '1px 6px' }}
-                                                            title={`Desplegado: ${commits[site.id]!.hash}`}>
-                                                            <MorphIcon icon={RefreshCw} size={9} className="spinning" /> desactualizado
-                                                        </span>
-                                                    )
-                                                )}
-                                            </span>
-                                            <span style={{ color: 'var(--text-dim)', fontSize: '11px', whiteSpace: 'nowrap' }}>
-                                                {commits[site.id]!.isOutdated && commits[site.id]!.latestTime ? commits[site.id]!.latestTime : commits[site.id]!.time}
-                                            </span>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div style={{ fontSize: '12px', color: 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                        Verificando
-                                        <span className="commit-checking-dots">
-                                            <span /><span /><span />
-                                        </span>
-                                    </div>
-                                )}
+                                    </span>
+                                </span>
+
+                                <span className={`ws-card-state ${site.status === 'error' ? 'error' : 'online'}`}>
+                                    <span className="ws-server-dot" />
+                                    {site.status === 'error' ? t('websites.state.error') : t('websites.state.active')}
+                                </span>
+
+                                {/* Abre la web publicada. Va por encima de la zona
+                                    pulsable de la fila para que no abra el panel. */}
+                                <a
+                                    className="ws-card-link"
+                                    href={siteUrlOf(site)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    title={t('websites.detail.openSite')}
+                                    aria-label={t('websites.detail.openSite')}
+                                >
+                                    <MorphIcon icon={ExternalLink} size={15} />
+                                </a>
+
+                                <MorphIcon icon={ChevronRight} size={16} className="ws-card-chevron" />
                             </div>
-                            )}
-                            <div className="website-actions">
-                                <button className="btn-action" onClick={() => handleViewLogs(site.server_id, site.id, site.name)} title={t('websites.viewLogs')}><MorphIcon icon={Terminal} size={16} /></button>
-                                {/* Las variables .env son del stack de Node: WordPress se
-                                    configura en wp-config.php, no en un .env. */}
-                                {tracksCommits(site) && (
-                                    <button className="btn-action" onClick={() => handleOpenEnvModal(site)} title={t('websites.envVars')}><MorphIcon icon={Globe} size={16} /></button>
-                                )}
-                                <button className="btn-action" onClick={() => handleEdit(site)} title={t('websites.config')}><MorphIcon icon={Settings} size={16} /></button>
-                                <button className="btn-action-danger" onClick={() => handleDelete(site.server_id, site.id)} title={t('common.delete')}><MorphIcon icon={X} size={16} /></button>
-                            </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             )}
 
@@ -1094,6 +1065,206 @@ echo "=== ${t('websites.logs.diagDone')} ==="`;
                             </button>
                             <button type="submit" form="ws-deploy-form" className="btn-primary" disabled={deploying}>
                                 {deploying ? t('servers.apps.processing') : (editingSite ? t('websites.env.save') : t('websites.form.deploy'))}
+                            </button>
+                        </footer>
+                    </aside>
+                </div>
+            )}
+
+            {/* ── Panel lateral de detalle del sitio ──
+                Todo lo que se puede hacer con un sitio vive aquí: accesos,
+                datos, estado del repositorio y acciones. La lista se queda
+                limpia y este panel carga con el resto. */}
+            {detailSite && (
+                <div
+                    className={`drawer-scrim ${closingDetail ? 'closing' : ''}`}
+                    onClick={() => closeDetail()}
+                >
+                    <aside
+                        className={`drawer ws-site-drawer ${closingDetail ? 'closing' : ''}`}
+                        onClick={(e) => e.stopPropagation()}
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label={detailSite.name}
+                    >
+                        <header className="drawer-header">
+                            <div className="ws-form-identity">
+                                <div className={`ws-form-icon ${detailSite.stack === 'wordpress' ? 'wp' : 'node'}`}>
+                                    {detailSite.stack === 'wordpress' ? <WordPressIcon size={24} /> : <NodeIcon size={24} />}
+                                </div>
+                                <div className="drawer-title">
+                                    <h3>{detailSite.name}</h3>
+                                    <p>{detailSite.domain || detailSite.serverIp}</p>
+                                </div>
+                            </div>
+                            <button type="button" className="drawer-close" onClick={() => closeDetail()} aria-label={t('common.close')}>
+                                <MorphIcon icon={X} size={18} />
+                            </button>
+                        </header>
+
+                        <div className="drawer-body">
+                            {/* La web publicada se abre desde el listado; aquí solo
+                                queda el escritorio de WordPress, que no tiene otro acceso. */}
+                            {detailSite.stack === 'wordpress' && (
+                                <div className="ws-detail-links">
+                                    <a className="ws-link-card" href={adminUrlOf(detailSite)} target="_blank" rel="noopener noreferrer">
+                                        <WordPressIcon size={15} />
+                                        {t('websites.wp.openAdmin')}
+                                    </a>
+                                </div>
+                            )}
+
+                            <section>
+                                <h4 className="drawer-section-title">{t('websites.detail.details')}</h4>
+                                <dl className="ws-detail-list">
+                                    <div className="ws-detail-row">
+                                        <dt><MorphIcon icon={HardDrive} size={13} /> {t('websites.detail.server')}</dt>
+                                        <dd>{detailSite.serverName || '—'} <span className="mono">{detailSite.serverIp}</span></dd>
+                                    </div>
+                                    <div className="ws-detail-row">
+                                        <dt><MorphIcon icon={Globe} size={13} /> {t('websites.form.domain')}</dt>
+                                        <dd>
+                                            {detailSite.domain || <span className="ws-detail-empty">{t('websites.noDomain')}</span>}
+                                        </dd>
+                                    </div>
+                                    <div className="ws-detail-row">
+                                        <dt><MorphIcon icon={Lock} size={13} /> SSL</dt>
+                                        <dd>
+                                            {detailSite.use_letsencrypt && detailSite.domain
+                                                ? <span className="ws-detail-ok">{t('websites.detail.sslOn')}</span>
+                                                : <span className="ws-detail-empty">{t('websites.detail.sslOff')}</span>}
+                                        </dd>
+                                    </div>
+                                    {/* WordPress no reserva puerto: Nginx lo sirve con PHP-FPM. */}
+                                    {detailSite.port ? (
+                                        <div className="ws-detail-row">
+                                            <dt><MorphIcon icon={ChevronRight} size={13} /> {t('websites.form.port')}</dt>
+                                            <dd className="mono">{detailSite.port}</dd>
+                                        </div>
+                                    ) : null}
+                                    {detailSite.stack === 'wordpress' && (
+                                        <>
+                                            <div className="ws-detail-row">
+                                                <dt><MorphIcon icon={Database} size={13} /> {t('websites.wp.cardDatabase')}</dt>
+                                                <dd className="mono">{detailSite.stack_config?.dbName || '—'}</dd>
+                                            </div>
+                                            <div className="ws-detail-row">
+                                                <dt><MorphIcon icon={Folder} size={13} /> {t('websites.wp.cardPath')}</dt>
+                                                <dd className="mono">{detailSite.stack_config?.installPath || '—'}</dd>
+                                            </div>
+                                        </>
+                                    )}
+                                </dl>
+                            </section>
+
+                            {/* Repositorio: solo los stacks que se despliegan desde git. */}
+                            {tracksCommits(detailSite) && (
+                                <section>
+                                    <h4 className="drawer-section-title">
+                                        <GitHubIcon size={13} /> {t('websites.detail.githubCommit')}
+                                        {checkingCommits[detailSite.id] && (
+                                            <span className="commit-checking-dots"><span /><span /><span /></span>
+                                        )}
+                                    </h4>
+
+                                    {commits[detailSite.id] ? (
+                                        <div className="ws-commit-box">
+                                            <p className="ws-commit-msg" title={commits[detailSite.id]!.isOutdated && commits[detailSite.id]!.latestMessage ? commits[detailSite.id]!.latestMessage! : commits[detailSite.id]!.message}>
+                                                {commits[detailSite.id]!.isOutdated && commits[detailSite.id]!.latestMessage
+                                                    ? commits[detailSite.id]!.latestMessage
+                                                    : commits[detailSite.id]!.message}
+                                            </p>
+                                            <div className="ws-commit-meta">
+                                                <span className="mono ws-commit-hash">
+                                                    {commits[detailSite.id]!.isOutdated && commits[detailSite.id]!.latestHash
+                                                        ? commits[detailSite.id]!.latestHash
+                                                        : commits[detailSite.id]!.hash}
+                                                </span>
+                                                <span>{commits[detailSite.id]!.isOutdated && commits[detailSite.id]!.latestTime
+                                                    ? commits[detailSite.id]!.latestTime
+                                                    : commits[detailSite.id]!.time}</span>
+                                            </div>
+                                            {commits[detailSite.id]!.isOutdated && !deployingSites[detailSite.id] && (
+                                                <span className="ws-pill outdated">
+                                                    <MorphIcon icon={CloudUpload} size={10} /> {t('websites.pill.outdated')}
+                                                </span>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <p className="ws-detail-empty">{t('websites.detail.checkingCommit')}</p>
+                                    )}
+
+                                    <button
+                                        type="button"
+                                        className="ws-action-row"
+                                        onClick={() => handleDeployLatest(detailSite.server_id, detailSite.id)}
+                                        disabled={!!deployingSites[detailSite.id]}
+                                    >
+                                        <MorphIcon icon={deployingSites[detailSite.id] ? RefreshCw : CloudUpload} size={16} className={deployingSites[detailSite.id] ? 'spinning' : ''} />
+                                        <span className="ws-action-text">
+                                            <span className="ws-action-name">
+                                                {deployingSites[detailSite.id] ? t('websites.form.deploying') : t('websites.deployLatest')}
+                                            </span>
+                                            <span className="ws-action-desc">{t('websites.detail.deployLatestDesc')}</span>
+                                        </span>
+                                    </button>
+                                </section>
+                            )}
+
+                            <section>
+                                <h4 className="drawer-section-title">{t('websites.detail.actions')}</h4>
+                                <div className="ws-action-list">
+                                    <button type="button" className="ws-action-row" onClick={() => handleViewLogs(detailSite.server_id, detailSite.id, detailSite.name)}>
+                                        <MorphIcon icon={Terminal} size={16} />
+                                        <span className="ws-action-text">
+                                            <span className="ws-action-name">{t('websites.viewLogs')}</span>
+                                            <span className="ws-action-desc">{t('websites.detail.logsDesc')}</span>
+                                        </span>
+                                        <MorphIcon icon={ChevronRight} size={15} className="ws-action-chevron" />
+                                    </button>
+
+                                    {/* Las variables .env son del stack de Node: WordPress se
+                                        configura en wp-config.php, no en un .env. */}
+                                    {tracksCommits(detailSite) && (
+                                        <button type="button" className="ws-action-row" onClick={() => closeDetail(() => handleOpenEnvModal(detailSite))}>
+                                            <MorphIcon icon={Globe} size={16} />
+                                            <span className="ws-action-text">
+                                                <span className="ws-action-name">{t('websites.envVars')}</span>
+                                                <span className="ws-action-desc">{t('websites.detail.envDesc')}</span>
+                                            </span>
+                                            <MorphIcon icon={ChevronRight} size={15} className="ws-action-chevron" />
+                                        </button>
+                                    )}
+
+                                    {/* Editar abre el otro panel: primero se cierra este para
+                                        que no se solapen dos drawers. */}
+                                    <button type="button" className="ws-action-row" onClick={() => closeDetail(() => handleEdit(detailSite))}>
+                                        <MorphIcon icon={Settings} size={16} />
+                                        <span className="ws-action-text">
+                                            <span className="ws-action-name">{t('websites.config')}</span>
+                                            <span className="ws-action-desc">{t('websites.detail.configDesc')}</span>
+                                        </span>
+                                        <MorphIcon icon={ChevronRight} size={15} className="ws-action-chevron" />
+                                    </button>
+
+                                    <button type="button" className="ws-action-row danger" onClick={() => handleDelete(detailSite.server_id, detailSite.id)}>
+                                        <MorphIcon icon={Trash2} size={16} />
+                                        <span className="ws-action-text">
+                                            <span className="ws-action-name">{t('websites.detail.delete')}</span>
+                                            <span className="ws-action-desc">{t('websites.detail.deleteDesc')}</span>
+                                        </span>
+                                    </button>
+                                </div>
+                            </section>
+                        </div>
+
+                        <footer className="drawer-footer">
+                            <span className={`ws-card-state ${detailSite.status === 'error' ? 'error' : 'online'}`}>
+                                <span className="ws-server-dot" />
+                                {detailSite.status === 'error' ? t('websites.state.error') : t('websites.state.active')}
+                            </span>
+                            <button type="button" className="btn-secondary" onClick={() => closeDetail()}>
+                                {t('common.close')}
                             </button>
                         </footer>
                     </aside>

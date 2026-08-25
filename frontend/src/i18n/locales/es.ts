@@ -522,6 +522,29 @@ export const es = {
     websites: {
         title: 'Gestión de Sitios Web',
         subtitle: 'Despliega proyectos Node.js o sitios WordPress en tus servidores.',
+        pill: {
+            outdated: 'Desactualizado',
+        },
+        state: {
+            active: 'Activo',
+            error: 'Error',
+        },
+        detail: {
+            openSite: 'Abrir sitio',
+            details: 'Detalles',
+            server: 'Servidor',
+            sslOn: 'Activo',
+            sslOff: 'Sin SSL',
+            actions: 'Acciones',
+            githubCommit: 'Último commit · GitHub',
+            checkingCommit: 'Consultando el repositorio...',
+            deployLatestDesc: 'Trae el último commit del repositorio y reconstruye.',
+            logsDesc: 'Salida de la aplicación, errores y Nginx.',
+            envDesc: 'Edita el archivo .env y reinicia el proceso.',
+            configDesc: 'Dominio, SSL, comandos y variables.',
+            delete: 'Eliminar sitio',
+            deleteDesc: 'Borra los archivos y la configuración del servidor.',
+        },
         stack: {
             nodeDesc: 'Clona un repositorio Git y lo arranca con PM2.',
             wordpressDesc: 'Instala WordPress o sube uno que ya tengas.',

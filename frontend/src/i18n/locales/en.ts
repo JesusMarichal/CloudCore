@@ -526,6 +526,29 @@ export const en: Dictionary = {
     websites: {
         title: 'Website Management',
         subtitle: 'Deploy Node.js projects or WordPress sites on your servers.',
+        pill: {
+            outdated: 'Outdated',
+        },
+        state: {
+            active: 'Active',
+            error: 'Error',
+        },
+        detail: {
+            openSite: 'Open site',
+            details: 'Details',
+            server: 'Server',
+            sslOn: 'Active',
+            sslOff: 'No SSL',
+            actions: 'Actions',
+            githubCommit: 'Latest commit · GitHub',
+            checkingCommit: 'Checking the repository...',
+            deployLatestDesc: 'Pulls the latest commit and rebuilds.',
+            logsDesc: 'Application output, errors and Nginx.',
+            envDesc: 'Edit the .env file and restart the process.',
+            configDesc: 'Domain, SSL, commands and variables.',
+            delete: 'Delete site',
+            deleteDesc: 'Removes the files and configuration from the server.',
+        },
         stack: {
             nodeDesc: 'Clones a Git repository and runs it with PM2.',
             wordpressDesc: 'Install WordPress or upload one you already have.',

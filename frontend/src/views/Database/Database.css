@@ -454,18 +454,20 @@
 }
 
 /* Action Buttons */
+/* Icono solo: al pasar el raton no aparece ninguna caja, unicamente cambia
+   el color del propio icono. El color de cada accion se conserva porque dice
+   lo que va a pasar: verde arranca, rojo detiene o borra. */
 .db-btn-action {
     width: 34px;
     height: 34px;
-    border-radius: 8px;
-    border: 1px solid var(--gh-border);
-    background: var(--db-veil);
+    border: none;
+    background: transparent;
     color: var(--text-muted);
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: color 0.2s ease;
 }
 
 .db-btn-action:disabled {
@@ -475,21 +477,15 @@
 
 .db-btn-action.start:hover {
     color: var(--db-ok);
-    border-color: var(--db-ok);
-    background: color-mix(in srgb, var(--db-ok) 12%, transparent);
 }
 
 .db-btn-action.stop:hover,
 .db-btn-action.delete:hover {
     color: var(--db-danger);
-    border-color: var(--db-danger);
-    background: color-mix(in srgb, var(--db-danger) 12%, transparent);
 }
 
 .db-btn-action.restart:hover {
     color: var(--primary);
-    border-color: var(--primary);
-    background: var(--db-accent-veil);
 }
 
 /* Credentials section */
@@ -1167,28 +1163,26 @@
     opacity: 1;
 }
 
+/* Icono solo: ni al pasar el raton ni al confirmar aparece caja; lo unico
+   que cambia es el color del propio icono. */
 .db-conn-icon-btn {
     display: grid;
     place-items: center;
     width: 28px;
     height: 28px;
-    border: 1px solid transparent;
-    border-radius: 6px;
+    border: none;
     background: transparent;
     color: var(--text-muted);
     cursor: pointer;
-    transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+    transition: color 0.18s ease;
 }
 
 .db-conn-icon-btn:hover {
-    background: var(--dw-accent-bg);
-    border-color: var(--dw-accent-border);
-    color: var(--primary);
+    color: var(--text-main);
 }
 
+/* Confirmacion de "copiado". */
 .db-conn-icon-btn.ok {
-    background: var(--dw-ok-bg);
-    border-color: var(--dw-ok-border);
     color: var(--dw-ok);
 }
 

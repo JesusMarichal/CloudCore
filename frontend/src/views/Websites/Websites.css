@@ -100,17 +100,24 @@
 }
 
 /* ============================================
-   WEBSITE CARD — 3-column grid
+   WEBSITE CARD — una fila por sitio
+   La tarjeta solo identifica el sitio y su estado; todo lo que se puede
+   hacer con él vive en el panel de detalle que abre al pulsarla.
    ============================================ */
 .website-card {
-    display: grid;
-    grid-template-columns: 1fr minmax(260px, 380px) 52px;
-    align-items: stretch;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+    padding: 14px 18px;
+    text-align: left;
     background: var(--gh-canvas-subtle);
     border: 1px solid var(--gh-border);
-    transition: border-color 0.15s, background 0.1s;
+    border-radius: 10px;
+    cursor: pointer;
     position: relative;
     overflow: hidden;
+    transition: border-color 0.15s, background 0.15s;
 }
 
 .website-card:hover {
@@ -118,228 +125,383 @@
     border-color: var(--ws-hover-border);
 }
 
-/* Deploying state — animated green left accent */
-.website-card.deploying::before {
-    content: '';
+/* Franja de estado a la izquierda: verde latiendo mientras despliega,
+   naranja fija cuando el repositorio va por delante del servidor. */
+.website-card.deploying::before,
+.website-card.outdated::before {
+    content: "";
     position: absolute;
     left: 0;
     top: 0;
     bottom: 0;
     width: 3px;
-    background: #3fb950;
+}
+
+.website-card.deploying::before {
+    background: var(--dw-ok, #3fb950);
     animation: deployPulse 1.8s ease-in-out infinite;
 }
 
-@keyframes deployPulse {
-    0%   { opacity: 1; }
-    50%  { opacity: 0.35; }
-    100% { opacity: 1; }
-}
-
-/* Outdated state — static orange left accent */
 .website-card.outdated::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    width: 3px;
     background: #f0883e;
 }
 
-/* ---- Website Info (left column) ---- */
-.website-info {
-    padding: 16px 20px;
-    border-right: 1px solid var(--gh-border);
+@keyframes deployPulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.35; }
+    100% { opacity: 1; }
+}
+
+.ws-card-icon {
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    color: var(--text-dim);
+}
+
+.ws-card-icon.node {
+    color: #5fa04e;
+}
+
+.ws-card-icon.wordpress {
+    color: #3f8cb8;
+}
+
+.dashboard-layout.theme-light .ws-card-icon.node {
+    color: #417e38;
+}
+
+.dashboard-layout.theme-light .ws-card-icon.wordpress {
+    color: #21759b;
+}
+
+.ws-card-main {
     display: flex;
     flex-direction: column;
-    justify-content: center;
-    gap: 6px;
+    gap: 3px;
+    min-width: 0;
+    flex: 1;
+}
+
+.ws-card-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     min-width: 0;
 }
 
-.website-header-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 2px;
-}
-
-.website-header-row h3 {
+/* Nombre del sitio: es el control que abre el panel de detalle. Su ::after
+   se estira sobre toda la fila para que valga pulsar en cualquier punto, sin
+   tener que meter un boton dentro de otro. */
+.ws-card-name {
     font-size: 14px;
     font-weight: 600;
+    color: var(--text-main);
+    background: none;
+    border: none;
+    padding: 0;
+    text-align: left;
+    cursor: pointer;
+    min-width: 0;
+    display: flex;
+}
+
+/* El recorte va en un hijo: `overflow: hidden` en el propio boton tambien
+   recortaria su ::after y la fila dejaria de ser pulsable entera. */
+.ws-card-name-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ws-card-name::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+}
+
+.ws-card-name:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
+/* Atajo a la web publicada. Va por encima de la zona pulsable de la fila
+   para que abra la pagina en vez del panel de detalle. */
+.ws-card-link {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    flex-shrink: 0;
+    color: var(--text-dim);
+    text-decoration: none;
+    transition: color 0.15s;
+}
+
+.ws-card-link:hover {
+    color: var(--text-main);
+}
+
+.ws-card-sub {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-muted);
+    min-width: 0;
+}
+
+.ws-card-host {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ws-card-ssl {
+    color: var(--dw-ok, #3fb950);
+    flex-shrink: 0;
+}
+
+/* Estado: punto de color + etiqueta, sin la caja del badge anterior. */
+.ws-card-state {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-muted);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.ws-card-state.online .ws-server-dot {
+    background: var(--dw-ok, #3fb950);
+    box-shadow: 0 0 6px rgba(63, 185, 80, 0.5);
+}
+
+.ws-card-state.error .ws-server-dot {
+    background: var(--dw-danger, #f85149);
+    box-shadow: none;
+}
+
+.ws-card-chevron {
+    color: var(--text-dim);
+    flex-shrink: 0;
+    transition: transform 0.15s, color 0.15s;
+}
+
+.website-card:hover .ws-card-chevron {
+    color: var(--primary);
+    transform: translateX(2px);
+}
+
+/* Distintivo compacto para estados transitorios del sitio. */
+.ws-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 999px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.ws-pill.deploying {
+    color: var(--dw-ok, #3fb950);
+    background: rgba(63, 185, 80, 0.1);
+    border: 1px solid rgba(63, 185, 80, 0.25);
+}
+
+.ws-pill.outdated {
+    color: #f0883e;
+    background: rgba(240, 136, 62, 0.1);
+    border: 1px solid rgba(240, 136, 62, 0.25);
+}
+
+/* ============================================
+   PANEL DE DETALLE DEL SITIO
+   ============================================ */
+.ws-site-drawer {
+    width: 460px;
+}
+
+/* Accesos directos al sitio y a su escritorio. */
+.ws-detail-links {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px;
+}
+
+.ws-link-card {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 11px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    color: var(--primary);
+    background: var(--dw-accent-bg, rgba(0, 183, 181, 0.12));
+    border: 1px solid var(--dw-accent-border, rgba(0, 183, 181, 0.3));
+    border-radius: 10px;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.ws-link-card:hover {
+    border-color: var(--primary);
+    background: var(--dw-accent-border, rgba(0, 183, 181, 0.3));
+}
+
+/* Ficha de datos: etiqueta a la izquierda, valor a la derecha. */
+.ws-detail-list {
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+}
+
+.ws-detail-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--gh-border-muted);
+}
+
+.ws-detail-row:last-child {
+    border-bottom: none;
+}
+
+.ws-detail-row dt {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12px;
+    color: var(--text-muted);
+    flex-shrink: 0;
+}
+
+.ws-detail-row dd {
+    margin: 0;
+    font-size: 13px;
+    color: var(--text-main);
+    text-align: right;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.ws-detail-empty {
+    color: var(--text-dim);
+    font-style: italic;
+    font-size: 13px;
+}
+
+.ws-detail-ok {
+    color: var(--dw-ok, #3fb950);
+}
+
+/* Último commit conocido del sitio. */
+.ws-commit-box {
+    padding: 12px 14px;
+    background: var(--gh-canvas-subtle);
+    border: 1px solid var(--gh-border);
+    border-radius: 10px;
+    margin-bottom: 10px;
+}
+
+.ws-commit-msg {
+    margin: 0 0 8px;
+    font-size: 13px;
     color: var(--text-main);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-/* ---- Status Badge ---- */
-.status-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    font-size: 11px;
-    font-weight: 600;
-    padding: 2px 8px;
-    border-radius: 2px;
-    text-transform: uppercase;
-    letter-spacing: 0.4px;
-    white-space: nowrap;
-    flex-shrink: 0;
-}
-
-.status-badge::before {
-    content: '';
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    flex-shrink: 0;
-}
-
-.status-badge.online::before,
-.status-badge.active::before {
-    background: #3fb950;
-    box-shadow: 0 0 6px rgba(63, 185, 80, 0.6);
-}
-
-.status-badge.online,
-.status-badge.active {
-    background: rgba(63, 185, 80, 0.08);
-    color: #3fb950;
-    border: 1px solid rgba(63, 185, 80, 0.2);
-}
-
-.status-badge.error::before,
-.status-badge.offline::before {
-    background: #f85149;
-}
-
-.status-badge.error,
-.status-badge.offline {
-    background: rgba(248, 81, 73, 0.08);
-    color: #f85149;
-    border: 1px solid rgba(248, 81, 73, 0.2);
-}
-
-/* ---- Website Meta row ---- */
-.website-meta {
+.ws-commit-meta {
     display: flex;
     align-items: center;
-    flex-wrap: wrap;
-    gap: 6px 14px;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: 11px;
+    color: var(--text-dim);
 }
 
-.meta-item {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 12px;
-    color: var(--text-muted);
+.ws-commit-hash {
+    color: var(--gh-text-link, var(--primary));
 }
 
-.no-domain {
-    cursor: pointer;
-    opacity: 0.65;
-}
-
-.no-domain:hover {
-    opacity: 1;
-    color: var(--primary);
-}
-
-.no-domain span {
-    font-style: italic;
-    text-decoration: underline dotted;
-}
-
-.ssl-active {
-    color: #3fb950;
-}
-
-/* ---- Card link ---- */
-.card-links {
-    margin-top: 2px;
-}
-
-.site-link-premium {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    font-size: 12px;
-    color: var(--primary);
-    text-decoration: none;
-    font-weight: 500;
-    opacity: 0.85;
-    transition: opacity 0.15s;
-}
-
-.site-link-premium:hover {
-    opacity: 1;
-    text-decoration: underline;
-}
-
-/* ---- Commit Info (middle column) ---- */
-.website-commit-info {
-    padding: 16px 20px;
-    border-right: 1px solid var(--gh-border);
+/* Acciones: una fila por cosa que se puede hacer. */
+.ws-action-list {
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    gap: 8px;
+}
+
+.ws-action-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 11px 14px;
+    text-align: left;
+    background: var(--gh-canvas-subtle);
+    border: 1px solid var(--gh-border);
+    border-radius: 10px;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.ws-action-row:hover:not(:disabled) {
+    border-color: var(--primary);
+    color: var(--primary);
+    background: var(--dw-accent-bg, rgba(0, 183, 181, 0.12));
+}
+
+.ws-action-row:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.ws-action-row.danger:hover {
+    border-color: var(--dw-danger, #f85149);
+    color: var(--dw-danger, #f85149);
+    background: var(--dw-danger-bg, rgba(248, 81, 73, 0.12));
+}
+
+.ws-action-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
     min-width: 0;
 }
 
-/* ---- Actions (right column) ---- */
-.website-actions {
-    display: flex;
-    flex-direction: column;
-    width: 52px;
+.ws-action-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-main);
 }
 
-.btn-action {
-    flex: 1;
-    width: 52px;
-    border: none;
-    border-bottom: 1px solid var(--gh-border);
-    border-radius: 0;
-    background: transparent;
+.ws-action-row:hover:not(:disabled) .ws-action-name {
+    color: inherit;
+}
+
+.ws-action-desc {
+    font-size: 11px;
+    line-height: 1.45;
     color: var(--text-muted);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: background 0.1s, color 0.1s;
-    padding: 0;
 }
 
-.btn-action:last-child {
-    border-bottom: none;
-}
-
-.btn-action:hover {
-    background: rgba(0, 183, 181, 0.08);
-    color: var(--primary);
-}
-
-.btn-action-danger {
-    flex: 1;
-    width: 52px;
-    border: none;
-    border-bottom: none;
-    border-radius: 0;
-    background: transparent;
-    color: var(--text-muted);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: background 0.1s, color 0.1s;
-    padding: 0;
-}
-
-.btn-action-danger:hover {
-    background: rgba(248, 81, 73, 0.08);
-    color: #f85149;
+.ws-action-chevron {
+    flex-shrink: 0;
+    color: var(--text-dim);
 }
 
 /* ---- Global Buttons ---- */
@@ -431,23 +593,22 @@
     border-color: rgba(63, 185, 80, 0.6) !important;
 }
 
+/* Los botones que son solo un icono no llevan caja: al pasar el raton lo
+   unico que cambia es el color del propio icono. */
 .btn-close {
     background: transparent;
-    border: 1px solid var(--gh-border);
+    border: none;
     color: var(--text-muted);
     cursor: pointer;
     padding: 6px;
-    border-radius: 6px;
-    transition: all 0.15s;
+    transition: color 0.15s;
     display: flex;
     align-items: center;
     justify-content: center;
 }
 
 .btn-close:hover {
-    background: rgba(248, 81, 73, 0.1);
-    color: #f85149;
-    border-color: rgba(248, 81, 73, 0.4);
+    color: var(--text-main);
 }
 
 /* =============================================
@@ -744,25 +905,24 @@
     box-shadow: 0 0 0 2px rgba(0, 183, 181, 0.15);
 }
 
+/* Este si conserva el rojo al pasar el raton, porque borra algo; lo que
+   pierde es la caja. */
 .btn-delete-env {
     width: 30px;
     height: 30px;
-    border-radius: 6px;
-    border: 1px solid var(--gh-border);
+    border: none;
     background: transparent;
     color: var(--text-muted);
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: all 0.15s;
+    transition: color 0.15s;
     flex-shrink: 0;
 }
 
 .btn-delete-env:hover {
-    background: rgba(248, 81, 73, 0.1);
-    border-color: rgba(248, 81, 73, 0.4);
-    color: #f85149;
+    color: var(--dw-danger, #f85149);
 }
 
 .btn-add-env {
@@ -1094,27 +1254,20 @@
 .logs-refresh-btn,
 .logs-close-btn {
     background: transparent;
-    border: 1px solid var(--gh-border);
+    border: none;
     color: var(--text-muted);
-    border-radius: 6px;
     width: 28px;
     height: 28px;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: all 0.15s;
+    transition: color 0.15s;
 }
 
-.logs-refresh-btn:hover {
-    color: var(--primary);
-    border-color: rgba(0, 183, 181, 0.4);
-}
-
+.logs-refresh-btn:hover,
 .logs-close-btn:hover {
-    background: rgba(248, 81, 73, 0.1);
-    color: #f85149;
-    border-color: rgba(248, 81, 73, 0.4);
+    color: var(--text-main);
 }
 
 .logs-modal-tabs {
@@ -1202,27 +1355,14 @@
         justify-content: center;
     }
 
+    /* La fila del sitio se aprieta: el estado se cae y el nombre manda. */
     .website-card {
-        grid-template-columns: 1fr 52px;
-        grid-template-rows: auto auto;
+        padding: 12px 14px;
+        gap: 10px;
     }
 
-    .website-info {
-        grid-column: 1;
-        grid-row: 1;
-    }
-
-    .website-commit-info {
-        grid-column: 1;
-        grid-row: 2;
-        border-right: none;
-        border-top: 1px solid var(--gh-border);
-    }
-
-    .website-actions {
-        grid-column: 2;
-        grid-row: 1 / 3;
-        border-left: 1px solid var(--gh-border);
+    .ws-card-state {
+        display: none;
     }
 
     .form-row {
@@ -1250,19 +1390,6 @@
 }
 
 @media (max-width: 480px) {
-    .website-card {
-        grid-template-columns: 1fr 44px;
-    }
-
-    .website-actions {
-        width: 44px;
-    }
-
-    .btn-action,
-    .btn-action-danger {
-        width: 44px;
-    }
-
     .env-row {
         grid-template-columns: 1fr;
     }
@@ -1462,44 +1589,6 @@
 .ws-server-ip {
     font-size: 11px;
     color: var(--text-muted);
-}
-
-/* Etiqueta del stack en la tarjeta del sitio */
-.stack-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    font-size: 10px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    padding: 2px 7px;
-    border-radius: 4px;
-    color: var(--text-muted);
-    background: var(--gh-bg);
-    border: 1px solid var(--gh-border);
-    white-space: nowrap;
-    flex-shrink: 0;
-}
-
-/* En la tarjeta la etiqueta sí conserva su caja (compite con el nombre y el
-   estado); lo que toma color de marca es solo el icono. */
-.stack-badge.node svg {
-    color: #5fa04e;
-}
-
-.stack-badge.wordpress {
-    color: #3f8cb8;
-    background: rgba(33, 117, 155, 0.1);
-    border-color: rgba(33, 117, 155, 0.28);
-}
-
-.dashboard-layout.theme-light .stack-badge.node svg {
-    color: #417e38;
-}
-
-.dashboard-layout.theme-light .stack-badge.wordpress {
-    color: #21759b;
 }
 
 /* Ayudas y estado de las subidas de archivos de WordPress */

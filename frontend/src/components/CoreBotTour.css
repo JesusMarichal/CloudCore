@@ -88,8 +88,9 @@
     transition: all 0.2s;
 }
 
+/* Icono solo: al pasar el raton no aparece ninguna caja, unicamente
+   cambia el color del propio icono. */
 .tour-close:hover {
-    background: rgba(127, 127, 127, 0.14);
     color: var(--text-main, #f0f6fc);
 }
 

@@ -395,13 +395,14 @@
     transition: background 0.18s ease, color 0.18s ease;
 }
 
+/* Icono solo: al pasar el raton no aparece ninguna caja, unicamente
+   cambia el color del propio icono. */
 .refresh-btn:hover {
-    background: var(--srv-hover);
-    color: var(--primary);
+    color: var(--text-main);
 }
 
+/* El rojo se queda porque la accion destruye algo; la caja no. */
 .delete-btn:hover:not(:disabled) {
-    background: var(--srv-danger-bg);
     color: var(--srv-danger);
 }
 
@@ -652,9 +653,10 @@
     transition: background 0.18s ease, color 0.18s ease;
 }
 
+/* Icono solo: al pasar el raton no aparece ninguna caja, unicamente
+   cambia el color del propio icono. */
 .btn-close:hover {
-    background: var(--srv-danger-bg);
-    color: var(--srv-danger);
+    color: var(--text-main);
 }
 
 .detail-tabs {

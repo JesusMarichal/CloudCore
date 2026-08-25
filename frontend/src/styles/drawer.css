@@ -144,9 +144,10 @@
     transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
 }
 
+/* Icono solo: al pasar el raton no aparece ninguna caja, unicamente
+   cambia el color del propio icono. */
 .drawer-close:hover {
-    background: var(--dw-danger-bg);
-    color: var(--dw-danger);
+    color: var(--text-main);
 }
 
 .drawer-body {

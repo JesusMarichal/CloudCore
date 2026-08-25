@@ -66,9 +66,10 @@
     transition: color 0.15s ease, background 0.15s ease;
 }
 
+/* Icono solo: al pasar el raton no aparece ninguna caja, unicamente
+   cambia el color del propio icono. */
 .toast-close:hover {
     color: var(--text-main);
-    background: rgba(127, 127, 127, 0.12);
     transform: none;
     filter: none;
     box-shadow: none;
