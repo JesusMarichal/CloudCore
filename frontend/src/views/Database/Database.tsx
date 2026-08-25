@@ -508,23 +508,23 @@ const DatabaseView = () => {
                 el mismo sitio, asi el usuario ve que existen ambos. */}
             {showForm && (
                 <div
-                    className={`db-drawer-scrim ${closingForm ? 'closing' : ''}`}
+                    className={`drawer-scrim ${closingForm ? 'closing' : ''}`}
                     onClick={deploying ? undefined : closeForm}
                 >
                     <aside
-                        className={`db-drawer db-form-drawer ${closingForm ? 'closing' : ''}`}
+                        className={`drawer db-form-drawer ${closingForm ? 'closing' : ''}`}
                         onClick={(e) => e.stopPropagation()}
                         role="dialog"
                         aria-modal="true"
                         aria-label={t('databases.addTitle')}
                     >
-                        <header className="db-drawer-header">
+                        <header className="drawer-header">
                             <div className="db-form-drawer-title">
                                 <h3>{t('databases.addTitle')}</h3>
                                 <p>{t('databases.addSubtitle')}</p>
                             </div>
                             <button
-                                className="db-drawer-close"
+                                className="drawer-close"
                                 onClick={closeForm}
                                 aria-label={t('common.close')}
                             >
@@ -532,7 +532,7 @@ const DatabaseView = () => {
                             </button>
                         </header>
 
-                        <div className="db-drawer-body">
+                        <div className="drawer-body">
                             <div className="db-mode-picker" role="tablist">
                                 <button
                                     type="button"
@@ -697,7 +697,7 @@ const DatabaseView = () => {
                             )}
                         </div>
 
-                        <footer className="db-drawer-footer">
+                        <footer className="drawer-footer">
                             <button type="button" className="btn-secondary" onClick={closeForm}>
                                 {t('common.cancel')}
                             </button>
@@ -781,17 +781,17 @@ const DatabaseView = () => {
 
                 return (
                     <div
-                        className={`db-drawer-scrim ${closingConnModal ? 'closing' : ''}`}
+                        className={`drawer-scrim ${closingConnModal ? 'closing' : ''}`}
                         onClick={closeConnectionModal}
                     >
                         <aside
-                            className={`db-drawer db-conn-drawer ${closingConnModal ? 'closing' : ''}`}
+                            className={`drawer db-conn-drawer ${closingConnModal ? 'closing' : ''}`}
                             onClick={(e) => e.stopPropagation()}
                             role="dialog"
                             aria-modal="true"
                             aria-label={t('databases.credentials.connectionData')}
                         >
-                            <header className="db-drawer-header">
+                            <header className="drawer-header">
                                 <div className="db-conn-identity">
                                     <div className={`db-conn-avatar ${db.engine}`}>
                                         {db.engine === 'mysql' ? '🐬' : '🐘'}
@@ -812,7 +812,7 @@ const DatabaseView = () => {
                                     </div>
                                 </div>
                                 <button
-                                    className="db-drawer-close"
+                                    className="drawer-close"
                                     onClick={closeConnectionModal}
                                     aria-label={t('common.close')}
                                 >
@@ -827,7 +827,7 @@ const DatabaseView = () => {
                                 <code>{db.serverIp}</code>
                             </div>
 
-                            <div className="db-drawer-body">
+                            <div className="drawer-body">
                                 <section className="db-conn-section" style={{ '--stagger': 1 } as React.CSSProperties}>
                                     <h4 className="db-conn-section-title">
                                         <MorphIcon icon={KeyRound} size={13} />
@@ -932,7 +932,7 @@ const DatabaseView = () => {
                                 </div>
                             </div>
 
-                            <footer className="db-drawer-footer">
+                            <footer className="drawer-footer">
                                 {adminUrl ? (
                                     <a
                                         href={adminUrl}

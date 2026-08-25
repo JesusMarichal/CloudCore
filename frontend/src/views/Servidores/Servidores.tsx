@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { RefreshCw, Play, Square, RotateCcw, Activity, Shield, Cpu, HardDrive, Thermometer, ChevronRight, X, KeyRound, Lock, Upload, Server, Check, TriangleAlert, Terminal, Clock, Rocket, Trash2 } from 'lucide';
+import { RefreshCw, Play, Square, RotateCcw, Activity, Shield, Cpu, HardDrive, Thermometer, ChevronRight, X, KeyRound, Lock, Upload, Check, TriangleAlert, Terminal, Clock, Rocket, Trash2 } from 'lucide';
 import { MorphIcon } from 'morphicons/react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { serverService } from '../../services/server.service';
@@ -19,7 +19,9 @@ const Servidores: React.FC = () => {
     const navigate = useNavigate();
     const t = useT();
     const [showForm, setShowForm] = useState(false);
+    const [closingForm, setClosingForm] = useState(false);
     const [selectedServer, setSelectedServer] = useState<CreateServerData | null>(null);
+    const [closingDetail, setClosingDetail] = useState(false);
     const [services, setServices] = useState<ServiceInfo[]>([]);
     const [loadingServices, setLoadingServices] = useState(false);
     const [activeTab, setActiveTab] = useState<'stats' | 'services' | 'install'>('stats');
@@ -164,7 +166,7 @@ const Servidores: React.FC = () => {
         setLoading(true);
         try {
             const created = await serverService.create(formData);
-            setShowForm(false);
+            closeForm();
             // Abrimos el seguimiento en vivo: el aprovisionamiento tarda varios
             // minutos y el usuario debe ver qué está pasando en su servidor.
             if (created?.id) openProvisioning(created);
@@ -317,6 +319,39 @@ const Servidores: React.FC = () => {
         }
     };
 
+    const openForm = () => {
+        setClosingForm(false);
+        setShowForm(true);
+    };
+
+    // El desmontaje espera a que termine la animacion de salida del panel.
+    const closeForm = () => {
+        setClosingForm(true);
+        setTimeout(() => {
+            setShowForm(false);
+            setClosingForm(false);
+        }, 280);
+    };
+
+    const closeDetail = () => {
+        setClosingDetail(true);
+        setTimeout(() => {
+            setSelectedServer(null);
+            setClosingDetail(false);
+        }, 280);
+    };
+
+    useEffect(() => {
+        if (!showForm && !selectedServer) return;
+        const onKeyDown = (e: KeyboardEvent) => {
+            if (e.key !== 'Escape') return;
+            if (showForm) closeForm();
+            else if (selectedServer) closeDetail();
+        };
+        window.addEventListener('keydown', onKeyDown);
+        return () => window.removeEventListener('keydown', onKeyDown);
+    }, [showForm, selectedServer]);
+
     const getStatusColor = (status: string) => {
         switch (status) {
             case 'online': return '#3fb950';
@@ -332,6 +367,15 @@ const Servidores: React.FC = () => {
         return '#3fb950';
     };
 
+    const statusLabel = (status?: string) => {
+        switch (status) {
+            case 'online': return t('servers.statusOnline');
+            case 'offline': return t('servers.statusOffline');
+            case 'provisioning': return t('servers.statusProvisioning');
+            default: return status || '';
+        }
+    };
+
     return (
         <div className="servidores-container">
             <div className="header-actions">
@@ -339,162 +383,129 @@ const Servidores: React.FC = () => {
                     <h1><MorphIcon icon={Activity} size={24} style={{ marginRight: '10px', verticalAlign: 'middle' }} /> {t('servers.title')}</h1>
                     <p className="text-muted">{t('servers.subtitle')}</p>
                 </div>
-                <button className="btn-primary" data-tour="add-server" onClick={() => setShowForm(true)}>
+                <button className="btn-primary" data-tour="add-server" onClick={openForm}>
                     <span>+</span> {t('servers.newServer')}
                 </button>
             </div>
 
             <div className="servers-list-container">
                 {servers.length > 0 ? (
-                    <table className="servers-table">
-                        <thead>
-                            <tr>
-                                <th>{t('servers.table.nameIp')}</th>
-                                <th>{t('servers.table.status')}</th>
-                                <th><MorphIcon icon={Cpu} size={14} /> {t('servers.table.cpu')}</th>
-                                <th><MorphIcon icon={Activity} size={14} /> {t('servers.table.ram')}</th>
-                                <th><MorphIcon icon={HardDrive} size={14} /> {t('servers.table.disk')}</th>
-                                <th><MorphIcon icon={Thermometer} size={14} /> {t('servers.table.temp')}</th>
-                                <th style={{ textAlign: 'right' }}>{t('servers.table.actions')}</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {servers.map(server => (
-                                <tr key={server.id} className="server-row">
-                                    <td data-label={t('servers.table.nameIp')} onClick={() => handleManageServer(server)} style={{ cursor: 'pointer' }}>
-                                        <div className="server-main-info">
-                                            <span className="server-name">{server.name} <MorphIcon icon={ChevronRight} size={12} className="chevron" /></span>
-                                            <code className="server-ip-mini">{server.ip}</code>
-                                        </div>
-                                    </td>
-                                    <td data-label="Estado">
-                                        <div className="status-wrapper">
-                                            <span
-                                                className="status-dot"
-                                                style={{ backgroundColor: getStatusColor(server.status!) }}
-                                            ></span>
-                                            <span className="status-badge" style={{
-                                                backgroundColor: `${getStatusColor(server.status!)}15`,
-                                                color: getStatusColor(server.status!),
-                                                border: `1px solid ${getStatusColor(server.status!)}30`
-                                            }}>
-                                                {server.status}
+                    <div className="srv-list">
+                        {servers.map(server => {
+                            const metrics = [
+                                { key: 'cpu', label: t('servers.table.cpu'), value: Number(server.cpuUsage) || 0, decimals: 1 },
+                                { key: 'ram', label: t('servers.table.ram'), value: Number(server.ramUsage) || 0, decimals: 1 },
+                                { key: 'disk', label: t('servers.table.disk'), value: Number(server.diskUsage) || 0, decimals: 0 },
+                            ];
+                            const accent = getStatusColor(server.status!);
+
+                            return (
+                                <div
+                                    key={server.id}
+                                    className="srv-row"
+                                    role="button"
+                                    tabIndex={0}
+                                    onClick={() => handleManageServer(server)}
+                                    onKeyDown={e => {
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                            e.preventDefault();
+                                            handleManageServer(server);
+                                        }
+                                    }}
+                                >
+                                    <div className="srv-identity">
+                                        <span className="srv-dot" style={{ backgroundColor: accent }}></span>
+                                        <div className="srv-identity-text">
+                                            <span className="srv-name">{server.name}</span>
+                                            <span className="srv-host">
+                                                {server.sshUser}@{server.ip}:{server.sshPort}
                                             </span>
-                                            {server.status === 'provisioning' && (
-                                                <button
-                                                    type="button"
-                                                    className="provisioning-chip"
-                                                    onClick={(e) => { e.stopPropagation(); openProvisioning(server); }}
-                                                    title={t('servers.provisioning.viewDetail')}
-                                                >
-                                                    <div className="prov-chip-head">
-                                                        <div className="spinner-mini"></div>
-                                                        <span className="prov-chip-step">
-                                                            {stepLabel(server.provisioningStepKey, server.provisioningStep)}
-                                                        </span>
-                                                        <span className="prov-chip-count">
-                                                            {server.provisioningIndex && server.provisioningTotal
-                                                                ? `${server.provisioningIndex}/${server.provisioningTotal}`
-                                                                : ''}
-                                                        </span>
-                                                    </div>
-                                                    <div className="prov-chip-bar">
-                                                        <div
-                                                            className="prov-chip-fill"
-                                                            style={{ width: `${Math.min(100, Number(server.provisioningPercent) || 0)}%` }}
-                                                        ></div>
-                                                    </div>
-                                                    {server.provisioningDetail && (
-                                                        <span className="prov-chip-detail">{server.provisioningDetail}</span>
-                                                    )}
-                                                </button>
-                                            )}
                                         </div>
-                                    </td>
-                                    <td data-label="CPU" className="metric-cell">
-                                        <div className="mini-metric">
-                                            <div className="progress-bar-mini">
-                                                <div
-                                                    className="progress-fill"
+                                    </div>
+
+                                    <span className="srv-status" style={{ color: accent }}>
+                                        {statusLabel(server.status)}
+                                    </span>
+
+                                    {server.status === 'provisioning' ? (
+                                        <button
+                                            type="button"
+                                            className="srv-progress"
+                                            onClick={(e) => { e.stopPropagation(); openProvisioning(server); }}
+                                            title={t('servers.provisioning.viewDetail')}
+                                        >
+                                            <span className="srv-progress-label">
+                                                {stepLabel(server.provisioningStepKey, server.provisioningStep)}
+                                                {server.provisioningIndex && server.provisioningTotal
+                                                    ? ` · ${server.provisioningIndex}/${server.provisioningTotal}`
+                                                    : ''}
+                                            </span>
+                                            <span className="srv-bar">
+                                                <span
+                                                    className="srv-bar-fill"
                                                     style={{
-                                                        width: `${Number(server.cpuUsage) || 0}%`,
-                                                        backgroundColor: getMetricColor(Number(server.cpuUsage) || 0)
+                                                        width: `${Math.min(100, Number(server.provisioningPercent) || 0)}%`,
+                                                        backgroundColor: accent,
                                                     }}
-                                                ></div>
-                                            </div>
-                                            <span>{server.cpuUsage ? Number(server.cpuUsage).toFixed(2) : '0.00'}%</span>
+                                                ></span>
+                                            </span>
+                                        </button>
+                                    ) : (
+                                        <div className="srv-metrics">
+                                            {metrics.map(m => (
+                                                <div className="srv-metric" key={m.key}>
+                                                    <span className="srv-metric-top">
+                                                        <span>{m.label}</span>
+                                                        <strong style={{ color: getMetricColor(m.value) }}>
+                                                            {m.value.toFixed(m.decimals)}%
+                                                        </strong>
+                                                    </span>
+                                                    <span className="srv-bar">
+                                                        <span
+                                                            className="srv-bar-fill"
+                                                            style={{
+                                                                width: `${Math.min(100, m.value)}%`,
+                                                                backgroundColor: getMetricColor(m.value),
+                                                            }}
+                                                        ></span>
+                                                    </span>
+                                                </div>
+                                            ))}
                                         </div>
-                                    </td>
-                                    <td data-label="RAM" className="metric-cell">
-                                        <div className="mini-metric">
-                                            <div className="progress-bar-mini">
-                                                <div
-                                                    className="progress-fill"
-                                                    style={{
-                                                        width: `${Number(server.ramUsage) || 0}%`,
-                                                        backgroundColor: getMetricColor(Number(server.ramUsage) || 0)
-                                                    }}
-                                                ></div>
-                                            </div>
-                                            <span>{server.ramUsage ? Number(server.ramUsage).toFixed(2) : '0.00'}%</span>
-                                        </div>
-                                    </td>
-                                    <td data-label="Disco" className="metric-cell">
-                                        <div className="mini-metric">
-                                            <div className="progress-bar-mini">
-                                                <div
-                                                    className="progress-fill"
-                                                    style={{
-                                                        width: `${Number(server.diskUsage) || 0}%`,
-                                                        backgroundColor: getMetricColor(Number(server.diskUsage) || 0)
-                                                    }}
-                                                ></div>
-                                            </div>
-                                            <span>{server.diskUsage ? Math.round(Number(server.diskUsage)) : 0}%</span>
-                                        </div>
-                                    </td>
-                                    <td data-label="Temp">
-                                        <span className="temp-badge">
-                                            {(server.temp !== null && server.temp !== undefined) ? `${Number(server.temp).toFixed(1)}°C` : 'N/A'}
-                                        </span>
-                                    </td>
-                                    <td data-label="Acciones">
-                                        <div className="server-actions-list">
-                                            <button
-                                                className="btn-icon refresh-btn"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    const btn = e.currentTarget;
-                                                    btn.classList.add('spinning');
-                                                    handleRefresh(server.id!).finally(() => {
-                                                        btn.classList.remove('spinning');
-                                                    });
-                                                }}
-                                                title={t('servers.refreshMetrics')}
-                                            >
-                                                <MorphIcon icon={RefreshCw} size={14} />
-                                            </button>
-                                            <button className="btn-secondary btn-sm" onClick={() => handleManageServer(server)}>{t('servers.manage')}</button>
-                                            <button
-                                                className="btn-icon delete-btn"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleDeleteServer(server);
-                                                }}
-                                                disabled={deletingId === server.id}
-                                                title={t('servers.deleteServer')}
-                                                aria-label={t('servers.deleteServer')}
-                                            >
-                                                {deletingId === server.id
-                                                    ? <div className="spinner-mini"></div>
-                                                    : <MorphIcon icon={Trash2} size={14} />}
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                                    )}
+
+                                    <div className="srv-actions">
+                                        <button
+                                            className="btn-icon refresh-btn"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                const btn = e.currentTarget;
+                                                btn.classList.add('spinning');
+                                                handleRefresh(server.id!).finally(() => {
+                                                    btn.classList.remove('spinning');
+                                                });
+                                            }}
+                                            title={t('servers.refreshMetrics')}
+                                        >
+                                            <MorphIcon icon={RefreshCw} size={14} />
+                                        </button>
+                                        <button
+                                            className="btn-icon delete-btn"
+                                            onClick={(e) => { e.stopPropagation(); handleDeleteServer(server); }}
+                                            disabled={deletingId === server.id}
+                                            title={t('servers.deleteServer')}
+                                            aria-label={t('servers.deleteServer')}
+                                        >
+                                            {deletingId === server.id
+                                                ? <div className="spinner-mini"></div>
+                                                : <MorphIcon icon={Trash2} size={14} />}
+                                        </button>
+                                        <MorphIcon icon={ChevronRight} size={15} className="srv-chevron" />
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
                 ) : !loading && (
                     <div className="empty-state-list">
                         <div className="empty-icon">☁️</div>
@@ -637,17 +648,32 @@ const Servidores: React.FC = () => {
 
             {/* Panel de Gestión de Servicios */}
             {selectedServer && (
-                <div className="modal-overlay">
-                    <div className="server-detail-card">
-                        <div className="detail-header">
-                            <div>
-                                <h2><MorphIcon icon={Shield} size={20} className="icon-blue" /> {t('servers.manageOf', { name: selectedServer.name })}</h2>
-                                <p className="text-muted">{selectedServer.ip}</p>
+                <div
+                    className={`drawer-scrim ${closingDetail ? 'closing' : ''}`}
+                    onClick={closeDetail}
+                >
+                    <aside
+                        className={`drawer srv-detail-drawer ${closingDetail ? 'closing' : ''}`}
+                        onClick={(e) => e.stopPropagation()}
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label={t('servers.manageOf', { name: selectedServer.name })}
+                    >
+                        <header className="drawer-header">
+                            <div className="srv-detail-identity">
+                                <span
+                                    className="srv-dot"
+                                    style={{ backgroundColor: getStatusColor(selectedServer.status!) }}
+                                ></span>
+                                <div className="drawer-title">
+                                    <h3>{selectedServer.name}</h3>
+                                    <p>{selectedServer.sshUser}@{selectedServer.ip}:{selectedServer.sshPort}</p>
+                                </div>
                             </div>
-                            <button className="btn-close" onClick={() => setSelectedServer(null)}>
-                                <MorphIcon icon={X} size={20} />
+                            <button className="drawer-close" onClick={closeDetail} aria-label={t('common.close')}>
+                                <MorphIcon icon={X} size={18} />
                             </button>
-                        </div>
+                        </header>
 
                         <div className="detail-tabs">
                             <div
@@ -670,7 +696,7 @@ const Servidores: React.FC = () => {
                             </div>
                         </div>
 
-                        <div className="services-list">
+                        <div className="drawer-body">
                             {activeTab === 'stats' && (
                                 <div className="stats-section">
                                     <div className="stats-grid">
@@ -910,28 +936,41 @@ const Servidores: React.FC = () => {
                                 </div>
                             )}
                         </div>
-                    </div>
+
+                        <footer className="drawer-footer">
+                            <span className="srv-detail-hint">
+                                <MorphIcon icon={Shield} size={13} /> {t('servers.manage')}
+                            </span>
+                            <button className="btn-secondary" onClick={closeDetail}>
+                                {t('common.close')}
+                            </button>
+                        </footer>
+                    </aside>
                 </div>
             )}
 
             {showForm && (
-                <div className="modal-overlay" onClick={() => setShowForm(false)}>
-                    <div className="server-form-card" onClick={(e) => e.stopPropagation()}>
-                        <div className="server-form-header">
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                <div className="server-engine-icon" style={{ width: '32px', height: '32px', borderRadius: '4px' }}>
-                                    <MorphIcon icon={Server} size={16} />
-                                </div>
-                                <div>
-                                    <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: 'var(--text-main)' }}>{t('servers.addServer')}</h3>
-                                    <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-muted)' }}>{t('servers.connectVps')}</p>
-                                </div>
+                <div
+                    className={`drawer-scrim ${closingForm ? 'closing' : ''}`}
+                    onClick={loading ? undefined : closeForm}
+                >
+                    <aside
+                        className={`drawer srv-form-drawer ${closingForm ? 'closing' : ''}`}
+                        onClick={(e) => e.stopPropagation()}
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label={t('servers.addServer')}
+                    >
+                        <header className="drawer-header">
+                            <div className="drawer-title">
+                                <h3>{t('servers.addServer')}</h3>
+                                <p>{t('servers.connectVps')}</p>
                             </div>
-                            <button type="button" className="btn-close" onClick={() => setShowForm(false)}>
-                                <MorphIcon icon={X} size={16} />
+                            <button type="button" className="drawer-close" onClick={closeForm} aria-label={t('common.close')}>
+                                <MorphIcon icon={X} size={18} />
                             </button>
-                        </div>
-                        <form onSubmit={handleSubmit} className="server-form-body">
+                        </header>
+                        <form id="srv-create-form" onSubmit={handleSubmit} className="drawer-body">
                             <div className="server-conn-grid">
                                 <div className="form-group">
                                     <label>{t('servers.form.serverName')}</label>
@@ -1039,15 +1078,15 @@ const Servidores: React.FC = () => {
                                 )}
                             </div>
                         </form>
-                        <div className="server-form-footer">
-                            <button type="button" className="btn-secondary" onClick={() => setShowForm(false)}>
-                                Cancelar
+                        <footer className="drawer-footer">
+                            <button type="button" className="btn-secondary" onClick={closeForm}>
+                                {t('common.cancel')}
                             </button>
-                            <button type="button" className="btn-primary" onClick={handleSubmit} disabled={loading}>
+                            <button type="submit" form="srv-create-form" className="btn-primary" disabled={loading}>
                                 {loading ? t('servers.form.connecting') : t('servers.form.connectServer')}
                             </button>
-                        </div>
-                    </div>
+                        </footer>
+                    </aside>
                 </div>
             )}
         </div>

@@ -17,6 +17,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import { I18nProvider } from './i18n';
 import { ToastProvider } from './components/Toast';
 import './styles/global.css';
+import './styles/drawer.css';
 
 function App() {
   return (

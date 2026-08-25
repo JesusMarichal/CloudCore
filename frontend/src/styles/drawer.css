@@ -1,0 +1,239 @@
+/* ── Paneles laterales (drawers) ──────────────────────────────────────────
+   Chasis compartido por todas las vistas: la cortina atenúa el fondo y ancla
+   el panel al borde derecho (flex-end), y el panel solo aporta su ancho y su
+   contenido. Cada vista añade `.drawer` + su propia clase de ancho.
+
+   Uso:
+     <div className="drawer-scrim [closing]">
+       <aside className="drawer mi-panel [closing]" role="dialog" aria-modal>
+         <header className="drawer-header"> … <button className="drawer-close">
+         <div className="drawer-body"> … </div>
+         <footer className="drawer-footer"> … </footer>
+   El estado `closing` invierte las animaciones; quien lo usa debe desmontar
+   el panel al terminar (≈280 ms). */
+
+.drawer-scrim {
+    position: fixed;
+    inset: 0;
+    background: rgba(1, 4, 9, 0.58);
+    backdrop-filter: blur(3px);
+    display: flex;
+    justify-content: flex-end;
+    z-index: 1000;
+    animation: drawerScrimIn 0.28s ease-out;
+}
+
+.drawer-scrim.closing {
+    animation: drawerScrimOut 0.26s ease-in forwards;
+}
+
+@keyframes drawerScrimIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes drawerScrimOut {
+    from { opacity: 1; }
+    to { opacity: 0; }
+}
+
+.drawer {
+    /* Verde/ámbar/rojo del panel como tokens: los tonos vivos de GitHub Dark
+       no llegan a 4.5:1 sobre blanco, así que el tema claro los oscurece. */
+    --dw-ok: #3fb950;
+    --dw-ok-bg: rgba(63, 185, 80, 0.15);
+    --dw-ok-border: rgba(63, 185, 80, 0.4);
+    --dw-warn: #d29922;
+    --dw-danger: #f85149;
+    --dw-danger-bg: rgba(248, 81, 73, 0.12);
+    --dw-danger-border: rgba(248, 81, 73, 0.35);
+    --dw-accent-bg: rgba(0, 183, 181, 0.12);
+    --dw-accent-border: rgba(0, 183, 181, 0.3);
+    --dw-row-hover: rgba(255, 255, 255, 0.04);
+
+    display: flex;
+    flex-direction: column;
+    max-width: 100vw;
+    height: 100%;
+    background: var(--gh-bg);
+    border-left: 1px solid var(--gh-border);
+    box-shadow: -28px 0 64px rgba(0, 0, 0, 0.42);
+    /* Curva de salida rápida y frenada larga: es lo que hace que el panel
+       se sienta "pesado" en vez de saltar a su sitio. */
+    animation: drawerIn 0.38s cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: transform;
+}
+
+.dashboard-layout.theme-light .drawer {
+    --dw-ok: #1a7f37;
+    --dw-ok-bg: rgba(26, 127, 55, 0.10);
+    --dw-ok-border: rgba(26, 127, 55, 0.32);
+    --dw-warn: #9a6700;
+    --dw-danger: #cf222e;
+    --dw-danger-bg: rgba(207, 34, 46, 0.08);
+    --dw-danger-border: rgba(207, 34, 46, 0.28);
+    --dw-accent-bg: rgba(1, 135, 144, 0.09);
+    --dw-accent-border: rgba(1, 135, 144, 0.28);
+    --dw-row-hover: rgba(31, 35, 40, 0.04);
+    box-shadow: -28px 0 64px rgba(140, 149, 159, 0.32);
+}
+
+.drawer.closing {
+    animation: drawerOut 0.26s cubic-bezier(0.55, 0, 0.65, 0.2) forwards;
+}
+
+@keyframes drawerIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0.4;
+    }
+
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes drawerOut {
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+
+    to {
+        transform: translateX(100%);
+        opacity: 0.4;
+    }
+}
+
+/* Cada bloque del cuerpo entra un pelín después que el anterior (--stagger).
+   Es el detalle que hace que el panel parezca "montarse" en vez de aparecer. */
+@keyframes drawerRise {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.drawer-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 20px 22px 18px;
+    border-bottom: 1px solid var(--gh-border);
+    flex-shrink: 0;
+}
+
+.drawer-close {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+}
+
+.drawer-close:hover {
+    background: var(--dw-danger-bg);
+    color: var(--dw-danger);
+}
+
+.drawer-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.drawer-body::-webkit-scrollbar {
+    width: 8px;
+}
+
+.drawer-body::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.drawer-body::-webkit-scrollbar-thumb {
+    background: var(--gh-border);
+    border-radius: 4px;
+}
+
+.drawer-body::-webkit-scrollbar-thumb:hover {
+    background: var(--text-dim);
+}
+
+.drawer-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 22px;
+    border-top: 1px solid var(--gh-border);
+    background: var(--gh-canvas-subtle);
+    flex-shrink: 0;
+}
+
+/* Título compuesto (nombre + subtítulo) de la cabecera. */
+.drawer-title {
+    min-width: 0;
+}
+
+.drawer-title h3 {
+    margin: 0 0 4px;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-main);
+    letter-spacing: -0.2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.drawer-title p {
+    margin: 0;
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.5;
+}
+
+/* Etiqueta de sección dentro del cuerpo. */
+.drawer-section-title {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin: 0 0 10px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.9px;
+    color: var(--text-dim);
+}
+
+@media (max-width: 560px) {
+    .drawer {
+        width: 100% !important;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+    .drawer-scrim,
+    .drawer-scrim.closing,
+    .drawer,
+    .drawer.closing {
+        animation: none;
+    }
+}
