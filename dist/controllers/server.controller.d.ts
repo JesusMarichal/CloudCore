@@ -3,10 +3,12 @@ import { SshService } from '../services/ssh.service';
 import { CreateServerDto } from '../dto/create-server.dto';
 import { Server } from '../models/server.model';
 import { DatabaseService } from '../database/database.service';
+import { DeployService } from '../deploy/deploy.service';
 export declare class ServerController {
     private readonly sshService;
     private readonly dbService;
-    constructor(sshService: SshService, dbService: DatabaseService);
+    private readonly deployService;
+    constructor(sshService: SshService, dbService: DatabaseService, deployService: DeployService);
     private assertServerOwnership;
     private assertWebsiteOwnership;
     private assertDatabaseOwnership;

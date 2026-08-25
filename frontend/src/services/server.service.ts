@@ -216,6 +216,26 @@ export const serverService = {
         return response.json();
     },
 
+    /**
+     * Sube al servidor destino el .zip de los archivos o el .sql de la base de
+     * datos de un WordPress que se va a migrar. Devuelve la ruta remota, que se
+     * manda luego en `wpArchiveUrl` / `wpDbDumpUrl` al desplegar.
+     */
+    async uploadWordpressAsset(serverId: string, file: File): Promise<{ success: boolean; path?: string; message?: string }> {
+        const form = new FormData();
+        form.append('file', file);
+        // Sin Content-Type manual: el navegador añade el boundary del multipart.
+        const response = await authFetch(`${API_URL}/${serverId}/wordpress/upload`, {
+            method: 'POST',
+            body: form,
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            return { success: false, message: data.message || 'No se pudo subir el archivo.' };
+        }
+        return data;
+    },
+
     async listWebsites() {
         return withCache('websites_current', async () => {
             const response = await authFetch(`${API_URL}/websites`);

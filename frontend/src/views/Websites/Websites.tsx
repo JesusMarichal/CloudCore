@@ -23,9 +23,29 @@ const loadAutoDeployedKeys = (): Set<string> => {
     }
 };
 
+/**
+ * Marca de WordPress. Lucide no incluye iconos de marca, así que va como SVG
+ * en línea y hereda el color del contenedor (`currentColor`).
+ */
+const WordPressIcon = ({ size = 16 }: { size?: number }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false">
+        <path d="M12.158 12.786 9.46 20.625c.806.237 1.657.366 2.54.366 1.047 0 2.051-.18 2.986-.51a1.06 1.06 0 0 1-.065-.124l-2.763-7.571zM3.009 12c0 3.559 2.068 6.634 5.067 8.092L3.788 8.341A8.933 8.933 0 0 0 3.009 12zm15.06-.454c0-1.112-.399-1.881-.741-2.48-.456-.741-.883-1.368-.883-2.109 0-.826.627-1.596 1.51-1.596.04 0 .078.005.117.007A8.963 8.963 0 0 0 12 3.009a8.982 8.982 0 0 0-7.399 3.99c.208.006.404.01.57.01.94 0 2.396-.114 2.396-.114.485-.028.542.684.057.741 0 0-.487.057-1.029.085l3.274 9.739 1.968-5.901-1.401-3.838c-.485-.028-.944-.085-.944-.085-.485-.029-.428-.769.057-.741 0 0 1.484.114 2.368.114.94 0 2.397-.114 2.397-.114.486-.028.543.684.058.741 0 0-.488.057-1.029.085l3.249 9.665.897-2.996c.456-1.169.684-2.137.684-2.907zm1.82-3.86c.039.286.06.593.06.924 0 .912-.171 1.937-.684 3.219l-2.746 7.94c2.673-1.558 4.47-4.454 4.47-7.771a8.926 8.926 0 0 0-1.1-4.312zM12 22.784C6.051 22.784 1.216 17.949 1.216 12S6.051 1.216 12 1.216 22.784 6.051 22.784 12 17.949 22.784 12 22.784z" />
+    </svg>
+);
+
+/** Hexágono de Node.js, por el mismo motivo que el de WordPress. */
+const NodeIcon = ({ size = 16 }: { size?: number }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false">
+        <path d="M11.998 24c-.321 0-.641-.084-.922-.247l-2.936-1.737c-.438-.245-.224-.332-.08-.383.585-.203.703-.25 1.328-.604.065-.037.151-.023.218.017l2.256 1.339c.082.045.197.045.272 0l8.795-5.076c.082-.047.134-.141.134-.238V6.921c0-.099-.053-.192-.137-.242l-8.791-5.072c-.081-.047-.189-.047-.271 0L3.075 6.68c-.085.049-.139.145-.139.241v10.15c0 .097.054.189.139.235l2.409 1.392c1.307.654 2.108-.116 2.108-.89V7.787c0-.142.114-.253.256-.253h1.115c.139 0 .255.112.255.253v10.021c0 1.745-.95 2.745-2.604 2.745-.508 0-.909 0-2.026-.551L2.28 18.675c-.57-.329-.922-.945-.922-1.604V6.921c0-.659.353-1.275.922-1.603l8.795-5.082c.557-.315 1.296-.315 1.848 0l8.794 5.082c.57.329.924.944.924 1.603v10.15c0 .659-.354 1.273-.924 1.604l-8.794 5.078c-.28.163-.599.247-.925.247zm7.101-10.007c0-1.9-1.284-2.406-3.987-2.763-2.731-.361-3.009-.548-3.009-1.187 0-.528.235-1.233 2.258-1.233 1.807 0 2.473.389 2.747 1.607.024.115.129.199.247.199h1.141c.071 0 .138-.031.186-.081.048-.054.074-.123.067-.196-.177-2.098-1.571-3.076-4.388-3.076-2.508 0-4.004 1.058-4.004 2.833 0 1.925 1.488 2.457 3.895 2.695 2.88.282 3.103.703 3.103 1.269 0 .983-.789 1.402-2.642 1.402-2.327 0-2.839-.584-3.011-1.742-.02-.124-.126-.215-.253-.215H9.314c-.141 0-.254.112-.254.253 0 1.482.806 3.248 4.655 3.248 2.786 0 4.384-1.097 4.384-3.014z" />
+    </svg>
+);
+
+type StackId = 'node' | 'wordpress';
+
 interface WebsiteFormData {
     serverId: string;
     name: string;
+    stack: StackId;
     repo: string;
     installCommand: string;
     buildCommand: string;
@@ -37,7 +57,59 @@ interface WebsiteFormData {
     setupWwwAlias: boolean;
     envVars: string;
     userId: string;
+    // ── WordPress ──
+    wpMode: 'fresh' | 'migrate';
+    wpDirectory: string;
+    wpTitle: string;
+    wpAdminUser: string;
+    wpAdminPassword: string;
+    wpAdminEmail: string;
+    wpLocale: string;
+    wpArchiveUrl: string;
+    wpDbDumpUrl: string;
+    wpSearchReplace: boolean;
+    wpOldDomain: string;
+    wpTablePrefix: string;
 }
+
+/** Estado de un archivo de migración: subido desde el equipo o indicado por URL. */
+interface WpUpload {
+    name: string;
+    uploading: boolean;
+    error?: string;
+}
+
+const emptyForm = (serverId: string, userId: string): WebsiteFormData => ({
+    serverId,
+    name: '',
+    stack: 'node',
+    repo: '',
+    installCommand: 'npm install',
+    buildCommand: '',
+    startCommand: 'npm start',
+    entryPoint: 'index.js',
+    port: '3000',
+    domain: '',
+    useLetsEncrypt: false,
+    setupWwwAlias: false,
+    envVars: '',
+    userId,
+    wpMode: 'fresh',
+    wpDirectory: '',
+    wpTitle: '',
+    wpAdminUser: 'admin',
+    wpAdminPassword: '',
+    wpAdminEmail: '',
+    wpLocale: 'es_ES',
+    wpArchiveUrl: '',
+    wpDbDumpUrl: '',
+    wpSearchReplace: true,
+    wpOldDomain: '',
+    wpTablePrefix: 'wp_',
+});
+
+/** Un sitio WordPress no se despliega desde git: no hay commits que seguir. */
+const tracksCommits = (site: any) => (site?.stack || 'node') !== 'wordpress';
 
 
 
@@ -46,6 +118,7 @@ const Websites = () => {
     const t = useT();
     const [servers, setServers] = useState<CreateServerData[]>([]);
     const [showForm, setShowForm] = useState(false);
+    const [closingForm, setClosingForm] = useState(false);
     const [deploying, setDeploying] = useState(false);
     const [githubRepos, setGithubRepos] = useState<any[]>([]);
     const [hasGithub, setHasGithub] = useState(false);
@@ -130,6 +203,8 @@ const Websites = () => {
 
             pollingRef.current = true;
             for (const site of sites) {
+                // WordPress no se despliega desde git: no hay commit que consultar.
+                if (!tracksCommits(site)) continue;
                 setCheckingCommits(prev => ({ ...prev, [site.id]: true }));
                 try {
                     const res = await serverService.getWebsiteCommit(site.server_id, site.id);
@@ -162,21 +237,56 @@ const Websites = () => {
         setTimeout(() => setToast(null), 4000);
     };
 
-    const [formData, setFormData] = useState<WebsiteFormData>({
-        serverId: '',
-        name: '',
-        repo: '',
-        installCommand: 'npm install',
-        buildCommand: '',
-        startCommand: 'npm start',
-        entryPoint: 'index.js',
-        port: '3000',
-        domain: '',
-        useLetsEncrypt: false,
-        setupWwwAlias: false,
-        envVars: '',
-        userId: ''
-    });
+    const [formData, setFormData] = useState<WebsiteFormData>(emptyForm('', ''));
+
+    // Archivos de migración de WordPress ya subidos al servidor destino.
+    const [wpArchive, setWpArchive] = useState<WpUpload | null>(null);
+    const [wpDump, setWpDump] = useState<WpUpload | null>(null);
+
+    const isWordpress = formData.stack === 'wordpress';
+
+    /**
+     * Cierra el panel dejando correr la animación de salida antes de
+     * desmontarlo (el chasis de drawer.css tarda ~280 ms).
+     */
+    const closeForm = () => {
+        setClosingForm(true);
+        setTimeout(() => {
+            setShowForm(false);
+            setClosingForm(false);
+            setEditingSite(null);
+            setDeployLogs('');
+        }, 280);
+    };
+
+    /**
+     * Sube un .zip / .sql al servidor y guarda en el formulario la ruta remota
+     * que devuelve el panel. Es el equivalente a "Cargar" en el Administrador de
+     * archivos y a "Importar" en phpMyAdmin, pero en un solo paso.
+     */
+    const handleWpUpload = async (
+        file: File | undefined,
+        field: 'wpArchiveUrl' | 'wpDbDumpUrl',
+        setUpload: (u: WpUpload | null) => void,
+    ) => {
+        if (!file) return;
+        if (!formData.serverId) {
+            showToast(t('websites.wp.pickServerFirst'), 'error');
+            return;
+        }
+        setUpload({ name: file.name, uploading: true });
+        try {
+            const res = await serverService.uploadWordpressAsset(formData.serverId, file);
+            if (res.success && res.path) {
+                setFormData(prev => ({ ...prev, [field]: res.path as string }));
+                setUpload({ name: file.name, uploading: false });
+            } else {
+                setUpload({ name: file.name, uploading: false, error: res.message || t('websites.wp.uploadError') });
+            }
+        } catch {
+            setUpload({ name: file.name, uploading: false, error: t('websites.wp.uploadError') });
+        }
+    };
 
     useEffect(() => {
         const loadServers = async () => {
@@ -205,8 +315,8 @@ const Websites = () => {
                     const sites = await serverService.listWebsites();
                     setWebsites(sites);
 
-                    // Cargar commits de cada sitio en background
-                    sites.forEach((site: any) => {
+                    // Cargar commits de cada sitio en background (solo los que vienen de git)
+                    sites.filter(tracksCommits).forEach((site: any) => {
                         serverService.getWebsiteCommit(site.server_id, site.id)
                             .then(res => {
                                 if (res.success && res.commit) {
@@ -228,6 +338,14 @@ const Websites = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        // El servidor se elige con fichas, no con un <select>, así que la
+        // validación nativa del formulario no lo cubre.
+        if (!formData.serverId) {
+            showToast(t('websites.form.selectServer'), 'error');
+            return;
+        }
+
         setDeploying(true);
         try {
             const currentUserId = tokenStorage.getUser()?.id || '';
@@ -246,21 +364,10 @@ const Websites = () => {
                 // showToast('¡Sitio web desplegado con éxito!', 'success'); // Omitir para mostrar la terminal completada
             }
 
-            setFormData({
-                serverId: formData.serverId, // Mantener servidor seleccionado
-                name: '',
-                repo: '',
-                installCommand: 'npm install',
-                buildCommand: '',
-                startCommand: 'npm start',
-                entryPoint: 'index.js',
-                port: '3000',
-                domain: '',
-                useLetsEncrypt: false,
-                setupWwwAlias: false,
-                envVars: '',
-                userId: currentUserId
-            });
+            // Se mantiene el servidor y el stack elegidos para el siguiente sitio.
+            setFormData({ ...emptyForm(formData.serverId, currentUserId), stack: formData.stack });
+            setWpArchive(null);
+            setWpDump(null);
             setEditingSite(null);
         } catch (error) {
             console.error('Error desplegando el sitio:', error);
@@ -276,9 +383,11 @@ const Websites = () => {
 
     const handleEdit = (site: any) => {
         setEditingSite(site);
+        const cfg = site.stack_config || {};
         setFormData({
-            serverId: site.server_id,
+            ...emptyForm(site.server_id, site.user_id),
             name: site.name,
+            stack: (site.stack || 'node') as StackId,
             repo: site.repo_url,
             installCommand: site.install_command || 'npm install',
             buildCommand: site.build_command || '',
@@ -289,8 +398,12 @@ const Websites = () => {
             useLetsEncrypt: !!site.use_letsencrypt,
             setupWwwAlias: !!site.setup_www_alias,
             envVars: site.env_vars || '',
-            userId: site.user_id
+            wpDirectory: cfg.directory || '',
+            wpLocale: cfg.locale || 'es_ES',
+            wpTablePrefix: cfg.tablePrefix || 'wp_',
         });
+        setWpArchive(null);
+        setWpDump(null);
         setShowForm(true);
     };
 
@@ -520,13 +633,21 @@ echo "=== ${t('websites.logs.diagDone')} ==="`;
                             <div className="website-info">
                                 <div className="website-header-row">
                                     <h3 title={site.name}>{site.name}</h3>
+                                    <span className={`stack-badge ${site.stack === 'wordpress' ? 'wordpress' : 'node'}`}>
+                                        {site.stack === 'wordpress'
+                                            ? <><WordPressIcon size={11} /> WordPress</>
+                                            : <><NodeIcon size={11} /> Node.js</>}
+                                    </span>
                                     <span className={`status-badge ${site.status || 'online'}`}>
                                         {site.status === 'error' ? 'Error' : 'Activo'}
                                     </span>
                                 </div>
                                 <div className="website-meta">
                                     <div className="meta-item"><MorphIcon icon={HardDrive} size={13} /> {site.serverIp}</div>
-                                    <div className="meta-item"><MorphIcon icon={ExternalLink} size={13} /> Port {site.port}</div>
+                                    {/* WordPress no reserva puerto interno: Nginx lo sirve con PHP-FPM. */}
+                                    {site.port ? (
+                                        <div className="meta-item"><MorphIcon icon={ExternalLink} size={13} /> Port {site.port}</div>
+                                    ) : null}
                                     {site.domain ? (
                                         <div className="meta-item"><MorphIcon icon={Globe} size={13} /> {site.domain}</div>
                                     ) : (
@@ -541,11 +662,33 @@ echo "=== ${t('websites.logs.diagDone')} ==="`;
                                     )}
                                 </div>
                                 <div className="card-links">
-                                    <a href={site.domain ? `http://${site.domain}` : `http://${site.serverIp}`} target="_blank" rel="noopener noreferrer" className="site-link-premium">
+                                    {/* En WordPress la URL real la guarda el panel: incluye el
+                                        esquema y el subdirectorio con los que se instaló. */}
+                                    <a href={site.stack_config?.siteUrl || (site.domain ? `http://${site.domain}` : `http://${site.serverIp}`)} target="_blank" rel="noopener noreferrer" className="site-link-premium">
                                         <MorphIcon icon={ExternalLink} size={12} /> Abrir Sitio
                                     </a>
+                                    {site.stack === 'wordpress' && (
+                                        <a href={site.stack_config?.adminUrl || `${site.stack_config?.siteUrl || `http://${site.domain || site.serverIp}`}/wp-admin`} target="_blank" rel="noopener noreferrer" className="site-link-premium">
+                                            <MorphIcon icon={Settings} size={12} /> {t('websites.wp.openAdmin')}
+                                        </a>
+                                    )}
                                 </div>
                             </div>
+                            {!tracksCommits(site) ? (
+                            <div className="website-commit-info">
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px', color: '#4fa8d8' }}>
+                                    <WordPressIcon size={12} />
+                                    <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                        WordPress
+                                    </span>
+                                </div>
+                                <div style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: 1.7 }}>
+                                    <div>{t('websites.wp.cardDatabase')}: <span className="mono">{site.stack_config?.dbName || '—'}</span></div>
+                                    <div>{t('websites.wp.cardPath')}: <span className="mono">{site.stack_config?.installPath || `/var/www/${site.name}`}</span></div>
+                                    <div style={{ color: 'var(--text-dim)', marginTop: '4px' }}>{t('websites.wp.cardHint')}</div>
+                                </div>
+                            </div>
+                            ) : (
                             <div className="website-commit-info">
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
                                     <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '5px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
@@ -605,9 +748,14 @@ echo "=== ${t('websites.logs.diagDone')} ==="`;
                                     </div>
                                 )}
                             </div>
+                            )}
                             <div className="website-actions">
                                 <button className="btn-action" onClick={() => handleViewLogs(site.server_id, site.id, site.name)} title={t('websites.viewLogs')}><MorphIcon icon={Terminal} size={16} /></button>
-                                <button className="btn-action" onClick={() => handleOpenEnvModal(site)} title={t('websites.envVars')}><MorphIcon icon={Globe} size={16} /></button>
+                                {/* Las variables .env son del stack de Node: WordPress se
+                                    configura en wp-config.php, no en un .env. */}
+                                {tracksCommits(site) && (
+                                    <button className="btn-action" onClick={() => handleOpenEnvModal(site)} title={t('websites.envVars')}><MorphIcon icon={Globe} size={16} /></button>
+                                )}
                                 <button className="btn-action" onClick={() => handleEdit(site)} title={t('websites.config')}><MorphIcon icon={Settings} size={16} /></button>
                                 <button className="btn-action-danger" onClick={() => handleDelete(site.server_id, site.id)} title={t('common.delete')}><MorphIcon icon={X} size={16} /></button>
                             </div>
@@ -616,58 +764,257 @@ echo "=== ${t('websites.logs.diagDone')} ==="`;
                 </div>
             )}
 
-            {/* ── Deploy / Edit Form Modal ── */}
+            {/* ── Panel lateral de despliegue / edición ──
+                Usa el chasis compartido de styles/drawer.css (el mismo que Base
+                de Datos), así hereda el tema claro y la animación de entrada. */}
             {showForm && (
-                <div className="ws-form-overlay" onClick={() => { setShowForm(false); setEditingSite(null); }}>
-                    <div className="ws-form-modal" onClick={(e) => e.stopPropagation()}>
-                        <div className="ws-form-header">
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                <div className="ws-form-icon">
-                                    <MorphIcon icon={Globe} size={15} />
+                <div
+                    className={`drawer-scrim ${closingForm ? 'closing' : ''}`}
+                    onClick={deploying ? undefined : closeForm}
+                >
+                    <aside
+                        className={`drawer ws-form-drawer ${closingForm ? 'closing' : ''}`}
+                        onClick={(e) => e.stopPropagation()}
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label={editingSite ? editingSite.name : t('websites.deployProject')}
+                    >
+                        <header className="drawer-header">
+                            <div className="ws-form-identity">
+                                <div className={`ws-form-icon ${isWordpress ? 'wp' : 'node'}`}>
+                                    {isWordpress ? <WordPressIcon size={24} /> : <NodeIcon size={24} />}
                                 </div>
-                                <div>
-                                    <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 600, color: 'var(--text-main)' }}>
-                                        {editingSite ? `${editingSite.name}` : t('websites.deployProject')}
-                                    </h3>
-                                    <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-muted)' }}>
-                                        {editingSite ? t('websites.form.updateConfig') : t('websites.form.configureDeploy')}
-                                    </p>
+                                <div className="drawer-title">
+                                    <h3>{editingSite ? `${editingSite.name}` : t('websites.deployProject')}</h3>
+                                    <p>{editingSite ? t('websites.form.updateConfig') : t('websites.form.configureDeploy')}</p>
                                 </div>
                             </div>
-                            <button type="button" className="btn-close" onClick={() => { setShowForm(false); setEditingSite(null); }}>
-                                <MorphIcon icon={X} size={15} />
+                            <button type="button" className="drawer-close" onClick={closeForm} aria-label={t('common.close')}>
+                                <MorphIcon icon={X} size={18} />
                             </button>
-                        </div>
-                        <form onSubmit={handleSubmit}>
-                            <div className="ws-form-body">
+                        </header>
+
+                        <div className="drawer-body">
+                            <form id="ws-deploy-form" onSubmit={handleSubmit}>
                                 <div className="form-section">
-                                    <div className="form-row">
-                                        <div className="form-group">
-                                            <label>{t('websites.form.server')}</label>
-                                            <select value={formData.serverId} onChange={(e) => setFormData({ ...formData, serverId: e.target.value })} required disabled={!!editingSite}>
-                                                <option value="" disabled>{t('websites.form.selectServer')}</option>
-                                                {servers.map(s => <option key={s.id} value={s.id}>{s.name} ({s.ip})</option>)}
-                                            </select>
-                                        </div>
-                                        <div className="form-group">
-                                            <label>{t('websites.form.appName')}</label>
-                                            <input type="text" placeholder={t('websites.form.appNamePlaceholder')} value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required />
+                                    <div className="form-group">
+                                        <label>{t('websites.form.stack')}</label>
+                                        {/* El stack define todo lo demás del formulario, así que va
+                                            primero. No se puede cambiar en una edición: implicaría
+                                            volver a montar el sitio entero. */}
+                                        <div className="stack-picker">
+                                            {([
+                                                { id: 'node' as StackId, label: 'Node.js', desc: t('websites.stack.nodeDesc'), icon: <NodeIcon size={16} /> },
+                                                { id: 'wordpress' as StackId, label: 'WordPress', desc: t('websites.stack.wordpressDesc'), icon: <WordPressIcon size={16} /> },
+                                            ]).map(opt => (
+                                                <button
+                                                    key={opt.id}
+                                                    type="button"
+                                                    className={`stack-option ${opt.id}${formData.stack === opt.id ? ' active' : ''}`}
+                                                    disabled={!!editingSite}
+                                                    onClick={() => setFormData({ ...formData, stack: opt.id })}
+                                                >
+                                                    <span className="stack-option-title">{opt.icon} {opt.label}</span>
+                                                    <span className="stack-option-desc">{opt.desc}</span>
+                                                </button>
+                                            ))}
                                         </div>
                                     </div>
                                     <div className="form-group">
-                                        <label>{t('websites.form.gitRepo')}</label>
-                                        {hasGithub ? (
-                                            <select value={formData.repo} onChange={(e) => setFormData({ ...formData, repo: e.target.value })} required>
-                                                <option value="" disabled>{t('websites.form.selectRepo')}</option>
-                                                {githubRepos.map(r => <option key={r.id} value={r.clone_url}>{r.full_name}</option>)}
-                                                <option value="custom">↳ URL manual</option>
-                                            </select>
-                                        ) : null}
-                                        {(!hasGithub || formData.repo === 'custom') && (
-                                            <input type="url" placeholder={t('websites.form.repoPlaceholder')} value={formData.repo === 'custom' ? '' : formData.repo} onChange={(e) => setFormData({ ...formData, repo: e.target.value })} required />
+                                        <label>{t('websites.form.server')}</label>
+                                        {/* Fichas en vez de un desplegable: el servidor destino se
+                                            elige una vez y conviene ver su IP y su estado al hacerlo.
+                                            En una edición no se puede mover el sitio de servidor. */}
+                                        <div className="ws-server-picker" role="radiogroup" aria-label={t('websites.form.server')}>
+                                            {(editingSite ? servers.filter(s => s.id === formData.serverId) : servers).map(s => {
+                                                const selected = formData.serverId === s.id;
+                                                return (
+                                                    <button
+                                                        key={s.id}
+                                                        type="button"
+                                                        role="radio"
+                                                        aria-checked={selected}
+                                                        className={`ws-server-option${selected ? ' selected' : ''}`}
+                                                        disabled={!!editingSite}
+                                                        onClick={() => setFormData({ ...formData, serverId: s.id || '' })}
+                                                    >
+                                                        <span className={`ws-server-dot ${s.status || 'online'}`} />
+                                                        <span className="ws-server-text">
+                                                            <span className="ws-server-name">{s.name}</span>
+                                                            <span className="ws-server-ip mono">{s.ip}</span>
+                                                        </span>
+                                                        {selected && <MorphIcon icon={CheckCircle2} size={15} />}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                    <div className="form-group">
+                                        <label>{t('websites.form.appName')}</label>
+                                        <input type="text" placeholder={t('websites.form.appNamePlaceholder')} value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required />
+                                    </div>
+                                    {!isWordpress && (
+                                        <div className="form-group">
+                                            <label>{t('websites.form.gitRepo')}</label>
+                                            {hasGithub ? (
+                                                <select value={formData.repo} onChange={(e) => setFormData({ ...formData, repo: e.target.value })} required>
+                                                    <option value="" disabled>{t('websites.form.selectRepo')}</option>
+                                                    {githubRepos.map(r => <option key={r.id} value={r.clone_url}>{r.full_name}</option>)}
+                                                    <option value="custom">↳ URL manual</option>
+                                                </select>
+                                            ) : null}
+                                            {(!hasGithub || formData.repo === 'custom') && (
+                                                <input type="url" placeholder={t('websites.form.repoPlaceholder')} value={formData.repo === 'custom' ? '' : formData.repo} onChange={(e) => setFormData({ ...formData, repo: e.target.value })} required />
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {isWordpress && !editingSite && (
+                                    <div className="form-section">
+                                        <h3><WordPressIcon size={12} /> {t('websites.wp.title')}</h3>
+
+                                        {/* Los dos caminos del flujo clásico: instalar de cero o
+                                            traerse un WordPress que ya existe. */}
+                                        <div className="form-group">
+                                            <div className="stack-picker">
+                                                {([
+                                                    { id: 'fresh' as const, label: t('websites.wp.modeFresh'), desc: t('websites.wp.modeFreshDesc') },
+                                                    { id: 'migrate' as const, label: t('websites.wp.modeMigrate'), desc: t('websites.wp.modeMigrateDesc') },
+                                                ]).map(opt => (
+                                                    <button
+                                                        key={opt.id}
+                                                        type="button"
+                                                        className={`stack-option${formData.wpMode === opt.id ? ' active' : ''}`}
+                                                        onClick={() => setFormData({ ...formData, wpMode: opt.id })}
+                                                    >
+                                                        <span className="stack-option-title">{opt.label}</span>
+                                                        <span className="stack-option-desc">{opt.desc}</span>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        <div className="form-group">
+                                            <label>{t('websites.wp.directory')}</label>
+                                            <input
+                                                type="text"
+                                                placeholder={t('websites.wp.directoryPlaceholder')}
+                                                value={formData.wpDirectory}
+                                                onChange={(e) => setFormData({ ...formData, wpDirectory: e.target.value })}
+                                            />
+                                            <span className="form-hint">{t('websites.wp.directoryHint')}</span>
+                                        </div>
+
+                                        {formData.wpMode === 'fresh' ? (
+                                            <>
+                                                <div className="form-row">
+                                                    <div className="form-group">
+                                                        <label>{t('websites.wp.siteTitle')}</label>
+                                                        <input type="text" placeholder={t('websites.wp.siteTitlePlaceholder')} value={formData.wpTitle} onChange={(e) => setFormData({ ...formData, wpTitle: e.target.value })} />
+                                                    </div>
+                                                    <div className="form-group">
+                                                        <label>{t('websites.wp.locale')}</label>
+                                                        <select value={formData.wpLocale} onChange={(e) => setFormData({ ...formData, wpLocale: e.target.value })}>
+                                                            <option value="es_ES">Español (es_ES)</option>
+                                                            <option value="es_MX">Español de México (es_MX)</option>
+                                                            <option value="en_US">English (en_US)</option>
+                                                            <option value="pt_BR">Português do Brasil (pt_BR)</option>
+                                                            <option value="fr_FR">Français (fr_FR)</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                                <div className="form-row">
+                                                    <div className="form-group">
+                                                        <label>{t('websites.wp.adminUser')}</label>
+                                                        <input type="text" placeholder="admin" value={formData.wpAdminUser} onChange={(e) => setFormData({ ...formData, wpAdminUser: e.target.value })} required />
+                                                    </div>
+                                                    <div className="form-group">
+                                                        <label>{t('websites.wp.adminPassword')}</label>
+                                                        <input type="password" placeholder="••••••••" minLength={8} value={formData.wpAdminPassword} onChange={(e) => setFormData({ ...formData, wpAdminPassword: e.target.value })} required />
+                                                    </div>
+                                                    <div className="form-group">
+                                                        <label>{t('websites.wp.adminEmail')}</label>
+                                                        <input type="email" placeholder="tu@correo.com" value={formData.wpAdminEmail} onChange={(e) => setFormData({ ...formData, wpAdminEmail: e.target.value })} required />
+                                                    </div>
+                                                </div>
+                                                <span className="form-hint">{t('websites.wp.adminHint')}</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <div className="form-group">
+                                                    <label>{t('websites.wp.filesLabel')}</label>
+                                                    <input
+                                                        type="file"
+                                                        accept=".zip,.tar,.gz,.tgz"
+                                                        onChange={(e) => handleWpUpload(e.target.files?.[0], 'wpArchiveUrl', setWpArchive)}
+                                                    />
+                                                    {wpArchive && (
+                                                        <span className={`upload-status${wpArchive.error ? ' error' : ''}`}>
+                                                            {wpArchive.uploading
+                                                                ? t('websites.wp.uploading', { name: wpArchive.name })
+                                                                : wpArchive.error || t('websites.wp.uploaded', { name: wpArchive.name })}
+                                                        </span>
+                                                    )}
+                                                    <span className="form-hint">{t('websites.wp.filesHint')}</span>
+                                                    <span className="field-divider">{t('websites.wp.orUrl')}</span>
+                                                    <input
+                                                        type="url"
+                                                        placeholder={t('websites.wp.filesUrlPlaceholder')}
+                                                        value={formData.wpArchiveUrl.startsWith('/tmp/') ? '' : formData.wpArchiveUrl}
+                                                        onChange={(e) => { setWpArchive(null); setFormData({ ...formData, wpArchiveUrl: e.target.value }); }}
+                                                    />
+                                                </div>
+
+                                                <div className="form-group">
+                                                    <label>{t('websites.wp.dumpLabel')}</label>
+                                                    <input
+                                                        type="file"
+                                                        accept=".sql,.gz,.zip"
+                                                        onChange={(e) => handleWpUpload(e.target.files?.[0], 'wpDbDumpUrl', setWpDump)}
+                                                    />
+                                                    {wpDump && (
+                                                        <span className={`upload-status${wpDump.error ? ' error' : ''}`}>
+                                                            {wpDump.uploading
+                                                                ? t('websites.wp.uploading', { name: wpDump.name })
+                                                                : wpDump.error || t('websites.wp.uploaded', { name: wpDump.name })}
+                                                        </span>
+                                                    )}
+                                                    <span className="form-hint">{t('websites.wp.dumpHint')}</span>
+                                                    <span className="field-divider">{t('websites.wp.orUrl')}</span>
+                                                    <input
+                                                        type="url"
+                                                        placeholder={t('websites.wp.dumpUrlPlaceholder')}
+                                                        value={formData.wpDbDumpUrl.startsWith('/tmp/') ? '' : formData.wpDbDumpUrl}
+                                                        onChange={(e) => { setWpDump(null); setFormData({ ...formData, wpDbDumpUrl: e.target.value }); }}
+                                                    />
+                                                </div>
+
+                                                <div className="form-group-checkbox" onClick={() => setFormData({ ...formData, wpSearchReplace: !formData.wpSearchReplace })}>
+                                                    <input type="checkbox" checked={formData.wpSearchReplace} onChange={() => { }} />
+                                                    <label>{t('websites.wp.searchReplace')}</label>
+                                                </div>
+
+                                                {formData.wpSearchReplace && (
+                                                    <div className="form-row">
+                                                        <div className="form-group">
+                                                            <label>{t('websites.wp.oldDomain')}</label>
+                                                            <input type="text" placeholder="https://midominioviejo.com" value={formData.wpOldDomain} onChange={(e) => setFormData({ ...formData, wpOldDomain: e.target.value })} />
+                                                            <span className="form-hint">{t('websites.wp.oldDomainHint')}</span>
+                                                        </div>
+                                                        <div className="form-group">
+                                                            <label>{t('websites.wp.tablePrefix')}</label>
+                                                            <input type="text" placeholder="wp_" value={formData.wpTablePrefix} onChange={(e) => setFormData({ ...formData, wpTablePrefix: e.target.value })} />
+                                                            <span className="form-hint">{t('websites.wp.tablePrefixHint')}</span>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </>
                                         )}
                                     </div>
-                                </div>
+                                )}
+
+                                {!isWordpress && (
                                 <div className="form-section">
                                     <h3>{t('websites.form.commands')}</h3>
                                     <div className="form-row">
@@ -689,13 +1036,20 @@ echo "=== ${t('websites.logs.diagDone')} ==="`;
                                         </div>
                                     </div>
                                 </div>
+                                )}
                                 <div className="form-section">
                                     <h3>{t('websites.form.networkDomain')}</h3>
                                     <div className="form-row">
+                                        {/* WordPress lo sirve Nginx directamente con PHP-FPM:
+                                            no hay ningún puerto interno que reservar. */}
+                                        {!isWordpress && (
                                         <div className="form-group">
-                                            <label>{t('websites.form.port')}</label>
-                                            <input type="number" placeholder="3000" value={formData.port} onChange={(e) => setFormData({ ...formData, port: e.target.value })} required />
+                                            <label>{t('websites.form.port')}{editingSite ? ` — ${t('websites.form.portLocked')}` : ''}</label>
+                                            {/* El puerto interno es único por servidor y lo gestiona el backend.
+                                                Editarlo a mano dejaría el vhost apuntando a un proceso ajeno. */}
+                                            <input type="number" placeholder="3000" value={formData.port} onChange={(e) => setFormData({ ...formData, port: e.target.value })} readOnly={!!editingSite} disabled={!!editingSite} required />
                                         </div>
+                                        )}
                                         <div className="form-group">
                                             <label>{t('websites.form.domain')}</label>
                                             <input type="text" placeholder={t('websites.form.domainPlaceholder')} value={formData.domain} onChange={(e) => setFormData({ ...formData, domain: e.target.value })} />
@@ -714,6 +1068,7 @@ echo "=== ${t('websites.logs.diagDone')} ==="`;
                                         </div>
                                     )}
                                 </div>
+                                {!isWordpress && (
                                 <div className="form-section" style={{ marginBottom: 0 }}>
                                     <h3>{t('websites.env.title')}</h3>
                                     <div className="form-group">
@@ -729,17 +1084,19 @@ echo "=== ${t('websites.logs.diagDone')} ==="`;
                                         </span>
                                     </div>
                                 </div>
-                            </div>
-                            <div className="ws-form-footer">
-                                <button type="button" className="btn-secondary" onClick={() => { setShowForm(false); setEditingSite(null); setDeployLogs(''); }}>
-                                    Cancelar
-                                </button>
-                                <button type="submit" className="btn-primary" disabled={deploying}>
-                                    {deploying ? t('servers.apps.processing') : (editingSite ? t('websites.env.save') : t('websites.form.deploy'))}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
+                                )}
+                            </form>
+                        </div>
+
+                        <footer className="drawer-footer">
+                            <button type="button" className="btn-secondary" onClick={closeForm}>
+                                {t('common.cancel')}
+                            </button>
+                            <button type="submit" form="ws-deploy-form" className="btn-primary" disabled={deploying}>
+                                {deploying ? t('servers.apps.processing') : (editingSite ? t('websites.env.save') : t('websites.form.deploy'))}
+                            </button>
+                        </footer>
+                    </aside>
                 </div>
             )}
 

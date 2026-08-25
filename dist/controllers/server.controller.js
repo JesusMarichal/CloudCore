@@ -22,15 +22,17 @@ const database_service_1 = require("../database/database.service");
 const encryption_util_1 = require("../common/utils/encryption.util");
 const current_user_decorator_1 = require("../common/auth/current-user.decorator");
 const crypto = require("crypto");
+const deploy_service_1 = require("../deploy/deploy.service");
 const dns = require("dns");
 const util_1 = require("util");
 const resolve4 = (0, util_1.promisify)(dns.resolve4);
 const DISCOVER_STEP = { key: 'discover_websites', name: 'Detectando sitios existentes' };
 const PROVISION_TOTAL = ssh_service_1.PROVISION_STEPS.length + 1;
 let ServerController = class ServerController {
-    constructor(sshService, dbService) {
+    constructor(sshService, dbService, deployService) {
         this.sshService = sshService;
         this.dbService = dbService;
+        this.deployService = deployService;
     }
     async assertServerOwnership(serverId, userId) {
         const result = await this.dbService.query('SELECT * FROM servers WHERE id = $1 AND user_id = $2', [serverId, userId]);
@@ -483,9 +485,10 @@ let ServerController = class ServerController {
         res.setHeader('Content-Type', 'text/plain; charset=utf-8');
         res.setHeader('Transfer-Encoding', 'chunked');
         let serverData;
+        let site;
         try {
             serverData = await this.assertServerOwnership(id, userId);
-            await this.assertWebsiteOwnership(id, websiteId);
+            site = await this.assertWebsiteOwnership(id, websiteId);
         }
         catch {
             res.status(404).write('---ERROR---\nServidor no encontrado');
@@ -522,93 +525,20 @@ let ServerController = class ServerController {
             status: serverData.status,
             lastHealthCheck: serverData.last_health_check || new Date(),
         };
-        await this.dbService.query(`
-            DO $$
-            BEGIN
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='websites' AND column_name='use_letsencrypt') THEN
-                    ALTER TABLE websites ADD COLUMN use_letsencrypt BOOLEAN DEFAULT FALSE;
-                END IF;
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='websites' AND column_name='setup_www_alias') THEN
-                    ALTER TABLE websites ADD COLUMN setup_www_alias BOOLEAN DEFAULT FALSE;
-                END IF;
-            END $$;
-        `);
+        await this.deployService.ensureWebsitesColumns();
+        const userRes = await this.dbService.query('SELECT email FROM users WHERE id = $1', [userId]);
+        const userEmail = userRes.rows[0]?.email || '';
+        const ctx = this.deployService.contextFor(server, site, { ...body, userEmail });
+        const updateCmd = this.deployService.buildUpdateScript(ctx, site);
+        const stackConfig = this.deployService.reconfigureFor(ctx, site);
         await this.dbService.query(`
             UPDATE websites
             SET install_command = $1, build_command = $2, start_command = $3,
-                port = $4, domain = $5, entry_point = $6, env_vars = $7,
-                use_letsencrypt = $8, setup_www_alias = $9
+                domain = $4, entry_point = $5, env_vars = $6,
+                use_letsencrypt = $7, setup_www_alias = $8, stack_config = $9
             WHERE id = $10
-        `, [body.installCommand, body.buildCommand, body.startCommand, body.port, body.domain, body.entryPoint, body.envVars, body.useLetsEncrypt || false, body.setupWwwAlias || false, websiteId]);
-        const userRes = await this.dbService.query('SELECT email FROM users WHERE id = $1', [userId]);
-        const userEmail = userRes.rows[0]?.email || '';
-        const safeName = body.name.replace(/[^a-zA-Z0-9_-]/g, '').toLowerCase();
-        const projectPath = `/var/www/${safeName}`;
-        const finalDomain = body.domain && body.domain.trim() !== '' ? body.domain : '_';
-        const hasDomain = finalDomain !== '_';
-        const serverNames = (hasDomain && body.setupWwwAlias) ? `${finalDomain} www.${finalDomain}` : finalDomain;
-        const certbotDomains = (hasDomain && body.setupWwwAlias) ? `-d ${finalDomain} -d www.${finalDomain}` : `-d ${finalDomain}`;
-        const useSSL = body.useLetsEncrypt && hasDomain;
-        const updateEnvCmd = `
-            cd ${projectPath}
-            node -e "const fs = require('fs'); fs.writeFileSync('.env', Buffer.from('${Buffer.from(`PORT=${body.port}\n${body.envVars ? body.envVars.replace(/\r/g, '') : ''}`).toString('base64')}', 'base64'));"
-            echo "✅ Archivo .env actualizado con sus credenciales."
-
-            # Re-detectar el punto de entrada para el reinicio
-            ENTRY_POINT="${body.entryPoint || 'index.js'}"
-            if [ -f "dist/main.js" ]; then
-                ENTRY_POINT="dist/main.js"
-                echo "📌 Detectado NestJS (dist/main.js)"
-            fi
-
-            # Reiniciar con PM2 asegurando que cargue el nuevo .env
-            echo "🔄 Reiniciando aplicación ${safeName}..."
-
-            # Ejecutar build si existe el comando (necesario para variables VITE_)
-            ${body.buildCommand && body.buildCommand.trim() !== '' ? `echo "🏗️  Re-ejecutando build para aplicar cambios: ${body.buildCommand}"\n${body.buildCommand}` : ''}
-
-            pm2 restart ${safeName} --update-env || pm2 start "$ENTRY_POINT" --name "${safeName}" --update-env || pm2 start npm --name "${safeName}" -- run start
-
-            # Configuración de Nginx (Forzando IPv4 127.0.0.1)
-            if command -v nginx > /dev/null; then
-                echo "⚙️ Configurando Nginx para ${serverNames} (usando 127.0.0.1:${body.port})..."
-                echo 'server {
-    listen 80;
-    server_name ${serverNames};
-
-    location / {
-        proxy_pass http://127.0.0.1:${body.port};
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_cache_bypass $http_upgrade;
-    }
-}' | sudo tee /etc/nginx/sites-available/${safeName} > /dev/null
-
-                sudo ln -sf /etc/nginx/sites-available/${safeName} /etc/nginx/sites-enabled/
-                sudo rm -f /etc/nginx/sites-enabled/default 2>/dev/null
-
-                sudo nginx -t && sudo systemctl reload nginx
-
-                # 4. Gestionar SSL
-                if [ "${useSSL ? 'true' : 'false'}" = "true" ]; then
-                    if ! command -v certbot > /dev/null; then
-                        echo "📦 Instalando Certbot..."
-                        sudo apt update && sudo DEBIAN_FRONTEND=noninteractive apt install -y certbot python3-certbot-nginx
-                    fi
-                    echo "🔐 Asegurando certificado SSL para ${serverNames}..."
-                    sudo certbot --nginx ${certbotDomains} --non-interactive --agree-tos --email ${userEmail || 'admin@' + (finalDomain !== '_' ? finalDomain : 'example.com')} --redirect --reinstall || echo "❌ ERROR SSL: Verifica que el dominio primemax.lat apunte a la IP ${server.ip}"
-                fi
-
-                sudo nginx -t && sudo systemctl reload nginx
-                echo "✅ Nginx y SSL configurados correctamente."
-            fi
-        `;
-        await this.sshService.executeCommand(server, updateEnvCmd, (chunk) => {
+        `, [body.installCommand, body.buildCommand, body.startCommand, body.domain, body.entryPoint, body.envVars, body.useLetsEncrypt || false, body.setupWwwAlias || false, JSON.stringify(stackConfig), websiteId]);
+        await this.sshService.executeCommand(server, updateCmd, (chunk) => {
             res.write(chunk);
         });
         res.write('\n✅ Proceso completado exitosamente.');
@@ -644,48 +574,48 @@ let ServerController = class ServerController {
         const discovered = await this.sshService.discoverWebsites(server);
         if (discovered.length === 0)
             return [];
-        await this.dbService.query(`
-            DO $$
-            BEGIN
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='websites' AND column_name='build_command') THEN
-                    ALTER TABLE websites ADD COLUMN build_command VARCHAR(255);
-                END IF;
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='websites' AND column_name='user_id') THEN
-                    ALTER TABLE websites ADD COLUMN user_id VARCHAR(255);
-                END IF;
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='websites' AND column_name='env_vars') THEN
-                    ALTER TABLE websites ADD COLUMN env_vars TEXT;
-                END IF;
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='websites' AND column_name='use_letsencrypt') THEN
-                    ALTER TABLE websites ADD COLUMN use_letsencrypt BOOLEAN DEFAULT FALSE;
-                END IF;
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='websites' AND column_name='setup_www_alias') THEN
-                    ALTER TABLE websites ADD COLUMN setup_www_alias BOOLEAN DEFAULT FALSE;
-                END IF;
-            END $$;
-        `);
+        await this.deployService.ensureWebsitesColumns();
         const imported = [];
         for (const site of discovered) {
             const exists = await this.dbService.query('SELECT 1 FROM websites WHERE server_id = $1 AND name = $2', [serverId, site.name]);
             if (exists.rows.length > 0)
                 continue;
+            const safeName = (0, deploy_service_1.toSafeName)(site.name);
+            const stackConfig = site.stack === 'wordpress'
+                ? {
+                    mode: 'migrate',
+                    directory: site.wpDirectory || '',
+                    installPath: site.wpDirectory ? `/var/www/${safeName}/${site.wpDirectory}` : `/var/www/${safeName}`,
+                    docroot: `/var/www/${safeName}`,
+                    host: site.domain || '',
+                    externalDb: true,
+                    dbHost: 'localhost',
+                    dbName: site.wpDbName || '',
+                    dbUser: site.wpDbUser || '',
+                    dbPassword: '',
+                    tablePrefix: 'wp_',
+                    locale: 'es_ES',
+                }
+                : {};
             await this.dbService.query(`
-                INSERT INTO websites (server_id, user_id, repo_url, name, install_command, build_command, start_command, port, domain, entry_point, env_vars, use_letsencrypt, setup_www_alias)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+                INSERT INTO websites (server_id, user_id, repo_url, name, install_command, build_command, start_command, port, domain, entry_point, env_vars, use_letsencrypt, setup_www_alias, stack, stack_config)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
             `, [
                 serverId,
                 userId || '',
                 site.repoUrl,
                 site.name,
-                'npm install',
+                site.stack === 'wordpress' ? '' : 'npm install',
                 '',
                 '',
-                site.port,
+                site.port || null,
                 site.domain,
                 site.entryPoint,
                 site.envVars,
                 site.useLetsEncrypt,
-                site.setupWwwAlias
+                site.setupWwwAlias,
+                site.stack || 'node',
+                JSON.stringify(stackConfig),
             ]);
             imported.push(site);
         }
@@ -749,14 +679,8 @@ let ServerController = class ServerController {
             status: serverData.status,
             lastHealthCheck: serverData.last_health_check || new Date(),
         };
-        const safeName = site.name.replace(/[^a-zA-Z0-9_-]/g, '').toLowerCase();
-        const cleanCmd = `
-            pm2 delete ${safeName} || true
-            sudo rm -f /etc/nginx/sites-enabled/${safeName}
-            sudo rm -f /etc/nginx/sites-available/${safeName}
-            sudo nginx -t && sudo systemctl reload nginx
-            sudo rm -rf /var/www/${safeName}
-        `;
+        const ctx = this.deployService.contextFor(server, site);
+        const cleanCmd = this.deployService.buildCleanupScript(ctx, site);
         await this.sshService.executeCommand(server, cleanCmd);
         await this.dbService.query('DELETE FROM websites WHERE id = $1', [websiteId]);
         return { success: true, message: 'Sitio eliminado correctamente' };
@@ -776,12 +700,8 @@ let ServerController = class ServerController {
             status: serverData.status,
             lastHealthCheck: serverData.last_health_check || new Date(),
         };
-        const safeName = site.name.replace(/[^a-zA-Z0-9_-]/g, '').toLowerCase();
-        const pm2LogName = safeName.replace(/_/g, '-');
-        const pmDir = `/home/${server.sshUser}/.pm2/logs`;
-        const outCmd = `tail -n 100 ${pmDir}/${safeName}-out.log 2>/dev/null || tail -n 100 ${pmDir}/${pm2LogName}-out.log 2>/dev/null || pm2 logs ${safeName} --out --lines 50 --nostream 2>/dev/null || echo "Sin logs de salida disponibles."`;
-        const errCmd = `tail -n 100 ${pmDir}/${safeName}-error.log 2>/dev/null || tail -n 100 ${pmDir}/${pm2LogName}-error.log 2>/dev/null || pm2 logs ${safeName} --err --lines 50 --nostream 2>/dev/null || echo "Sin logs de errores disponibles."`;
-        const nginxCmd = `sudo tail -n 100 /var/log/nginx/error.log 2>/dev/null || echo "Sin logs de nginx."`;
+        const ctx = this.deployService.contextFor(server, site);
+        const { out: outCmd, error: errCmd, nginx: nginxCmd } = this.deployService.logCommandsFor(ctx, site);
         const outLogs = await this.sshService.executeCommand(server, outCmd);
         const errLogs = await this.sshService.executeCommand(server, errCmd);
         const nginxLogs = await this.sshService.executeCommand(server, nginxCmd);
@@ -797,6 +717,9 @@ let ServerController = class ServerController {
     async getWebsiteCommit(id, websiteId, userId) {
         const serverData = await this.assertServerOwnership(id, userId);
         const site = await this.assertWebsiteOwnership(id, websiteId);
+        if (!this.deployService.stackOf(site).usesGit) {
+            return { success: false, tracksCommits: false, message: 'Este sitio no se despliega desde un repositorio Git.' };
+        }
         const server = {
             id: serverData.id,
             name: serverData.name,
@@ -856,6 +779,9 @@ let ServerController = class ServerController {
     async deployLatestCommit(id, websiteId, userId) {
         const serverData = await this.assertServerOwnership(id, userId);
         const site = await this.assertWebsiteOwnership(id, websiteId);
+        if (!this.deployService.stackOf(site).usesGit) {
+            return { success: false, message: 'Este sitio no se despliega desde un repositorio Git.' };
+        }
         const server = {
             id: serverData.id,
             name: serverData.name,
@@ -906,9 +832,9 @@ elif [ -f "app.js" ];                             then ENTRY_POINT="app.js"
 fi
 
 if [ -n "$ENTRY_POINT" ]; then
-    pm2 start "$ENTRY_POINT" --name "${safeName}" --cwd "/var/www/${safeName}" 2>&1
+    pm2 start "$ENTRY_POINT" --name "${safeName}" --cwd "/var/www/${safeName}" --max-memory-restart 200M 2>&1
 else
-    pm2 start npm --name "${safeName}" --cwd "/var/www/${safeName}" -- run start 2>&1
+    pm2 start npm --name "${safeName}" --cwd "/var/www/${safeName}" --max-memory-restart 200M -- run start 2>&1
 fi
 
 pm2 save --force >/dev/null 2>&1 || true
@@ -1577,6 +1503,7 @@ __decorate([
 exports.ServerController = ServerController = __decorate([
     (0, common_1.Controller)('servers'),
     __metadata("design:paramtypes", [ssh_service_1.SshService,
-        database_service_1.DatabaseService])
+        database_service_1.DatabaseService,
+        deploy_service_1.DeployService])
 ], ServerController);
 //# sourceMappingURL=server.controller.js.map

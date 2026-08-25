@@ -103,6 +103,58 @@ let SshService = SshService_1 = class SshService {
                 .connect(connectionConfig);
         });
     }
+    async uploadFile(server, localPath, remotePath, timeoutMs = 900_000) {
+        return new Promise((resolve, reject) => {
+            const conn = new ssh2_1.Client();
+            let settled = false;
+            const done = (err) => {
+                if (settled)
+                    return;
+                settled = true;
+                clearTimeout(timer);
+                try {
+                    conn.end();
+                }
+                catch (_) { }
+                if (err)
+                    reject(err);
+                else
+                    resolve(remotePath);
+            };
+            const timer = setTimeout(() => {
+                this.logger.error(`SFTP timeout (${timeoutMs / 1000}s) en ${server.ip}`);
+                done(new Error(`Timeout SFTP después de ${timeoutMs / 1000} segundos`));
+            }, timeoutMs);
+            const connectionConfig = {
+                host: server.ip,
+                port: server.sshPort || 22,
+                username: server.sshUser || 'root',
+                readyTimeout: 30000,
+                keepaliveInterval: 15000,
+                keepaliveCountMax: 8,
+            };
+            if (server.authType === 'key' && server.privateKey) {
+                connectionConfig.privateKey = (0, encryption_util_1.decrypt)(server.privateKey);
+            }
+            else if (server.authType === 'password' && server.password) {
+                connectionConfig.password = (0, encryption_util_1.decrypt)(server.password);
+            }
+            conn.on('ready', () => {
+                conn.sftp((err, sftp) => {
+                    if (err)
+                        return done(err);
+                    sftp.fastPut(localPath, remotePath, { mode: 0o600 }, (putErr) => {
+                        if (putErr)
+                            return done(putErr);
+                        this.logger.log(`SFTP: ${localPath} → ${server.ip}:${remotePath}`);
+                        done();
+                    });
+                });
+            })
+                .on('error', (err) => done(err))
+                .connect(connectionConfig);
+        });
+    }
     async provision(server, onEvent) {
         this.logger.log(`Iniciando aprovisionamiento completo para ${server.name} (${server.ip})...`);
         const steps = exports.PROVISION_STEPS;
@@ -177,7 +229,26 @@ for dir in /var/www/*/; do
         if [ -f "$dir$f" ]; then entry="$f"; break; fi
     done
 
-    echo "@@SITE@@|$name|$repo|$domain|$port|$ssl|$www|$entry|$envb64"
+    # Stack: un WordPress se reconoce por su wp-config.php + wp-includes. De ahí
+    # salen también la base de datos y el usuario que ya está usando el sitio.
+    stack="node"; wpdb=""; wpuser=""; wpdir=""
+    wpconf=""
+    if [ -f "\${dir}wp-config.php" ] && [ -d "\${dir}wp-includes" ]; then
+        stack="wordpress"; wpconf="\${dir}wp-config.php"
+    else
+        for sub in "$dir"*/; do
+            if [ -f "\${sub}wp-config.php" ] && [ -d "\${sub}wp-includes" ]; then
+                stack="wordpress"; wpconf="\${sub}wp-config.php"
+                wpdir=$(basename "$sub"); break
+            fi
+        done
+    fi
+    if [ -n "$wpconf" ]; then
+        wpdb=$(grep -m1 "DB_NAME" "$wpconf" | sed -E "s/.*DB_NAME[^,]*,[[:space:]]*['\\"]([^'\\"]*)['\\"].*/\\1/")
+        wpuser=$(grep -m1 "DB_USER" "$wpconf" | sed -E "s/.*DB_USER[^,]*,[[:space:]]*['\\"]([^'\\"]*)['\\"].*/\\1/")
+    fi
+
+    echo "@@SITE@@|$name|$repo|$domain|$port|$ssl|$www|$entry|$envb64|$stack|$wpdb|$wpuser|$wpdir"
 done
 echo "@@SCAN_DONE@@"
 `;
@@ -188,7 +259,7 @@ echo "@@SCAN_DONE@@"
             if (!trimmed.startsWith('@@SITE@@|'))
                 continue;
             const parts = trimmed.split('|');
-            const [, name, repo, domain, port, ssl, www, entry, envb64] = parts;
+            const [, name, repo, domain, port, ssl, www, entry, envb64, stack, wpDb, wpUser, wpDir] = parts;
             if (!name)
                 continue;
             let envVars = '';
@@ -207,6 +278,10 @@ echo "@@SCAN_DONE@@"
                 setupWwwAlias: www === 'true',
                 entryPoint: entry || '',
                 envVars,
+                stack: stack === 'wordpress' ? 'wordpress' : 'node',
+                wpDbName: wpDb || '',
+                wpDbUser: wpUser || '',
+                wpDirectory: wpDir || '',
             });
         }
         this.logger.log(`Detectados ${sites.length} sitios existentes en ${server.ip}`);

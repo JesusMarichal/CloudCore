@@ -12,9 +12,17 @@ let NodeStack = class NodeStack {
     constructor() {
         this.id = 'node';
         this.label = 'Node.js / PM2';
+        this.usesGit = true;
+        this.needsPort = true;
+    }
+    prepare(_ctx) {
+        return {};
     }
     serve(ctx) {
         return { kind: 'proxy', port: ctx.data.port };
+    }
+    postNginxScript(_ctx) {
+        return '';
     }
     buildAppScript(ctx) {
         const { safeName, projectPath, data } = ctx;
@@ -37,7 +45,7 @@ let NodeStack = class NodeStack {
         cd ${projectPath}
 
         # Crear archivo .env si se pasaron variables + inyectar PORT
-        node -e "const fs = require('fs'); fs.writeFileSync('.env', Buffer.from('${Buffer.from(`PORT=${data.port}\n${data.envVars ? data.envVars.replace(/\r/g, '') : ''}`).toString('base64')}', 'base64'));"
+        node -e "const fs = require('fs'); fs.writeFileSync('.env', Buffer.from('${Buffer.from(`PORT=${data.port}\nNODE_ENV=production\n${data.envVars ? data.envVars.replace(/\r/g, '') : ''}`).toString('base64')}', 'base64'));"
         echo "✅ Variables .env inyectadas (inc. PORT=${data.port})."
 
         # Instalar dependencias
@@ -57,13 +65,24 @@ let NodeStack = class NodeStack {
         echo "🧹 Limpiando logs anteriores..."
         pm2 flush ${safeName} >/dev/null 2>&1 || true
         rm -f /home/$USER/.pm2/logs/${safeName}-*.log 2>/dev/null || true
-        sudo truncate -s 0 /var/log/nginx/error.log 2>/dev/null || true
-        sudo truncate -s 0 /var/log/nginx/access.log 2>/dev/null || true
+        sudo truncate -s 0 /var/log/nginx/${safeName}.access.log 2>/dev/null || true
+        sudo truncate -s 0 /var/log/nginx/${safeName}.error.log 2>/dev/null || true
 
         echo "🚀 Iniciando aplicación con PM2..."
         pm2 delete ${safeName} >/dev/null 2>&1 || true
 
         cd ${projectPath}
+
+        # El puerto lo asigna el panel y es único en la base de datos, pero puede
+        # haber algo ajeno escuchando en él (un PM2 resucitado tras un reinicio,
+        # algo instalado a mano). Mejor fallar aquí que dejar dos sitios peleándose
+        # por el mismo puerto.
+        sleep 1
+        if ss -ltn 2>/dev/null | grep -q ":${data.port} "; then
+            echo "❌ El puerto ${data.port} ya está ocupado en este servidor por otro proceso."
+            echo "   Identifícalo con: sudo ss -ltnp | grep :${data.port}"
+            exit 1
+        fi
 
         # Auto-detectar el punto de entrada correcto
         ENTRY_POINT=""
@@ -91,11 +110,11 @@ let NodeStack = class NodeStack {
         fi
 
         if [ -n "$ENTRY_POINT" ]; then
-            pm2 start "$ENTRY_POINT" --name "${safeName}" --cwd "${projectPath}"
+            pm2 start "$ENTRY_POINT" --name "${safeName}" --cwd "${projectPath}" --max-memory-restart 200M
         else
             # Fallback: usar npm start vía PM2
             echo "📌 No se encontró archivo de entrada, usando npm start..."
-            pm2 start npm --name "${safeName}" --cwd "${projectPath}" -- run start
+            pm2 start npm --name "${safeName}" --cwd "${projectPath}" --max-memory-restart 200M -- run start
         fi
 
         pm2 save
@@ -112,6 +131,52 @@ let NodeStack = class NodeStack {
             pm2 logs ${safeName} --lines 15 --nostream 2>/dev/null || true
         fi
 `;
+    }
+    updateAppScript(ctx, site) {
+        const { safeName, projectPath, data } = ctx;
+        const port = String(site.port ?? '');
+        const envB64 = Buffer.from(`PORT=${port}\nNODE_ENV=production\n${data.envVars ? data.envVars.replace(/\r/g, '') : ''}`).toString('base64');
+        return `
+            cd ${projectPath}
+            node -e "const fs = require('fs'); fs.writeFileSync('.env', Buffer.from('${envB64}', 'base64'));"
+            echo "✅ Archivo .env actualizado con sus credenciales."
+
+            # Re-detectar el punto de entrada para el reinicio
+            ENTRY_POINT="${data.entryPoint || 'index.js'}"
+            if [ -f "dist/main.js" ]; then
+                ENTRY_POINT="dist/main.js"
+                echo "📌 Detectado NestJS (dist/main.js)"
+            fi
+
+            # Reiniciar con PM2 asegurando que cargue el nuevo .env
+            echo "🔄 Reiniciando aplicación ${safeName}..."
+
+            # Ejecutar build si existe el comando (necesario para variables VITE_)
+            ${data.buildCommand && data.buildCommand.trim() !== '' ? `echo "🏗️  Re-ejecutando build para aplicar cambios: ${data.buildCommand}"\n${data.buildCommand}` : ''}
+
+            pm2 restart ${safeName} --update-env || pm2 start "$ENTRY_POINT" --name "${safeName}" --update-env --max-memory-restart 200M || pm2 start npm --name "${safeName}" --max-memory-restart 200M -- run start
+`;
+    }
+    reconfigure(ctx, _site) {
+        return ctx.stackConfig ?? {};
+    }
+    cleanupScript(ctx, _site) {
+        const { safeName, projectPath } = ctx;
+        return `
+            pm2 delete ${safeName} || true
+            pm2 save --force || true
+            sudo rm -rf ${projectPath}
+`;
+    }
+    logCommands(ctx, _site) {
+        const { safeName, server } = ctx;
+        const pm2LogName = safeName.replace(/_/g, '-');
+        const pmDir = `/home/${server.sshUser}/.pm2/logs`;
+        return {
+            out: `tail -n 100 ${pmDir}/${safeName}-out.log 2>/dev/null || tail -n 100 ${pmDir}/${pm2LogName}-out.log 2>/dev/null || pm2 logs ${safeName} --out --lines 50 --nostream 2>/dev/null || echo "Sin logs de salida disponibles."`,
+            error: `tail -n 100 ${pmDir}/${safeName}-error.log 2>/dev/null || tail -n 100 ${pmDir}/${pm2LogName}-error.log 2>/dev/null || pm2 logs ${safeName} --err --lines 50 --nostream 2>/dev/null || echo "Sin logs de errores disponibles."`,
+            nginx: `sudo tail -n 100 /var/log/nginx/${safeName}.error.log 2>/dev/null || sudo tail -n 100 /var/log/nginx/error.log 2>/dev/null || echo "Sin logs de nginx."`,
+        };
     }
 };
 exports.NodeStack = NodeStack;

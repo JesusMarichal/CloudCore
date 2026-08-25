@@ -12,6 +12,7 @@ const ssh_module_1 = require("../services/ssh.module");
 const deploy_controller_1 = require("./deploy.controller");
 const deploy_service_1 = require("./deploy.service");
 const node_stack_1 = require("./stacks/node.stack");
+const wordpress_stack_1 = require("./stacks/wordpress.stack");
 const stack_registry_1 = require("./stacks/stack.registry");
 let DeployModule = class DeployModule {
 };
@@ -20,7 +21,8 @@ exports.DeployModule = DeployModule = __decorate([
     (0, common_1.Module)({
         imports: [ssh_module_1.SshModule],
         controllers: [deploy_controller_1.DeployController],
-        providers: [deploy_service_1.DeployService, stack_registry_1.StackRegistry, node_stack_1.NodeStack],
+        providers: [deploy_service_1.DeployService, stack_registry_1.StackRegistry, node_stack_1.NodeStack, wordpress_stack_1.WordpressStack],
+        exports: [deploy_service_1.DeployService],
     })
 ], DeployModule);
 //# sourceMappingURL=deploy.module.js.map

@@ -3,7 +3,22 @@
    ============================================= */
 
 .websites-container {
+    /* Velos de la vista como tokens, igual que en Base de Datos: los blancos
+       translúcidos sobre fondo oscuro se vuelven negros translúcidos en el
+       tema claro. Sin esto la vista se queda oscura aunque el tema cambie. */
+    --ws-veil: rgba(255, 255, 255, 0.025);
+    --ws-veil-strong: rgba(255, 255, 255, 0.06);
+    --ws-hover: #1c2128;
+    --ws-hover-border: #484f58;
+
     padding: 2rem 2.5rem;
+}
+
+.dashboard-layout.theme-light .websites-container {
+    --ws-veil: rgba(31, 35, 40, 0.03);
+    --ws-veil-strong: rgba(31, 35, 40, 0.06);
+    --ws-hover: #f6f8fa;
+    --ws-hover-border: #afb8c1;
 }
 
 /* ---- Page Header ---- */
@@ -99,8 +114,8 @@
 }
 
 .website-card:hover {
-    background: #1c2128;
-    border-color: #484f58;
+    background: var(--ws-hover);
+    border-color: var(--ws-hover-border);
 }
 
 /* Deploying state — animated green left accent */
@@ -395,7 +410,7 @@
 }
 
 .btn-ghost:hover {
-    background: rgba(255, 255, 255, 0.06);
+    background: var(--ws-veil-strong);
     color: var(--text-main);
     border-color: #8b949e;
 }
@@ -436,96 +451,63 @@
 }
 
 /* =============================================
-   DEPLOY FORM MODAL  (estilo Database)
+   DEPLOY FORM — panel lateral derecho
+   El chasis (cortina, deslizamiento, cabecera/cuerpo/pie y el tema claro)
+   vive en styles/drawer.css; aquí solo el ancho y el contenido propio.
    ============================================= */
-.ws-form-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.65);
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
+.ws-form-drawer {
+    width: 540px;
+}
+
+.ws-form-identity {
     display: flex;
     align-items: center;
-    justify-content: center;
-    z-index: 2000;
-    padding: 20px;
-    animation: wsOverlayIn 0.2s ease-out;
+    gap: 12px;
+    min-width: 0;
 }
 
-@keyframes wsOverlayIn {
-    from { opacity: 0; }
-    to   { opacity: 1; }
-}
-
-.ws-form-modal {
-    background: #161b22;
-    border: 1px solid var(--gh-border);
-    width: 560px;
-    max-width: 95vw;
-    max-height: 92vh;
-    display: flex;
-    flex-direction: column;
-    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.6);
-    animation: wsModalIn 0.25s ease-out;
-    overflow: hidden;
-}
-
-@keyframes wsModalIn {
-    from { opacity: 0; transform: translateY(24px) scale(0.97); }
-    to   { opacity: 1; transform: translateY(0) scale(1); }
-}
-
-.ws-form-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 16px 20px;
-    border-bottom: 1px solid var(--gh-border);
-    background: rgba(255, 255, 255, 0.02);
-    flex-shrink: 0;
-}
-
+/* El icono va suelto, sin caja ni borde: la marca se lee mejor flotando
+   junto al título que encerrada en un recuadro. */
 .ws-form-icon {
-    width: 30px;
-    height: 30px;
-    background: rgba(0, 183, 181, 0.1);
-    border: 1px solid rgba(0, 183, 181, 0.2);
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    display: grid;
+    place-items: center;
     color: var(--primary);
     flex-shrink: 0;
 }
 
-/* El form ocupa todo el espacio restante del modal */
-.ws-form-modal form {
+/* Cada stack con su color de marca. */
+.ws-form-icon.node {
+    color: #5fa04e;
+}
+
+.ws-form-icon.wp {
+    color: #3f8cb8;
+}
+
+.dashboard-layout.theme-light .ws-form-icon.node {
+    color: #417e38;
+}
+
+.dashboard-layout.theme-light .ws-form-icon.wp {
+    color: #21759b;
+}
+
+/* El cuerpo del panel ya reparte el espacio con su propio `gap`: las
+   secciones no necesitan margen inferior ni el formulario más envoltorio. */
+.ws-form-drawer #ws-deploy-form {
     display: flex;
     flex-direction: column;
-    flex: 1;
-    min-height: 0;
-    overflow: hidden;
+    gap: 24px;
 }
 
-.ws-form-body {
-    padding: 20px;
-    overflow-y: auto;
-    flex: 1;
-    min-height: 0;
+.ws-form-drawer .form-section {
+    margin-bottom: 0;
 }
 
-.ws-form-body::-webkit-scrollbar { width: 6px; }
-.ws-form-body::-webkit-scrollbar-track { background: transparent; }
-.ws-form-body::-webkit-scrollbar-thumb { background: var(--gh-border); }
-
-/* Footer siempre visible pegado al fondo */
-.ws-form-footer {
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
-    padding: 14px 20px;
-    border-top: 1px solid var(--gh-border);
-    background: rgba(255, 255, 255, 0.02);
-    flex-shrink: 0;
+/* El panel es más estrecho que la vista: las filas de dos columnas se
+   pliegan solas en vez de aplastar los campos. */
+.ws-form-drawer .form-row {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
 }
 
 /* =============================================
@@ -548,7 +530,7 @@
     align-items: center;
     padding: 16px 20px;
     border-bottom: 1px solid var(--gh-border);
-    background: rgba(255, 255, 255, 0.02);
+    background: var(--ws-veil);
 }
 
 .form-header h2 {
@@ -566,6 +548,9 @@
 }
 
 .form-section h3 {
+    display: flex;
+    align-items: center;
+    gap: 7px;
     font-size: 11px;
     font-weight: 600;
     color: var(--text-dim);
@@ -573,7 +558,7 @@
     letter-spacing: 0.8px;
     margin-bottom: 12px;
     padding-bottom: 6px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid var(--gh-border-muted);
 }
 
 .form-group {
@@ -592,7 +577,7 @@
 .form-group input,
 .form-group select,
 .form-group textarea {
-    background: #0d1117;
+    background: var(--gh-bg);
     border: 1px solid var(--gh-border);
     border-radius: 6px;
     color: var(--text-main);
@@ -627,7 +612,7 @@
     align-items: center;
     gap: 10px;
     padding: 8px 12px;
-    background: rgba(255, 255, 255, 0.02);
+    background: var(--gh-canvas-subtle);
     border: 1px solid var(--gh-border);
     border-radius: 6px;
     cursor: pointer;
@@ -662,7 +647,7 @@
     justify-content: flex-end;
     gap: 10px;
     padding-top: 16px;
-    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    border-top: 1px solid var(--gh-border-muted);
 }
 
 /* =============================================
@@ -700,7 +685,7 @@
     align-items: center;
     padding: 14px 18px;
     border-bottom: 1px solid var(--gh-border);
-    background: rgba(255, 255, 255, 0.02);
+    background: var(--ws-veil);
     flex-shrink: 0;
 }
 
@@ -720,7 +705,7 @@
 .env-modal-footer {
     padding: 12px 18px;
     border-top: 1px solid var(--gh-border);
-    background: rgba(255, 255, 255, 0.02);
+    background: var(--ws-veil);
     display: flex;
     justify-content: flex-end;
     gap: 10px;
@@ -741,7 +726,7 @@
 }
 
 .env-row input {
-    background: #0d1117;
+    background: var(--gh-bg);
     border: 1px solid var(--gh-border);
     border-radius: 6px;
     color: var(--text-main);
@@ -1305,4 +1290,265 @@
 @keyframes commitDotPulse {
     0%, 80%, 100% { transform: scale(0.5); opacity: 0.3; }
     40%            { transform: scale(1);   opacity: 1;   }
+}
+
+/* ── Selector de stack y modo de WordPress ─────────────────────────────────
+   Mismo peso visual que las fichas de Base de Datos: dos caminos del mismo
+   rango, sobre tokens de tema para que el modo claro funcione. */
+
+.stack-picker {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.stack-option {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    padding: 14px;
+    text-align: left;
+    background: var(--gh-canvas-subtle);
+    border: 1px solid var(--gh-border);
+    border-radius: 10px;
+    cursor: pointer;
+    color: var(--text-muted);
+    transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.stack-option:hover:not(:disabled) {
+    border-color: var(--text-dim);
+}
+
+.stack-option.active {
+    border-color: var(--primary);
+    background: var(--dw-accent-bg, rgba(0, 183, 181, 0.12));
+    box-shadow: 0 0 0 1px var(--primary);
+}
+
+.stack-option:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.stack-option-title {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-main);
+}
+
+.stack-option-title svg {
+    color: var(--text-dim);
+}
+
+/* El icono toma su color de marca solo en la ficha elegida. */
+.stack-option.node.active .stack-option-title svg {
+    color: #5fa04e;
+}
+
+.stack-option.wordpress.active .stack-option-title svg {
+    color: #3f8cb8;
+}
+
+.dashboard-layout.theme-light .stack-option.node.active .stack-option-title svg {
+    color: #417e38;
+}
+
+.dashboard-layout.theme-light .stack-option.wordpress.active .stack-option-title svg {
+    color: #21759b;
+}
+
+.stack-option-desc {
+    font-size: 11px;
+    line-height: 1.45;
+    color: var(--text-muted);
+}
+
+/* ── Selector de servidor destino ─────────────────────────────────────────
+   Un desplegable escondía justo lo que hay que mirar al elegir: la IP y si
+   el servidor está en línea. Estas fichas lo enseñan sin abrir nada. */
+
+.ws-server-picker {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    /* A partir de cuatro servidores la lista se desplaza en vez de estirar
+       el panel entero. */
+    max-height: 232px;
+    overflow-y: auto;
+    padding-right: 2px;
+}
+
+.ws-server-picker::-webkit-scrollbar {
+    width: 6px;
+}
+
+.ws-server-picker::-webkit-scrollbar-thumb {
+    background: var(--gh-border);
+    border-radius: 3px;
+}
+
+.ws-server-option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 10px 12px;
+    text-align: left;
+    background: var(--gh-canvas-subtle);
+    border: 1px solid var(--gh-border);
+    border-radius: 10px;
+    color: var(--primary);
+    cursor: pointer;
+    transition: border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+}
+
+.ws-server-option:hover:not(:disabled):not(.selected) {
+    border-color: var(--text-dim);
+}
+
+.ws-server-option.selected {
+    border-color: var(--primary);
+    background: var(--dw-accent-bg, rgba(0, 183, 181, 0.12));
+    box-shadow: 0 0 0 1px var(--primary);
+}
+
+/* Al editar, un sitio no puede cambiar de servidor: solo se pinta el suyo,
+   ya sin interacción. */
+.ws-server-option:disabled {
+    cursor: default;
+}
+
+.ws-server-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background: var(--text-dim);
+}
+
+.ws-server-dot.online,
+.ws-server-dot.active {
+    background: var(--dw-ok, #3fb950);
+    box-shadow: 0 0 6px rgba(63, 185, 80, 0.5);
+}
+
+.ws-server-dot.error,
+.ws-server-dot.offline {
+    background: var(--dw-danger, #f85149);
+}
+
+.ws-server-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    flex: 1;
+}
+
+.ws-server-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-main);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ws-server-ip {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+/* Etiqueta del stack en la tarjeta del sitio */
+.stack-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    color: var(--text-muted);
+    background: var(--gh-bg);
+    border: 1px solid var(--gh-border);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* En la tarjeta la etiqueta sí conserva su caja (compite con el nombre y el
+   estado); lo que toma color de marca es solo el icono. */
+.stack-badge.node svg {
+    color: #5fa04e;
+}
+
+.stack-badge.wordpress {
+    color: #3f8cb8;
+    background: rgba(33, 117, 155, 0.1);
+    border-color: rgba(33, 117, 155, 0.28);
+}
+
+.dashboard-layout.theme-light .stack-badge.node svg {
+    color: #417e38;
+}
+
+.dashboard-layout.theme-light .stack-badge.wordpress {
+    color: #21759b;
+}
+
+/* Ayudas y estado de las subidas de archivos de WordPress */
+.form-hint {
+    display: block;
+    margin-top: 4px;
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--text-dim);
+}
+
+/* Separador entre "subir archivo" y "pegar URL": son dos formas de dar lo
+   mismo, y sin la línea el segundo campo parece un dato adicional obligatorio. */
+.field-divider {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 8px 0 2px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--text-dim);
+}
+
+.field-divider::before,
+.field-divider::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--gh-border-muted);
+}
+
+.upload-status {
+    display: block;
+    margin-top: 6px;
+    font-size: 11px;
+    color: var(--dw-ok, #3fb950);
+}
+
+.upload-status.error {
+    color: var(--dw-danger, #f85149);
+}
+
+.form-group input[type="file"] {
+    padding: 8px;
+    font-size: 12px;
+}
+
+.form-group input[type="url"] + .form-hint,
+.form-group input[type="file"] ~ input[type="url"] {
+    margin-top: 6px;
 }

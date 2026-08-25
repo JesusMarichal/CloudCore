@@ -3,6 +3,7 @@ import { SshModule } from '../services/ssh.module';
 import { DeployController } from './deploy.controller';
 import { DeployService } from './deploy.service';
 import { NodeStack } from './stacks/node.stack';
+import { WordpressStack } from './stacks/wordpress.stack';
 import { StackRegistry } from './stacks/stack.registry';
 
 /**
@@ -13,6 +14,7 @@ import { StackRegistry } from './stacks/stack.registry';
 @Module({
     imports: [SshModule],
     controllers: [DeployController],
-    providers: [DeployService, StackRegistry, NodeStack],
+    providers: [DeployService, StackRegistry, NodeStack, WordpressStack],
+    exports: [DeployService],
 })
 export class DeployModule { }

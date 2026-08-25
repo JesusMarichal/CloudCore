@@ -11,4 +11,20 @@ export declare class DeployWebsiteDto {
     useLetsEncrypt?: boolean;
     setupWwwAlias?: boolean;
     stack?: string;
+    wpMode?: 'fresh' | 'migrate';
+    wpDirectory?: string;
+    wpTitle?: string;
+    wpAdminUser?: string;
+    wpAdminPassword?: string;
+    wpAdminEmail?: string;
+    wpLocale?: string;
+    wpArchiveUrl?: string;
+    wpDbDumpUrl?: string;
+    wpSearchReplace?: boolean;
+    wpOldDomain?: string;
+    wpDbHost?: string;
+    wpDbName?: string;
+    wpDbUser?: string;
+    wpDbPassword?: string;
+    wpTablePrefix?: string;
 }

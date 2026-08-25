@@ -12,10 +12,12 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.StackRegistry = void 0;
 const common_1 = require("@nestjs/common");
 const node_stack_1 = require("./node.stack");
+const wordpress_stack_1 = require("./wordpress.stack");
 let StackRegistry = class StackRegistry {
-    constructor(nodeStack) {
+    constructor(nodeStack, wordpressStack) {
         this.stacks = new Map();
         this.register(nodeStack);
+        this.register(wordpressStack);
     }
     register(stack) {
         this.stacks.set(stack.id, stack);
@@ -27,10 +29,17 @@ let StackRegistry = class StackRegistry {
         }
         return stack;
     }
+    list() {
+        return Array.from(this.stacks.values()).map(s => ({
+            id: s.id,
+            label: s.label,
+            usesGit: s.usesGit,
+        }));
+    }
 };
 exports.StackRegistry = StackRegistry;
 exports.StackRegistry = StackRegistry = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [node_stack_1.NodeStack])
+    __metadata("design:paramtypes", [node_stack_1.NodeStack, wordpress_stack_1.WordpressStack])
 ], StackRegistry);
 //# sourceMappingURL=stack.registry.js.map

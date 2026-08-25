@@ -26,6 +26,7 @@ export declare function splitLogLines(chunk: string): string[];
 export declare class SshService {
     private readonly logger;
     executeCommand(server: Server, command: string, onData?: (chunk: string) => void, timeoutMs?: number): Promise<string>;
+    uploadFile(server: Server, localPath: string, remotePath: string, timeoutMs?: number): Promise<string>;
     provision(server: Server, onEvent?: ProvisionEventHandler): Promise<void>;
     discoverWebsites(server: Server): Promise<any[]>;
     discoverDatabases(server: Server): Promise<any[]>;
