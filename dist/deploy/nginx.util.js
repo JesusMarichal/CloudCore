@@ -114,9 +114,9 @@ function buildNginxScript(ctx, serve) {
     const rawDomain = data.domain?.trim();
     const hasDomain = !!rawDomain && rawDomain !== '_';
     const primaryHost = hasDomain ? rawDomain : fallbackHostname(safeName, server.ip);
-    const serverNames = (hasDomain && data.setupWwwAlias)
-        ? `${primaryHost} www.${primaryHost}`
-        : primaryHost;
+    const serverNames = hasDomain
+        ? (data.setupWwwAlias ? `${primaryHost} www.${primaryHost}` : primaryHost)
+        : `${primaryHost} ${server.ip}`;
     const useSSL = !!data.useLetsEncrypt && hasDomain;
     const certbotDomains = (hasDomain && data.setupWwwAlias)
         ? `-d ${primaryHost} -d www.${primaryHost}`
@@ -159,7 +159,7 @@ ${serve.kind === 'php' ? phpSocketFixup(safeName) : ''}
                     echo "🔔 El sitio seguirá funcionando por HTTP (puerto 80)."
                 fi
             else
-                echo "ℹ️ SSL no solicitado. El sitio está disponible en http://${primaryHost}"
+                echo "ℹ️ SSL no solicitado. El sitio está disponible en http://${primaryHost}${hasDomain ? '' : ` y en http://${server.ip}`}"
             fi
 
             sudo nginx -t && sudo systemctl reload nginx

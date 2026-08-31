@@ -167,9 +167,20 @@ export function buildNginxScript(ctx: DeployContext, serve: ServeMode): string {
     const primaryHost = hasDomain ? rawDomain! : fallbackHostname(safeName, server.ip);
 
     // El alias www y el SSL solo tienen sentido con un dominio real del cliente.
-    const serverNames = (hasDomain && data.setupWwwAlias)
-        ? `${primaryHost} www.${primaryHost}`
-        : primaryHost;
+    //
+    // Un sitio SIN dominio responde ademas por la IP pelada: es lo que el usuario
+    // teclea por instinto, y es lo que enlaza el propio panel (siteUrlOf en
+    // Websites.tsx). Sin esto, esa visita cae en el centinela `00-default` y se
+    // lleva un ERR_EMPTY_RESPONSE (return 444) aunque el sitio este perfecto.
+    //
+    // Con varios sitios sin dominio en el mismo servidor la IP se la queda el
+    // primero que cargue Nginx (orden alfabetico de sites-enabled); los demas
+    // provocan un `[warn] conflicting server name` que NO rompe `nginx -t`. El
+    // hostname sslip.io sigue siendo unico para cada sitio, asi que ninguno se
+    // queda sin direccion propia.
+    const serverNames = hasDomain
+        ? (data.setupWwwAlias ? `${primaryHost} www.${primaryHost}` : primaryHost)
+        : `${primaryHost} ${server.ip}`;
 
     const useSSL = !!data.useLetsEncrypt && hasDomain;
     const certbotDomains = (hasDomain && data.setupWwwAlias)
@@ -214,7 +225,7 @@ ${serve.kind === 'php' ? phpSocketFixup(safeName) : ''}
                     echo "🔔 El sitio seguirá funcionando por HTTP (puerto 80)."
                 fi
             else
-                echo "ℹ️ SSL no solicitado. El sitio está disponible en http://${primaryHost}"
+                echo "ℹ️ SSL no solicitado. El sitio está disponible en http://${primaryHost}${hasDomain ? '' : ` y en http://${server.ip}`}"
             fi
 
             sudo nginx -t && sudo systemctl reload nginx
