@@ -3,3 +3,7 @@
 .env.local
 .env.*.local
 !.env.example
+
+# Volcados de scripts/reencrypt-credentials.js: llevan las credenciales SSH
+# cifradas de los servidores. Nunca deben versionarse.
+credentials-backup-*.json
