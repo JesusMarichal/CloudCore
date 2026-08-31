@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { AuthService } from '../services/auth.service';
-import { tokenStorage } from '../services/tokenStorage';
+import { tokenStorage, SESSION_CHANGED_EVENT } from '../services/tokenStorage';
 import type { StoredUser } from '../services/tokenStorage';
 import { SessionContext } from '../services/session-context';
 import type { SessionValue, UserRole } from '../services/session-context';
@@ -15,34 +15,39 @@ const REVALIDATE_MS = 60_000;
  * El rol que decide qué se enseña (opciones del menú, rutas de admin) sale
  * SIEMPRE de `POST /auth/me`, que lo lee de la base de datos. Nunca de
  * localStorage: esa copia la puede editar cualquiera desde el navegador y
- * además se queda obsoleta en cuanto otro admin cambia el rol. De localStorage
- * solo se aprovecha el nombre y el avatar, que no deciden permisos.
+ * además se queda obsoleta en cuanto otro admin cambia el rol.
  *
- * Se revalida al montar, al volver a la pestaña, cada minuto, y cuando el perfil
- * avisa de que cambió algo.
+ * El nombre y el avatar sí se siembran del cacheado: no deciden permisos y
+ * evitan que la cabecera parpadee en "Usuario" nada más entrar.
+ *
+ * Se revalida al iniciar y cerrar sesión, al montar, al volver a la pestaña,
+ * cada minuto, y cuando el perfil avisa de que cambió algo.
  */
 export const SessionProvider = ({ children }: { children: ReactNode }) => {
-    // El usuario cacheado sirve para pintar nombre y avatar sin parpadeo: son
-    // datos inofensivos. El ROL no se siembra desde aquí a propósito.
     const [user, setUser] = useState<StoredUser | null>(() => tokenStorage.getUser());
     /**
      * Rol confirmado por el servidor. Arranca en null aunque localStorage diga
      * otra cosa: quien edite `user.role` en el navegador no consigue que se le
-     * pinte ni una sola opción de más. El precio es que una entrada exclusiva de
-     * un rol aparece cuando responde /auth/me, no antes.
+     * pinte ni una sola opción de más.
      */
     const [confirmedRole, setConfirmedRole] = useState<UserRole | null>(null);
-    // Solo hay que esperar al servidor si de verdad hay una sesión que validar.
-    const [loading, setLoading] = useState<boolean>(() => !!tokenStorage.getToken());
+    const [hasToken, setHasToken] = useState<boolean>(() => !!tokenStorage.getToken());
     const inFlight = useRef<Promise<void> | null>(null);
 
     const refresh = useCallback(async () => {
-        if (!tokenStorage.getToken()) {
+        const token = tokenStorage.getToken();
+        setHasToken(!!token);
+
+        if (!token) {
             setUser(null);
             setConfirmedRole(null);
-            setLoading(false);
             return;
         }
+
+        // Recién iniciada la sesión el provider aún no tiene usuario: se coge el
+        // del almacenamiento para que el nombre salga ya, mientras se confirma.
+        setUser((prev) => prev ?? tokenStorage.getUser());
+
         // Varias pantallas pueden pedir revalidación a la vez (montaje +
         // navegación); una sola petición sirve a todas.
         if (inFlight.current) return inFlight.current;
@@ -61,7 +66,6 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
                 // sesión y manda a /login). Cualquier otro fallo es de red: se
                 // conserva lo que había en vez de dejar al usuario sin menú.
             } finally {
-                setLoading(false);
                 inFlight.current = null;
             }
         })();
@@ -72,24 +76,29 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
     useEffect(() => { void refresh(); }, [refresh]);
 
     useEffect(() => {
-        const onFocus = () => { void refresh(); };
+        const onChange = () => { void refresh(); };
         const onVisible = () => { if (document.visibilityState === 'visible') void refresh(); };
-        window.addEventListener('focus', onFocus);
+        // Login y logout en esta misma pestaña. `navigate()` no remonta el
+        // provider, así que sin este aviso se quedaría creyendo que no hay
+        // sesión y la cabecera mostraría "Usuario".
+        window.addEventListener(SESSION_CHANGED_EVENT, onChange);
+        window.addEventListener('focus', onChange);
         document.addEventListener('visibilitychange', onVisible);
         // El perfil avisa al cambiar avatar o nombre.
-        window.addEventListener('cc-user-updated', onFocus);
+        window.addEventListener('cc-user-updated', onChange);
         // Otra pestaña ha iniciado o cerrado sesión.
-        window.addEventListener('storage', onFocus);
+        window.addEventListener('storage', onChange);
 
         const timer = window.setInterval(() => {
             if (document.visibilityState === 'visible') void refresh();
         }, REVALIDATE_MS);
 
         return () => {
-            window.removeEventListener('focus', onFocus);
+            window.removeEventListener(SESSION_CHANGED_EVENT, onChange);
+            window.removeEventListener('focus', onChange);
             document.removeEventListener('visibilitychange', onVisible);
-            window.removeEventListener('cc-user-updated', onFocus);
-            window.removeEventListener('storage', onFocus);
+            window.removeEventListener('cc-user-updated', onChange);
+            window.removeEventListener('storage', onChange);
             window.clearInterval(timer);
         };
     }, [refresh]);
@@ -97,9 +106,12 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
     const value = useMemo<SessionValue>(() => ({
         user,
         role: confirmedRole,
-        loading,
+        // Hay sesión pero el servidor todavía no ha dicho qué rol es. Derivarlo
+        // así, en vez de con un flag suelto, evita que la revalidación de cada
+        // minuto devuelva la pantalla a "cargando" con el rol ya sabido.
+        loading: hasToken && confirmedRole === null,
         refresh,
-    }), [user, confirmedRole, loading, refresh]);
+    }), [user, confirmedRole, hasToken, refresh]);
 
     return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 };

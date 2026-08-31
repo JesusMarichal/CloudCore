@@ -12,6 +12,19 @@ export interface StoredUser {
 const TOKEN_KEY = 'cc_auth_token';
 const USER_KEY = 'user';
 
+/**
+ * Aviso de que la sesión ha empezado o terminado en ESTA pestaña.
+ *
+ * El evento nativo `storage` solo llega a las *otras* pestañas, así que sin esto
+ * SessionProvider —que se monta una sola vez, por encima del Router— no se
+ * entera de un login: `navigate()` no lo remonta y se quedaría creyendo que no
+ * hay sesión. Se emite solo al abrir y cerrar sesión, nunca en `updateUser`,
+ * porque el propio provider llama a `updateUser` al revalidar y se realimentaría.
+ */
+export const SESSION_CHANGED_EVENT = 'cc-session-changed';
+
+const announce = () => window.dispatchEvent(new Event(SESSION_CHANGED_EVENT));
+
 export const tokenStorage = {
     getToken(): string | null {
         return localStorage.getItem(TOKEN_KEY);
@@ -30,6 +43,7 @@ export const tokenStorage = {
     setSession(token: string, user: StoredUser) {
         localStorage.setItem(TOKEN_KEY, token);
         localStorage.setItem(USER_KEY, JSON.stringify(user));
+        announce();
     },
 
     /** Actualiza el usuario guardado sin tocar el token de sesión. */
@@ -44,5 +58,6 @@ export const tokenStorage = {
     clearSession() {
         localStorage.removeItem(TOKEN_KEY);
         localStorage.removeItem(USER_KEY);
+        announce();
     },
 };
