@@ -1,5 +1,5 @@
 import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common';
-import { Pool } from 'pg';
+import { Pool, QueryResult } from 'pg';
 import * as dotenv from 'dotenv';
 import * as path from 'path';
 
@@ -227,9 +227,6 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
             await this.pool.query(`
                 UPDATE users SET role = 'CLIENT' WHERE role IS NULL OR role NOT IN ('ADMIN', 'CLIENT');
             `);
-            await this.pool.query(`
-                UPDATE users SET role = 'ADMIN' WHERE LOWER(email) = 'jesusmarichal0@gmail.com';
-            `);
 
             // Crear tabla websites si no existe
             await this.pool.query(`
@@ -377,6 +374,33 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
             text,
             values: params,
         });
+    }
+
+
+    /**
+     * Ejecuta varias sentencias sobre la MISMA conexión, dentro de una
+     * transacción.
+     *
+     * `query()` va contra el pool y no garantiza qué conexión toca, así que un
+     * BEGIN/COMMIT hecho con llamadas sueltas podría acabar repartido entre
+     * clientes distintos. Aquí se reserva un cliente, se hace el trabajo y se
+     * suelta pase lo que pase.
+     */
+    async transaction<T>(
+        work: (query: (text: string, params?: any[]) => Promise<QueryResult>) => Promise<T>,
+    ): Promise<T> {
+        const client = await this.pool.connect();
+        try {
+            await client.query('BEGIN');
+            const result = await work((text, params) => client.query({ text, values: params }));
+            await client.query('COMMIT');
+            return result;
+        } catch (error) {
+            await client.query('ROLLBACK').catch(() => undefined);
+            throw error;
+        } finally {
+            client.release();
+        }
     }
 
 

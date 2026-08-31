@@ -28,6 +28,113 @@ export const es = {
         billing: 'Facturación',
         settings: 'Ajustes',
         profile: 'Perfil',
+        clients: 'Clientes',
+    },
+
+    clients: {
+        title: 'Clientes',
+        subtitle: 'Todas las cuentas de CloudCore: clientes y administradores.',
+        refresh: 'Actualizar',
+        loading: 'Cargando cuentas...',
+        loadError: 'No se pudieron cargar las cuentas.',
+
+        summaryTotal: 'Cuentas',
+        summaryAdmins: 'Administradores',
+        summaryClients: 'Clientes',
+
+        searchPlaceholder: 'Buscar por nombre o correo',
+        filterRole: 'Filtrar por rol',
+        filter: {
+            ALL: 'Todos',
+            ADMIN: 'Admins',
+            CLIENT: 'Clientes',
+        },
+
+        tableTitle: 'Cuentas',
+        showing: '{count} en pantalla',
+        emptyTitle: 'Sin resultados',
+        emptyDesc: 'Ninguna cuenta coincide con la búsqueda o el filtro.',
+
+        colAccount: 'Cuenta',
+        colRole: 'Rol',
+        colPlan: 'Plan',
+        colServers: 'Instancias',
+        colStatus: 'Estado',
+        colCreated: 'Alta',
+        colActions: 'Rol',
+
+        role: {
+            ADMIN: 'Administrador',
+            CLIENT: 'Cliente',
+        },
+
+        you: 'Tú',
+        viewDetail: 'Ver ficha de la cuenta',
+        detailOf: 'Ficha de {name}',
+
+        noPlan: 'Sin plan',
+        noPlanDesc: 'Esta cuenta no tiene ninguna suscripción registrada.',
+        unknownPlan: 'Plan desconocido',
+
+        active: 'Activa',
+        locked: 'Bloqueada',
+        twoFactorOn: '2FA activado',
+
+        changeRole: 'Cambiar rol',
+        cannotChangeSelf: 'No puedes cambiar tu propio rol',
+        roleChanged: '{name} ahora es {role}.',
+        roleError: 'No se pudo cambiar el rol.',
+
+        sectionAccount: 'Cuenta',
+        sectionSecurity: 'Seguridad',
+        sectionPlan: 'Suscripción',
+        sectionServers: 'Instancias ({count})',
+
+        fieldId: 'ID',
+        fieldTwoFactor: 'Doble factor',
+        fieldOnboarding: 'Guía inicial',
+        fieldGithub: 'GitHub',
+        fieldSubStatus: 'Estado',
+        fieldNextBilling: 'Próximo cobro',
+        fieldScheduled: 'Cambio programado',
+
+        on: 'Activado',
+        off: 'Desactivado',
+        done: 'Completada',
+        pending: 'Pendiente',
+        connected: 'Conectado',
+        notConnected: 'Sin conectar',
+
+        notLocked: 'Sin bloqueo',
+        lockedUntil: 'Bloqueada hasta el {date}',
+        failedAttempts: '{count} intento(s) fallido(s) acumulados.',
+        unlock: 'Desbloquear',
+        unlocked: 'Cuenta de {name} desbloqueada.',
+        unlockError: 'No se pudo desbloquear la cuenta.',
+
+        noServers: 'Esta cuenta no tiene instancias conectadas.',
+
+        sectionEdit: 'Editar cuenta',
+        fieldName: 'Nombre',
+        fieldEmail: 'Correo',
+        editHint: 'El correo es el identificador con el que la cuenta inicia sesión; al cambiarlo, el usuario tendrá que entrar con el nuevo.',
+        unsaved: 'Cambios sin guardar',
+        discard: 'Descartar',
+        saved: 'Cambios guardados.',
+        saveError: 'No se pudieron guardar los cambios.',
+
+        dangerZone: 'Zona de riesgo',
+        deleteAccount: 'Eliminar cuenta',
+        cannotDeleteSelf: 'No puedes eliminar tu propia cuenta',
+        deleteWarning: 'Se borra la cuenta y todo lo que gestiona en el panel: instancias, sitios y bases de datos. No se toca el historial de facturación de Paddle. Esta acción no se puede deshacer.',
+        deleteCta: 'Sí, eliminar',
+        confirmDeleteTitle: '¿Eliminar esta cuenta?',
+        confirmDeleteText: 'Se eliminará la cuenta de {name} ({email}) y todo lo que gestiona en el panel. Esta acción no se puede deshacer.',
+        confirmDeleteServers: 'También se quitarán del panel sus {count} instancia(s), con sus sitios y bases de datos. Los VPS no se apagan: siguen activos en tu proveedor.',
+        deleting: 'Eliminando...',
+        deleted: 'Cuenta de {name} eliminada.',
+        deleteError: 'No se pudo eliminar la cuenta.',
+
     },
 
     dashboard: {

@@ -1,4 +1,5 @@
 import { OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import { QueryResult } from 'pg';
 export declare class DatabaseService implements OnModuleInit, OnModuleDestroy {
     private pool;
     private readonly logger;
@@ -10,6 +11,7 @@ export declare class DatabaseService implements OnModuleInit, OnModuleDestroy {
     private createPendingRegistrationsTable;
     private createPasswordResetsTable;
     private createServersTable;
-    query(text: string, params?: any[]): Promise<import("pg").QueryResult<any>>;
+    query(text: string, params?: any[]): Promise<QueryResult<any>>;
+    transaction<T>(work: (query: (text: string, params?: any[]) => Promise<QueryResult>) => Promise<T>): Promise<T>;
     onModuleDestroy(): Promise<void>;
 }

@@ -13,7 +13,10 @@ import Terminal from './views/Terminal/Terminal';
 import Billing from './views/Billing/Billing';
 import Pricing from './views/Pricing/Pricing';
 import Welcome from './views/Welcome/Welcome';
+import Clients from './views/Clients/Clients';
 import ProtectedRoute from './components/ProtectedRoute';
+import AdminRoute from './components/AdminRoute';
+import SessionProvider from './components/SessionProvider';
 import { I18nProvider } from './i18n';
 import { ToastProvider } from './components/Toast';
 import './styles/global.css';
@@ -23,7 +26,8 @@ function App() {
   return (
     <I18nProvider>
       <ToastProvider>
-        <Router>
+        <SessionProvider>
+          <Router>
           <Routes>
             <Route path="/" element={<Navigate to="/home" replace />} />
             <Route path="/home" element={<Landing />} />
@@ -42,13 +46,18 @@ function App() {
                 <Route path="billing" element={<Billing />} />
                 <Route path="settings" element={<Settings />} />
                 <Route path="profile" element={<Profile />} />
+                {/* Solo ADMIN. El backend revalida el rol en cada peticion. */}
+                <Route element={<AdminRoute />}>
+                  <Route path="clients" element={<Clients />} />
+                </Route>
               </Route>
             </Route>
 
             {/* Redirigir cualquier otra ruta a login */}
             <Route path="*" element={<Navigate to="/login" />} />
           </Routes>
-        </Router>
+          </Router>
+        </SessionProvider>
       </ToastProvider>
     </I18nProvider>
   );

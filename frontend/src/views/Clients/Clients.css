@@ -1,0 +1,665 @@
+/* Gestión de cuentas (solo ADMIN). Reutiliza el chasis de tabla del panel
+   (.server-container / .server-table / .empty-state de Dashboard.css) y el
+   chasis de panel lateral de styles/drawer.css; aquí solo va lo propio. */
+
+.clients-container {
+    /* Tokens de riesgo. drawer.css los declara en `.drawer`, pero el diálogo de
+       confirmación se monta fuera del panel lateral, así que aquí se declaran
+       en la vista entera para que los hereden ambos. */
+    --dw-danger: #f85149;
+    --dw-danger-bg: rgba(248, 81, 73, 0.12);
+    --dw-danger-border: rgba(248, 81, 73, 0.35);
+    --dw-warn: #d29922;
+
+    width: 100%;
+}
+
+/* Los tonos vivos de GitHub Dark no llegan a 4.5:1 sobre blanco. */
+.dashboard-layout.theme-light .clients-container {
+    --dw-danger: #cf222e;
+    --dw-danger-bg: rgba(207, 34, 46, 0.08);
+    --dw-danger-border: rgba(207, 34, 46, 0.28);
+    --dw-warn: #9a6700;
+}
+
+/* ── Resumen ──────────────────────────────────────────────────────────── */
+
+.cli-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+    margin-bottom: 18px;
+}
+
+.cli-summary-card {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 14px 16px;
+    background: var(--card-bg);
+    border: 1px solid var(--gh-border);
+}
+
+.cli-summary-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-main);
+    line-height: 1.1;
+}
+
+.cli-summary-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--text-dim);
+}
+
+/* ── Buscador y filtro ────────────────────────────────────────────────── */
+
+.cli-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+
+.cli-filter {
+    display: flex;
+    border: 1px solid var(--gh-border);
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.cli-filter-btn {
+    padding: 0 14px;
+    height: 32px;
+    background: var(--dash-btn-bg);
+    border: none;
+    border-right: 1px solid var(--gh-border);
+    color: var(--gh-text-muted);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.cli-filter-btn:last-child {
+    border-right: none;
+}
+
+.cli-filter-btn:hover {
+    background: var(--dash-btn-bg-hover);
+    color: var(--gh-text-default);
+}
+
+.cli-filter-btn.active {
+    background: var(--dash-nav-active);
+    color: var(--primary);
+}
+
+.cli-error {
+    padding: 10px 14px;
+    margin-bottom: 14px;
+    background: var(--error-bg);
+    border: 1px solid rgba(248, 81, 73, 0.35);
+    color: var(--error);
+    font-size: 13px;
+}
+
+.cli-count {
+    font-size: 12px;
+}
+
+/* La tabla tiene 7 columnas: en pantallas estrechas se desplaza ella sola
+   en vez de forzar scroll horizontal en toda la página. */
+.cli-table-scroll {
+    overflow-x: auto;
+}
+
+.cli-table-scroll .server-table {
+    min-width: 860px;
+}
+
+/* ── Identidad de la cuenta ───────────────────────────────────────────── */
+
+.cli-identity {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0;
+    background: none;
+    border: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    max-width: 100%;
+}
+
+.cli-identity:hover .cli-name {
+    color: var(--gh-text-link);
+}
+
+.cli-avatar {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+    background: var(--dash-avatar-bg);
+}
+
+.cli-avatar--initials {
+    display: grid;
+    place-items: center;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-main);
+}
+
+.cli-identity-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.cli-name {
+    font-weight: 600;
+    color: var(--text-main);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.cli-you {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 1px 6px;
+    border: 1px solid var(--gh-border);
+    color: var(--text-dim);
+}
+
+.cli-email {
+    font-size: 12px;
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ── Insignias ────────────────────────────────────────────────────────── */
+
+.cli-role {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 9px;
+    font-size: 11.5px;
+    font-weight: 600;
+    border: 1px solid transparent;
+    white-space: nowrap;
+}
+
+.cli-role--admin {
+    color: var(--primary);
+    background: var(--dash-nav-active);
+    border-color: rgba(0, 183, 181, 0.35);
+}
+
+.cli-role--client {
+    color: var(--text-muted);
+    background: var(--gh-canvas-subtle);
+    border-color: var(--gh-border);
+}
+
+.cli-plan {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+}
+
+.cli-sub-status {
+    font-size: 11px;
+    padding: 2px 7px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--text-muted);
+    border: 1px solid var(--gh-border);
+}
+
+.cli-sub-status--active,
+.cli-sub-status--trialing {
+    color: #3fb950;
+    border-color: rgba(63, 185, 80, 0.4);
+}
+
+.cli-sub-status--past_due,
+.cli-sub-status--paused {
+    color: #d29922;
+    border-color: rgba(210, 153, 34, 0.4);
+}
+
+.cli-sub-status--canceled {
+    color: var(--error);
+    border-color: rgba(248, 81, 73, 0.35);
+}
+
+.cli-flag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11.5px;
+    margin-right: 8px;
+    white-space: nowrap;
+}
+
+.cli-flag--ok {
+    color: var(--text-muted);
+}
+
+.cli-flag--locked {
+    color: var(--error);
+    font-weight: 600;
+}
+
+.cli-flag--2fa {
+    color: var(--text-dim);
+}
+
+/* ── Selector de rol ──────────────────────────────────────────────────── */
+
+.cli-col-actions {
+    text-align: right;
+    white-space: nowrap;
+}
+
+.cli-role-select {
+    height: 30px;
+    padding: 0 8px;
+    background: var(--dash-input-bg);
+    border: 1px solid var(--gh-border);
+    border-radius: 0;
+    color: var(--gh-text-default);
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.cli-role-select:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* ── Panel de detalle ─────────────────────────────────────────────────── */
+
+.cli-detail-drawer {
+    width: 520px;
+}
+
+.cli-detail-identity {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+}
+
+.cli-detail-identity .cli-avatar {
+    width: 38px;
+    height: 38px;
+    font-size: 13px;
+}
+
+.cli-facts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 14px 18px;
+    margin: 0;
+}
+
+.cli-facts dt {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--text-dim);
+    margin-bottom: 3px;
+}
+
+.cli-facts dd {
+    margin: 0;
+    font-size: 13.5px;
+    color: var(--text-main);
+    word-break: break-word;
+}
+
+.cli-mono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.cli-security {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 14px 16px;
+    border: 1px solid var(--gh-border);
+    background: var(--gh-canvas-subtle);
+}
+
+.cli-security--locked {
+    border-color: var(--dw-danger-border);
+    background: var(--dw-danger-bg);
+}
+
+.cli-security-state {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin: 0 0 3px;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--text-main);
+}
+
+.cli-security--locked .cli-security-state {
+    color: var(--dw-danger);
+}
+
+.cli-security-hint {
+    margin: 0;
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.cli-server-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--gh-border);
+}
+
+.cli-server-list li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    font-size: 13px;
+    border-bottom: 1px solid var(--gh-border-muted);
+}
+
+.cli-server-list li:last-child {
+    border-bottom: none;
+}
+
+.cli-server-name {
+    font-weight: 600;
+    color: var(--text-main);
+}
+
+.cli-server-status {
+    margin-left: auto;
+    font-size: 11.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--text-muted);
+}
+
+.cli-role-control {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12.5px;
+    color: var(--text-muted);
+}
+
+.cli-detail-loading {
+    position: fixed;
+    right: 24px;
+    bottom: 24px;
+    padding: 10px 16px;
+    background: var(--card-bg);
+    border: 1px solid var(--gh-border);
+    font-size: 13px;
+    color: var(--text-muted);
+    z-index: 900;
+}
+
+@media (max-width: 700px) {
+    .cli-controls .search-bar {
+        max-width: none;
+        width: 100%;
+    }
+}
+
+/* ── Formulario de edición ────────────────────────────────────────────── */
+
+.cli-form {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 14px;
+}
+
+.cli-field {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 0;
+}
+
+.cli-field>span {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--text-dim);
+}
+
+.cli-field input,
+.cli-field select {
+    height: 34px;
+    padding: 0 10px;
+    background: var(--dash-input-bg);
+    border: 1px solid var(--gh-border);
+    border-radius: 0;
+    color: var(--gh-text-default);
+    font-size: 13.5px;
+    width: 100%;
+}
+
+.cli-field input:focus,
+.cli-field select:focus {
+    outline: none;
+    border-color: var(--primary);
+}
+
+.cli-field input:disabled,
+.cli-field select:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.cli-form-hint {
+    margin: 10px 0 0;
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.5;
+}
+
+/* ── Acciones de fila ─────────────────────────────────────────────────── */
+
+.cli-row-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    justify-content: flex-end;
+}
+
+.cli-icon-btn {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    background: transparent;
+    border: 1px solid var(--gh-border);
+    border-radius: 0;
+    color: var(--text-muted);
+    cursor: pointer;
+}
+
+.cli-icon-btn:hover:not(:disabled) {
+    color: var(--text-main);
+    border-color: var(--gh-text-muted);
+}
+
+.cli-icon-btn--danger:hover:not(:disabled) {
+    color: var(--error);
+    border-color: var(--dw-danger-border, rgba(248, 81, 73, 0.35));
+}
+
+.cli-icon-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+/* ── Baja definitiva ──────────────────────────────────────────────────── */
+
+.cli-danger-title {
+    color: var(--error);
+}
+
+.cli-danger {
+    padding: 16px;
+    border: 1px solid var(--dw-danger-border);
+    background: var(--dw-danger-bg);
+}
+
+.cli-danger-text {
+    margin: 0 0 12px;
+    font-size: 12.5px;
+    line-height: 1.55;
+    color: var(--text-muted);
+}
+
+.cli-danger-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 32px;
+    padding: 0 14px;
+    background: transparent;
+    border: 1px solid var(--dw-danger-border);
+    border-radius: 0;
+    color: var(--dw-danger);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.cli-danger-btn:hover:not(:disabled) {
+    background: var(--dw-danger);
+    color: #fff;
+    border-color: var(--dw-danger);
+}
+
+.cli-danger-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+/* ── Pie del panel ────────────────────────────────────────────────────── */
+
+.cli-dirty-hint {
+    font-size: 12px;
+    color: var(--dw-warn);
+    min-height: 1em;
+}
+
+.cli-footer-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+/* ── Diálogo de confirmación de baja ──────────────────────────────────── */
+
+.cli-confirm-scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 1100;
+    display: grid;
+    place-items: center;
+    padding: 20px;
+    background: rgba(1, 4, 9, 0.58);
+    backdrop-filter: blur(3px);
+    animation: cliConfirmScrimIn 0.18s ease-out;
+}
+
+.cli-confirm {
+    width: 100%;
+    max-width: 420px;
+    padding: 24px;
+    background: var(--gh-bg);
+    border: 1px solid var(--gh-border);
+    box-shadow: 0 24px 64px var(--dash-shadow);
+    animation: cliConfirmIn 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.cli-confirm-icon {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    margin-bottom: 14px;
+    border: 1px solid var(--dw-danger-border);
+    background: var(--dw-danger-bg);
+    color: var(--dw-danger);
+}
+
+.cli-confirm h3 {
+    margin: 0 0 8px;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-main);
+}
+
+.cli-confirm p {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--text-muted);
+}
+
+.cli-confirm-note {
+    margin-top: 10px !important;
+    padding: 9px 12px;
+    background: var(--gh-canvas-subtle);
+    border: 1px solid var(--gh-border);
+    font-size: 12.5px !important;
+}
+
+.cli-confirm-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    margin-top: 20px;
+}
+
+@keyframes cliConfirmScrimIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes cliConfirmIn {
+    from { opacity: 0; transform: translateY(10px) scale(0.98); }
+    to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .cli-confirm-scrim,
+    .cli-confirm {
+        animation: none;
+    }
+}

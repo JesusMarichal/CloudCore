@@ -20,7 +20,8 @@ import {
     X,
     CreditCard,
     Sun,
-    Moon
+    Moon,
+    Users
 } from 'lucide';
 import { MorphIcon } from 'morphicons/react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
@@ -29,6 +30,8 @@ import type { CreateServerData } from '../../services/server.service';
 import { tokenStorage } from '../../services/tokenStorage';
 import { getAvatarUrl } from '../../data/avatars';
 import { AuthService } from '../../services/auth.service';
+import { useSession } from '../../services/session-context';
+import type { UserRole } from '../../services/session-context';
 import CoreBotTour from '../../components/CoreBotTour';
 import corebotHead from '../../assets/corebot-head.png';
 import { useT } from '../../i18n';
@@ -71,7 +74,37 @@ const SECTION_KEYS: Record<string, string> = {
     billing: 'nav.billing',
     settings: 'nav.settings',
     profile: 'nav.profile',
+    clients: 'nav.clients',
 };
+
+/**
+ * Menú lateral, en un solo sitio.
+ *
+ * `roles` decide quién ve cada entrada; omitirlo significa "todos los roles".
+ * El rol viene de `useSession()`, que lo confirma contra la base de datos, así
+ * que una entrada de administración desaparece sola en cuanto el servidor dice
+ * que la cuenta ya no lo es. Añadir una sección nueva es añadir un renglón aquí
+ * (y su ruta en App.tsx).
+ */
+interface NavItem {
+    to: string;
+    end?: boolean;
+    icon: typeof LayoutGrid;
+    labelKey: string;
+    tour?: string;
+    roles?: readonly UserRole[];
+}
+
+const NAV_ITEMS: readonly NavItem[] = [
+    { to: '/dashboard',            end: true, icon: LayoutGrid, labelKey: 'nav.overview' },
+    { to: '/dashboard/servers',    icon: Server,     labelKey: 'nav.servers',   tour: 'nav-servers' },
+    { to: '/dashboard/websites',   icon: Globe,      labelKey: 'nav.websites',  tour: 'nav-websites' },
+    { to: '/dashboard/databases',  icon: Database,   labelKey: 'nav.databases' },
+    { to: '/dashboard/terminal',   icon: Terminal,   labelKey: 'nav.terminal' },
+    { to: '/dashboard/billing',    icon: CreditCard, labelKey: 'nav.billing',   roles: ['CLIENT'] },
+    { to: '/dashboard/clients',    icon: Users,      labelKey: 'nav.clients',   roles: ['ADMIN'] },
+    { to: '/dashboard/settings',   icon: Settings,   labelKey: 'nav.settings',  tour: 'nav-settings' },
+];
 
 const NOTIF_STORAGE_KEY = 'cc_notifications_v1';
 const MAX_NOTIFICATIONS = 50;
@@ -105,20 +138,9 @@ const Dashboard = () => {
     const navigate = useNavigate();
     const t = useT();
 
-    const [currentUser, setCurrentUser] = useState(() => tokenStorage.getUser());
-
-    // El perfil avisa cuando cambia la foto para refrescar el encabezado.
-    useEffect(() => {
-        const sync = () => setCurrentUser(tokenStorage.getUser());
-        window.addEventListener('cc-user-updated', sync);
-        window.addEventListener('storage', sync);
-        return () => {
-            window.removeEventListener('cc-user-updated', sync);
-            window.removeEventListener('storage', sync);
-        };
-    }, []);
-
-    const isClient = currentUser?.role !== 'ADMIN';
+    // La sesión ya escucha 'cc-user-updated' y 'storage' y revalida contra el
+    // servidor, así que aquí no hace falta volver a sincronizar a mano.
+    const { user: currentUser, role } = useSession();
     const displayName = currentUser?.name || currentUser?.email || t('common.user');
     const avatarInitials = displayName
         .split(' ')
@@ -306,36 +328,25 @@ const Dashboard = () => {
                 </div>
 
                 <nav className="nav-links">
-                    <NavLink to="/dashboard" end className={({ isActive }) => isActive ? "nav-link active" : "nav-link"} onClick={() => setSidebarOpen(false)} title={t('nav.overview')}>
-                        <MorphIcon icon={LayoutGrid} size={16} />
-                        <span>{t('nav.overview')}</span>
-                    </NavLink>
-                    <NavLink to="/dashboard/servers" data-tour="nav-servers" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"} onClick={() => setSidebarOpen(false)} title={t('nav.servers')}>
-                        <MorphIcon icon={Server} size={16} />
-                        <span>{t('nav.servers')}</span>
-                    </NavLink>
-                    <NavLink to="/dashboard/websites" data-tour="nav-websites" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"} onClick={() => setSidebarOpen(false)} title={t('nav.websites')}>
-                        <MorphIcon icon={Globe} size={16} />
-                        <span>{t('nav.websites')}</span>
-                    </NavLink>
-                    <NavLink to="/dashboard/databases" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"} onClick={() => setSidebarOpen(false)} title={t('nav.databases')}>
-                        <MorphIcon icon={Database} size={16} />
-                        <span>{t('nav.databases')}</span>
-                    </NavLink>
-                    <NavLink to="/dashboard/terminal" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"} onClick={() => setSidebarOpen(false)} title={t('nav.terminal')}>
-                        <MorphIcon icon={Terminal} size={16} />
-                        <span>{t('nav.terminal')}</span>
-                    </NavLink>
-                    {isClient && (
-                        <NavLink to="/dashboard/billing" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"} onClick={() => setSidebarOpen(false)} title={t('nav.billing')}>
-                            <MorphIcon icon={CreditCard} size={16} />
-                            <span>{t('nav.billing')}</span>
-                        </NavLink>
-                    )}
-                    <NavLink to="/dashboard/settings" data-tour="nav-settings" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"} onClick={() => setSidebarOpen(false)} title={t('nav.settings')}>
-                        <MorphIcon icon={Settings} size={16} />
-                        <span>{t('nav.settings')}</span>
-                    </NavLink>
+                    {NAV_ITEMS
+                        // Sin rol confirmado solo se pintan las entradas comunes:
+                        // mejor un menú incompleto un instante que enseñar una
+                        // sección de admin a quien ya no lo es.
+                        .filter(item => !item.roles || (role !== null && item.roles.includes(role)))
+                        .map(item => (
+                            <NavLink
+                                key={item.to}
+                                to={item.to}
+                                end={item.end}
+                                data-tour={item.tour}
+                                className={({ isActive }) => isActive ? "nav-link active" : "nav-link"}
+                                onClick={() => setSidebarOpen(false)}
+                                title={t(item.labelKey)}
+                            >
+                                <MorphIcon icon={item.icon} size={16} />
+                                <span>{t(item.labelKey)}</span>
+                            </NavLink>
+                        ))}
                 </nav>
 
                 {/* Único control de plegado, siempre en el mismo punto del borde:

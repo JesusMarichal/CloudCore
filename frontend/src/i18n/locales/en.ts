@@ -32,6 +32,113 @@ export const en: Dictionary = {
         billing: 'Billing',
         settings: 'Settings',
         profile: 'Profile',
+        clients: 'Clients',
+    },
+
+    clients: {
+        title: 'Clients',
+        subtitle: 'Every CloudCore account: clients and administrators.',
+        refresh: 'Refresh',
+        loading: 'Loading accounts...',
+        loadError: 'Accounts could not be loaded.',
+
+        summaryTotal: 'Accounts',
+        summaryAdmins: 'Administrators',
+        summaryClients: 'Clients',
+
+        searchPlaceholder: 'Search by name or email',
+        filterRole: 'Filter by role',
+        filter: {
+            ALL: 'All',
+            ADMIN: 'Admins',
+            CLIENT: 'Clients',
+        },
+
+        tableTitle: 'Accounts',
+        showing: '{count} shown',
+        emptyTitle: 'No results',
+        emptyDesc: 'No account matches the search or filter.',
+
+        colAccount: 'Account',
+        colRole: 'Role',
+        colPlan: 'Plan',
+        colServers: 'Instances',
+        colStatus: 'Status',
+        colCreated: 'Joined',
+        colActions: 'Role',
+
+        role: {
+            ADMIN: 'Administrator',
+            CLIENT: 'Client',
+        },
+
+        you: 'You',
+        viewDetail: 'View account details',
+        detailOf: '{name} details',
+
+        noPlan: 'No plan',
+        noPlanDesc: 'This account has no subscription on record.',
+        unknownPlan: 'Unknown plan',
+
+        active: 'Active',
+        locked: 'Locked',
+        twoFactorOn: '2FA enabled',
+
+        changeRole: 'Change role',
+        cannotChangeSelf: 'You cannot change your own role',
+        roleChanged: '{name} is now {role}.',
+        roleError: 'The role could not be changed.',
+
+        sectionAccount: 'Account',
+        sectionSecurity: 'Security',
+        sectionPlan: 'Subscription',
+        sectionServers: 'Instances ({count})',
+
+        fieldId: 'ID',
+        fieldTwoFactor: 'Two-factor',
+        fieldOnboarding: 'Onboarding',
+        fieldGithub: 'GitHub',
+        fieldSubStatus: 'Status',
+        fieldNextBilling: 'Next billing',
+        fieldScheduled: 'Scheduled change',
+
+        on: 'Enabled',
+        off: 'Disabled',
+        done: 'Completed',
+        pending: 'Pending',
+        connected: 'Connected',
+        notConnected: 'Not connected',
+
+        notLocked: 'Not locked',
+        lockedUntil: 'Locked until {date}',
+        failedAttempts: '{count} failed attempt(s) on record.',
+        unlock: 'Unlock',
+        unlocked: "{name}'s account unlocked.",
+        unlockError: 'The account could not be unlocked.',
+
+        noServers: 'This account has no connected instances.',
+
+        sectionEdit: 'Edit account',
+        fieldName: 'Name',
+        fieldEmail: 'Email',
+        editHint: 'The email is the identifier the account signs in with; change it and the user must use the new one.',
+        unsaved: 'Unsaved changes',
+        discard: 'Discard',
+        saved: 'Changes saved.',
+        saveError: 'The changes could not be saved.',
+
+        dangerZone: 'Danger zone',
+        deleteAccount: 'Delete account',
+        cannotDeleteSelf: 'You cannot delete your own account',
+        deleteWarning: 'This removes the account and everything it manages in the panel: instances, websites and databases. Paddle billing history is left untouched. This cannot be undone.',
+        deleteCta: 'Yes, delete',
+        confirmDeleteTitle: 'Delete this account?',
+        confirmDeleteText: "This deletes {name}'s account ({email}) and everything it manages in the panel. This cannot be undone.",
+        confirmDeleteServers: 'Its {count} instance(s), along with their websites and databases, are also removed from the panel. The VPS themselves are not shut down: they stay live at your provider.',
+        deleting: 'Deleting...',
+        deleted: "{name}'s account deleted.",
+        deleteError: 'The account could not be deleted.',
+
     },
 
     dashboard: {

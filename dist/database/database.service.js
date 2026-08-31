@@ -211,9 +211,6 @@ let DatabaseService = DatabaseService_1 = class DatabaseService {
                 UPDATE users SET role = 'CLIENT' WHERE role IS NULL OR role NOT IN ('ADMIN', 'CLIENT');
             `);
             await this.pool.query(`
-                UPDATE users SET role = 'ADMIN' WHERE LOWER(email) = 'jesusmarichal0@gmail.com';
-            `);
-            await this.pool.query(`
                 CREATE TABLE IF NOT EXISTS websites (
                     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                     server_id UUID REFERENCES servers(id),
@@ -353,6 +350,22 @@ let DatabaseService = DatabaseService_1 = class DatabaseService {
             text,
             values: params,
         });
+    }
+    async transaction(work) {
+        const client = await this.pool.connect();
+        try {
+            await client.query('BEGIN');
+            const result = await work((text, params) => client.query({ text, values: params }));
+            await client.query('COMMIT');
+            return result;
+        }
+        catch (error) {
+            await client.query('ROLLBACK').catch(() => undefined);
+            throw error;
+        }
+        finally {
+            client.release();
+        }
     }
     async onModuleDestroy() {
         await this.pool.end();

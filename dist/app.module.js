@@ -26,6 +26,7 @@ const ssh_terminal_gateway_1 = require("./terminal/ssh-terminal.gateway");
 const jwt_auth_guard_1 = require("./common/auth/jwt-auth.guard");
 const deploy_module_1 = require("./deploy/deploy.module");
 const mail_module_1 = require("./mail/mail.module");
+const admin_module_1 = require("./admin/admin.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -50,6 +51,7 @@ exports.AppModule = AppModule = __decorate([
             deploy_module_1.DeployModule,
             mail_module_1.MailModule,
             billing_module_1.BillingModule,
+            admin_module_1.AdminModule,
         ],
         controllers: [server_controller_1.ServerController, auth_controller_1.AuthController, terminal_controller_1.TerminalController, github_controller_1.GithubController],
         providers: [
