@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { RefreshCw, Play, Square, RotateCcw, Activity, Shield, Cpu, HardDrive, Thermometer, ChevronRight, X, KeyRound, Lock, Upload, Check, TriangleAlert, Terminal, Clock, Rocket, Trash2 } from 'lucide';
 import { MorphIcon } from 'morphicons/react';
@@ -37,6 +37,7 @@ const Servidores: React.FC = () => {
     const [provServer, setProvServer] = useState<CreateServerData | null>(null);
     const [provStatus, setProvStatus] = useState<ProvisioningStatus | null>(null);
     const [showProvLog, setShowProvLog] = useState(false);
+    const [closingProv, setClosingProv] = useState(false);
     const provLogEndRef = useRef<HTMLDivElement>(null);
     const [formData, setFormData] = useState<CreateServerData>({
         name: '',
@@ -109,12 +110,20 @@ const Servidores: React.FC = () => {
         setShowProvLog(false);
     };
 
-    const closeProvisioning = () => {
-        setProvServer(null);
-        setProvStatus(null);
-        setShowProvLog(false);
-        loadServers();
-    };
+    // Estable a proposito: lo usa el manejador de Escape como dependencia. Solo
+    // llama a setters (estables) y a loadServers, que lee de refs, asi que una
+    // version "vieja" hace exactamente lo mismo que la actual.
+    const closeProvisioning = useCallback(() => {
+        setClosingProv(true);
+        setTimeout(() => {
+            setProvServer(null);
+            setProvStatus(null);
+            setShowProvLog(false);
+            setClosingProv(false);
+            loadServers();
+        }, 280);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     // Nombre traducido del paso: usamos la `key` estable del backend y caemos
     // al texto que envía el servidor si algún día se añade un paso sin traducir.
@@ -122,6 +131,20 @@ const Servidores: React.FC = () => {
         if (!key) return fallback || t('servers.provisioning.preparing');
         const translated = t(`servers.provisioning.steps.${key}`);
         return translated.startsWith('servers.provisioning.steps.') ? (fallback || key) : translated;
+    };
+
+    /**
+     * Cuanto queda, extrapolando el ritmo observado hasta ahora. Por debajo del
+     * 5% la muestra es demasiado corta para que el numero signifique algo, asi
+     * que no se enseña nada en vez de enseñar una cifra que va a bailar.
+     */
+    const remainingLabel = (percent: number, elapsed: number): string | null => {
+        if (percent < 5 || percent >= 100 || elapsed < 5) return null;
+        const total = (elapsed * 100) / percent;
+        const left = Math.max(0, Math.round(total - elapsed));
+        if (left < 45) return t('servers.provisioning.almostDone');
+        const mins = Math.max(1, Math.round(left / 60));
+        return t('servers.provisioning.remaining', { count: String(mins) });
     };
 
     const formatElapsed = (seconds: number) => {
@@ -342,15 +365,17 @@ const Servidores: React.FC = () => {
     };
 
     useEffect(() => {
-        if (!showForm && !selectedServer) return;
+        if (!showForm && !selectedServer && !provServer) return;
         const onKeyDown = (e: KeyboardEvent) => {
             if (e.key !== 'Escape') return;
+            // De arriba abajo: se cierra el panel que esta por encima.
             if (showForm) closeForm();
+            else if (provServer) closeProvisioning();
             else if (selectedServer) closeDetail();
         };
         window.addEventListener('keydown', onKeyDown);
         return () => window.removeEventListener('keydown', onKeyDown);
-    }, [showForm, selectedServer]);
+    }, [showForm, selectedServer, provServer, closeProvisioning]);
 
     const getStatusColor = (status: string) => {
         switch (status) {
@@ -428,26 +453,45 @@ const Servidores: React.FC = () => {
                                     </span>
 
                                     {server.status === 'provisioning' ? (
+                                        /* Panel cerrado: la fila tiene que contar lo mismo
+                                           que el panel — cuanto va, en que paso y que sigue
+                                           vivo— y dejar claro que se puede volver a abrir. */
                                         <button
                                             type="button"
                                             className="srv-progress"
                                             onClick={(e) => { e.stopPropagation(); openProvisioning(server); }}
                                             title={t('servers.provisioning.viewDetail')}
                                         >
-                                            <span className="srv-progress-label">
-                                                {stepLabel(server.provisioningStepKey, server.provisioningStep)}
-                                                {server.provisioningIndex && server.provisioningTotal
-                                                    ? ` · ${server.provisioningIndex}/${server.provisioningTotal}`
-                                                    : ''}
+                                            <span className="srv-progress-top">
+                                                <span className="spinner-mini" />
+                                                <span className="srv-progress-label">
+                                                    {stepLabel(server.provisioningStepKey, server.provisioningStep)}
+                                                </span>
+                                                <span className="srv-progress-percent">
+                                                    {Math.min(100, Number(server.provisioningPercent) || 0)}%
+                                                </span>
                                             </span>
                                             <span className="srv-bar">
                                                 <span
-                                                    className="srv-bar-fill"
+                                                    className="srv-bar-fill running"
                                                     style={{
                                                         width: `${Math.min(100, Number(server.provisioningPercent) || 0)}%`,
-                                                        backgroundColor: accent,
                                                     }}
                                                 ></span>
+                                            </span>
+                                            <span className="srv-progress-foot">
+                                                <span>
+                                                    {server.provisioningIndex && server.provisioningTotal
+                                                        ? t('servers.provisioning.stepOf', {
+                                                            current: String(server.provisioningIndex),
+                                                            total: String(server.provisioningTotal),
+                                                        })
+                                                        : t('servers.provisioning.preparing')}
+                                                </span>
+                                                <span className="srv-progress-cta">
+                                                    {t('servers.provisioning.viewDetailShort')}
+                                                    <MorphIcon icon={ChevronRight} size={11} />
+                                                </span>
                                             </span>
                                         </button>
                                     ) : (
@@ -523,113 +567,151 @@ const Servidores: React.FC = () => {
                 const percent = Math.min(100, provStatus?.percent ?? 0);
                 const failed = provStatus?.stepKey === 'error' || provStatus?.status === 'offline';
                 const finished = provStatus?.status === 'online' || provStatus?.stepKey === 'done';
+                const elapsed = provStatus?.elapsedSeconds || 0;
                 const logLines = (provStatus?.log || '').split('\n').filter(Boolean);
+                const eta = failed || finished ? null : remainingLabel(percent, elapsed);
+
+                // Anillo de progreso: el perimetro completo menos la parte hecha.
+                const R = 34;
+                const CIRC = 2 * Math.PI * R;
+                const tone = failed ? 'failed' : finished ? 'done' : 'running';
 
                 return (
-                    <div className="modal-overlay" onClick={closeProvisioning}>
-                        <div className="provisioning-card" onClick={(e) => e.stopPropagation()}>
-                            <div className="prov-header">
-                                <div className="prov-header-main">
-                                    <div className={`prov-header-icon ${failed ? 'failed' : finished ? 'done' : ''}`}>
+                    <div
+                        className={`drawer-scrim ${closingProv ? 'closing' : ''}`}
+                        onClick={closeProvisioning}
+                    >
+                        <aside
+                            className={`drawer prov-drawer ${closingProv ? 'closing' : ''}`}
+                            onClick={(e) => e.stopPropagation()}
+                            role="dialog"
+                            aria-modal="true"
+                            aria-label={t('servers.provisioning.title', { name: provServer.name })}
+                        >
+                            <header className="drawer-header">
+                                <div className="prov-identity">
+                                    <div className={`prov-header-icon ${tone}`}>
                                         <MorphIcon icon={failed ? TriangleAlert : finished ? Check : Rocket} size={18} />
                                     </div>
-                                    <div>
-                                        <h2>
+                                    <div className="drawer-title">
+                                        <h3>
                                             {failed
                                                 ? t('servers.provisioning.failedTitle')
                                                 : finished
                                                     ? t('servers.provisioning.doneTitle')
-                                                    : t('servers.provisioning.title', { name: provServer.name })}
-                                        </h2>
-                                        <p className="text-muted">
-                                            {failed
-                                                ? t('servers.provisioning.failedDesc')
-                                                : finished
-                                                    ? t('servers.provisioning.doneDesc', { name: provServer.name })
-                                                    : t('servers.provisioning.subtitle')}
-                                        </p>
+                                                    : provServer.name}
+                                        </h3>
+                                        <p>{provServer.sshUser}@{provServer.ip}:{provServer.sshPort}</p>
                                     </div>
                                 </div>
-                                <button className="btn-close" onClick={closeProvisioning}>
+                                <button className="drawer-close" onClick={closeProvisioning} aria-label={t('common.close')}>
                                     <MorphIcon icon={X} size={18} />
                                 </button>
-                            </div>
+                            </header>
 
-                            <div className="prov-summary">
-                                <div className="prov-summary-top">
-                                    <span className="prov-percent">{percent}%</span>
-                                    <span className="prov-elapsed">
-                                        <MorphIcon icon={Clock} size={12} />
-                                        {formatElapsed(provStatus?.elapsedSeconds || 0)}
+                            {/* Cabecera fija: de un vistazo, cuanto lleva hecho y en que va. */}
+                            <div className={`prov-hero ${tone}`}>
+                                <div className="prov-ring" role="img" aria-label={`${percent}%`}>
+                                    <svg viewBox="0 0 80 80" aria-hidden="true">
+                                        <circle className="prov-ring-track" cx="40" cy="40" r={R} />
+                                        <circle
+                                            className={`prov-ring-fill ${tone}`}
+                                            cx="40" cy="40" r={R}
+                                            strokeDasharray={CIRC}
+                                            strokeDashoffset={CIRC - (CIRC * percent) / 100}
+                                        />
+                                    </svg>
+                                    <span className="prov-ring-value">{percent}<i>%</i></span>
+                                </div>
+
+                                <div className="prov-hero-text">
+                                    <span className="prov-hero-step">
+                                        {!failed && !finished && <span className="spinner-mini" />}
+                                        {failed
+                                            ? t('servers.provisioning.failedDesc')
+                                            : finished
+                                                ? t('servers.provisioning.doneDesc', { name: provServer.name })
+                                                : stepLabel(provStatus?.stepKey, provStatus?.step)}
                                     </span>
-                                </div>
-                                <div className="prov-bar">
-                                    <div
-                                        className={`prov-bar-fill ${failed ? 'failed' : finished ? 'done' : 'running'}`}
-                                        style={{ width: `${percent}%` }}
-                                    ></div>
-                                </div>
-                                <div className="prov-current">
-                                    {!failed && !finished && <div className="spinner-mini"></div>}
-                                    <span>{stepLabel(provStatus?.stepKey, provStatus?.step)}</span>
-                                    {total > 0 && !finished && !failed && (
-                                        <span className="prov-current-count">
+
+                                    {!failed && !finished && total > 0 && (
+                                        <span className="prov-hero-count">
                                             {t('servers.provisioning.stepOf', { current: String(current), total: String(total) })}
                                         </span>
                                     )}
+
+                                    <div className="prov-hero-meta">
+                                        <span title={t('servers.provisioning.elapsedLabel')}>
+                                            <MorphIcon icon={Clock} size={12} />
+                                            {formatElapsed(elapsed)}
+                                        </span>
+                                        {eta && <span className="prov-hero-eta">{eta}</span>}
+                                    </div>
                                 </div>
                             </div>
 
-                            <div className="prov-steps">
-                                {steps.map((st, i) => {
-                                    const state = failed && i === current - 1
-                                        ? 'failed'
-                                        : (finished || i < current - 1)
-                                            ? 'done'
-                                            : i === current - 1
-                                                ? 'running'
-                                                : 'pending';
-                                    return (
-                                        <div key={st.key} className={`prov-step ${state}`}>
-                                            <div className="prov-step-marker">
-                                                {state === 'done' && <MorphIcon icon={Check} size={12} />}
-                                                {state === 'running' && <div className="spinner-mini"></div>}
-                                                {state === 'failed' && <MorphIcon icon={TriangleAlert} size={12} />}
-                                            </div>
-                                            <span className="prov-step-name">{stepLabel(st.key, st.name)}</span>
-                                            {state === 'running' && provStatus?.detail && (
-                                                <span className="prov-step-detail">{provStatus.detail}</span>
-                                            )}
-                                        </div>
-                                    );
-                                })}
-                                {steps.length === 0 && (
-                                    <div className="prov-step running">
-                                        <div className="prov-step-marker"><div className="spinner-mini"></div></div>
-                                        <span className="prov-step-name">{t('servers.provisioning.connecting')}</span>
-                                    </div>
-                                )}
+                            <div className="drawer-body prov-body">
+                                <section>
+                                    <h4 className="drawer-section-title">{t('servers.provisioning.stepsTitle')}</h4>
+                                    <ol className="prov-timeline">
+                                        {steps.map((st, i) => {
+                                            const state = failed && i === current - 1
+                                                ? 'failed'
+                                                : (finished || i < current - 1)
+                                                    ? 'done'
+                                                    : i === current - 1
+                                                        ? 'running'
+                                                        : 'pending';
+                                            return (
+                                                <li key={st.key} className={`prov-step ${state}`}>
+                                                    <span className="prov-step-marker">
+                                                        {state === 'done' && <MorphIcon icon={Check} size={11} />}
+                                                        {state === 'running' && <span className="spinner-mini" />}
+                                                        {state === 'failed' && <MorphIcon icon={TriangleAlert} size={11} />}
+                                                    </span>
+                                                    <span className="prov-step-text">
+                                                        <span className="prov-step-name">{stepLabel(st.key, st.name)}</span>
+                                                        {/* La salida cruda de apt cabe en una linea atenuada: informa de
+                                                            que hay movimiento sin robarle el sitio al nombre del paso. */}
+                                                        {state === 'running' && provStatus?.detail && (
+                                                            <span className="prov-step-detail">{provStatus.detail}</span>
+                                                        )}
+                                                    </span>
+                                                </li>
+                                            );
+                                        })}
+                                        {steps.length === 0 && (
+                                            <li className="prov-step running">
+                                                <span className="prov-step-marker"><span className="spinner-mini" /></span>
+                                                <span className="prov-step-text">
+                                                    <span className="prov-step-name">{t('servers.provisioning.connecting')}</span>
+                                                </span>
+                                            </li>
+                                        )}
+                                    </ol>
+                                </section>
+
+                                <section className="prov-log-section">
+                                    <button
+                                        type="button"
+                                        className="prov-log-toggle"
+                                        onClick={() => setShowProvLog(v => !v)}
+                                        aria-expanded={showProvLog}
+                                    >
+                                        <MorphIcon icon={Terminal} size={13} />
+                                        {showProvLog ? t('servers.provisioning.hideLog') : t('servers.provisioning.showLog')}
+                                        <MorphIcon icon={ChevronRight} size={12} className={showProvLog ? 'chevron open' : 'chevron'} />
+                                    </button>
+                                    {showProvLog && (
+                                        <pre className="prov-log mono">
+                                            {logLines.length > 0 ? logLines.join('\n') : t('servers.provisioning.noLogYet')}
+                                            <div ref={provLogEndRef} />
+                                        </pre>
+                                    )}
+                                </section>
                             </div>
 
-                            <div className="prov-log-section">
-                                <button
-                                    type="button"
-                                    className="prov-log-toggle"
-                                    onClick={() => setShowProvLog(v => !v)}
-                                >
-                                    <MorphIcon icon={Terminal} size={13} />
-                                    {showProvLog ? t('servers.provisioning.hideLog') : t('servers.provisioning.showLog')}
-                                    <MorphIcon icon={ChevronRight} size={12} className={showProvLog ? 'chevron open' : 'chevron'} />
-                                </button>
-                                {showProvLog && (
-                                    <pre className="prov-log mono">
-                                        {logLines.length > 0 ? logLines.join('\n') : t('servers.provisioning.noLogYet')}
-                                        <div ref={provLogEndRef} />
-                                    </pre>
-                                )}
-                            </div>
-
-                            <div className="prov-footer">
+                            <footer className="drawer-footer prov-footer">
                                 <p className="prov-hint">
                                     {failed
                                         ? provStatus?.detail
@@ -640,8 +722,8 @@ const Servidores: React.FC = () => {
                                 <button className={finished ? 'btn-primary' : 'btn-secondary'} onClick={closeProvisioning}>
                                     {finished || failed ? t('servers.provisioning.close') : t('servers.provisioning.background')}
                                 </button>
-                            </div>
-                        </div>
+                            </footer>
+                        </aside>
                     </div>
                 );
             })()}

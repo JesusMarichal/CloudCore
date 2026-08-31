@@ -184,24 +184,94 @@
     transition: width 0.5s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-/* Mientras aprovisiona no hay metricas: el hueco lo ocupa el progreso. */
+/* Mientras aprovisiona no hay metricas: el hueco lo ocupa el progreso.
+   Con el panel cerrado esta es la unica ventana al proceso, asi que dice
+   lo mismo que el panel: paso actual, porcentaje y cuanto queda. */
 .srv-progress {
     width: 262px;
-    padding: 0;
-    border: none;
+    padding: 6px 8px;
+    border: 1px solid transparent;
+    border-radius: 8px;
     background: none;
     text-align: left;
     cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.srv-progress:hover,
+.srv-progress:focus-visible {
+    background: var(--dash-hover-soft, rgba(177, 186, 196, 0.06));
+    border-color: var(--gh-border);
+}
+
+.srv-progress-top {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin-bottom: 7px;
 }
 
 .srv-progress-label {
-    display: block;
-    margin-bottom: 6px;
-    font-size: 11px;
-    color: var(--text-muted);
+    flex: 1;
+    min-width: 0;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--text-main);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+.srv-progress-percent {
+    flex-shrink: 0;
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--primary);
+    font-variant-numeric: tabular-nums;
+}
+
+.srv-progress-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 6px;
+    font-size: 10.5px;
+    color: var(--text-dim);
+}
+
+/* La invitacion a reabrir el panel solo aparece al apuntar la fila, para no
+   competir con el propio progreso. */
+.srv-progress-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    color: var(--primary);
+    font-weight: 600;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+}
+
+.srv-row:hover .srv-progress-cta,
+.srv-progress:focus-visible .srv-progress-cta {
+    opacity: 1;
+}
+
+/* La barra de la fila late igual que la del panel: sin animacion parece
+   que el proceso se ha quedado colgado. */
+.srv-bar-fill.running {
+    background: linear-gradient(90deg, var(--primary), #d29922, var(--primary));
+    background-size: 200% 100%;
+    animation: prov-shimmer 2.4s linear infinite;
+}
+
+@keyframes prov-shimmer {
+    0% { background-position: 0% 0; }
+    100% { background-position: -200% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .srv-bar-fill.running { animation: none; }
 }
 
 .srv-actions {
@@ -1304,99 +1374,15 @@ textarea:focus {
     }
 }
 
-/* ===== Aprovisionamiento: chip de progreso en la tabla ===== */
-.provisioning-chip {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-    width: 100%;
-    max-width: 240px;
-    margin-top: 6px;
-    padding: 7px 9px;
-    background: rgba(210, 153, 34, 0.06);
-    border: 1px solid rgba(210, 153, 34, 0.22);
-    border-radius: 8px;
-    cursor: pointer;
-    text-align: left;
-    font: inherit;
-    transition: border-color 0.15s ease, background 0.15s ease;
+/* ===== Aprovisionamiento: panel lateral de seguimiento en vivo =====
+   Usa el chasis de styles/drawer.css (.drawer-scrim / .drawer / .drawer-header /
+   .drawer-body / .drawer-footer); aqui solo va lo propio del aprovisionamiento. */
+
+.prov-drawer {
+    width: 480px;
 }
 
-.provisioning-chip:hover {
-    background: rgba(210, 153, 34, 0.1);
-    border-color: rgba(210, 153, 34, 0.4);
-}
-
-.prov-chip-head {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
-.prov-chip-step {
-    flex: 1;
-    min-width: 0;
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--text-main);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.prov-chip-count {
-    font-size: 10px;
-    font-weight: 700;
-    color: #d29922;
-    flex-shrink: 0;
-}
-
-.prov-chip-bar {
-    height: 3px;
-    background: rgba(255, 255, 255, 0.08);
-    border-radius: 3px;
-    overflow: hidden;
-}
-
-.prov-chip-fill {
-    height: 100%;
-    background: linear-gradient(90deg, #d29922, var(--primary));
-    border-radius: 3px;
-    transition: width 0.5s ease;
-}
-
-.prov-chip-detail {
-    font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
-    font-size: 10px;
-    color: var(--text-muted);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-/* ===== Aprovisionamiento: panel de seguimiento en vivo ===== */
-.provisioning-card {
-    background: var(--card-bg, #0d1117);
-    border: 1px solid var(--gh-border);
-    border-radius: 16px;
-    width: min(620px, 94vw);
-    max-height: 90vh;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
-}
-
-.prov-header {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 20px 22px 16px;
-    border-bottom: 1px solid var(--gh-border);
-}
-
-.prov-header-main {
+.prov-identity {
     display: flex;
     align-items: center;
     gap: 12px;
@@ -1407,184 +1393,255 @@ textarea:focus {
     width: 38px;
     height: 38px;
     flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    display: grid;
+    place-items: center;
     border-radius: 10px;
-    background: rgba(0, 183, 181, 0.12);
+    background: var(--dw-accent-bg);
     color: var(--primary);
 }
 
 .prov-header-icon.done {
-    background: rgba(63, 185, 80, 0.12);
-    color: #3fb950;
+    background: var(--dw-ok-bg);
+    color: var(--dw-ok);
 }
 
 .prov-header-icon.failed {
-    background: rgba(248, 81, 73, 0.12);
-    color: #f85149;
+    background: var(--dw-danger-bg);
+    color: var(--dw-danger);
 }
 
-.prov-header h2 {
-    margin: 0;
-    font-size: 16px;
-    font-weight: 700;
-    color: var(--text-main);
-}
+/* ── Cabecera fija: porcentaje, paso actual y tiempos ─────────────────── */
 
-.prov-header p {
-    margin: 2px 0 0;
-    font-size: 12px;
-    line-height: 1.45;
-}
-
-.prov-summary {
-    padding: 16px 22px;
-    border-bottom: 1px solid var(--gh-border);
-}
-
-.prov-summary-top {
+.prov-hero {
     display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    margin-bottom: 8px;
+    align-items: center;
+    gap: 18px;
+    padding: 20px 22px;
+    border-bottom: 1px solid var(--gh-border);
+    background: var(--gh-canvas-subtle);
+    flex-shrink: 0;
 }
 
-.prov-percent {
-    font-size: 26px;
+.prov-ring {
+    position: relative;
+    width: 80px;
+    height: 80px;
+    flex-shrink: 0;
+}
+
+.prov-ring svg {
+    width: 100%;
+    height: 100%;
+    /* Empieza arriba y avanza en el sentido del reloj. */
+    transform: rotate(-90deg);
+}
+
+.prov-ring circle {
+    fill: none;
+    stroke-width: 6;
+    stroke-linecap: round;
+}
+
+.prov-ring-track {
+    stroke: var(--srv-track, rgba(140, 149, 159, 0.2));
+}
+
+.prov-ring-fill {
+    transition: stroke-dashoffset 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.prov-ring-fill.running { stroke: var(--primary); }
+.prov-ring-fill.done    { stroke: var(--dw-ok); }
+.prov-ring-fill.failed  { stroke: var(--dw-danger); }
+
+.prov-ring-value {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    font-size: 20px;
     font-weight: 800;
     color: var(--text-main);
     font-variant-numeric: tabular-nums;
+    letter-spacing: -0.5px;
 }
 
-.prov-elapsed {
-    display: inline-flex;
+.prov-ring-value i {
+    font-style: normal;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-dim);
+    margin-left: 1px;
+}
+
+.prov-hero-text {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.prov-hero-step {
+    display: flex;
     align-items: center;
-    gap: 5px;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-main);
+    line-height: 1.35;
+}
+
+.prov-hero-count {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--text-dim);
+}
+
+.prov-hero-meta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 4px;
     font-size: 12px;
     color: var(--text-muted);
     font-variant-numeric: tabular-nums;
 }
 
-.prov-bar {
-    height: 6px;
-    background: rgba(255, 255, 255, 0.07);
-    border-radius: 6px;
-    overflow: hidden;
-}
-
-.prov-bar-fill {
-    height: 100%;
-    border-radius: 6px;
-    transition: width 0.6s ease;
-}
-
-.prov-bar-fill.running {
-    background: linear-gradient(90deg, #d29922, var(--primary));
-    background-size: 200% 100%;
-    animation: prov-shimmer 2s linear infinite;
-}
-
-.prov-bar-fill.done { background: #3fb950; }
-.prov-bar-fill.failed { background: #f85149; }
-
-@keyframes prov-shimmer {
-    0% { background-position: 0% 0; }
-    100% { background-position: 200% 0; }
-}
-
-.prov-current {
-    display: flex;
+.prov-hero-meta span {
+    display: inline-flex;
     align-items: center;
-    gap: 8px;
-    margin-top: 10px;
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text-main);
+    gap: 5px;
 }
 
-.prov-current-count {
+.prov-hero-eta {
+    padding: 2px 8px;
+    border: 1px solid var(--gh-border);
+    border-radius: 999px;
     font-size: 11px;
-    font-weight: 500;
-    color: var(--text-muted);
 }
 
-.prov-steps {
-    padding: 14px 22px;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
+/* ── Cuerpo: linea de tiempo de los pasos ────────────────────────────── */
+
+.prov-body {
+    gap: 20px;
+}
+
+.prov-timeline {
+    list-style: none;
+    margin: 0;
+    padding: 0;
 }
 
 .prov-step {
+    position: relative;
     display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 6px 0;
-    font-size: 13px;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 0 0 14px;
     min-width: 0;
 }
 
+/* El hilo que une los marcadores; el ultimo paso no lo lleva. */
+.prov-step::before {
+    content: "";
+    position: absolute;
+    left: 9px;
+    top: 20px;
+    bottom: 0;
+    width: 1px;
+    background: var(--gh-border);
+}
+
+.prov-step:last-child {
+    padding-bottom: 0;
+}
+
+.prov-step:last-child::before {
+    display: none;
+}
+
+.prov-step.done::before {
+    background: var(--dw-ok-border);
+}
+
 .prov-step-marker {
-    width: 18px;
-    height: 18px;
+    position: relative;
+    z-index: 1;
+    width: 19px;
+    height: 19px;
     flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    display: grid;
+    place-items: center;
     border-radius: 50%;
     border: 1.5px solid var(--gh-border);
+    background: var(--gh-bg);
+    color: transparent;
 }
 
 .prov-step.done .prov-step-marker {
-    background: rgba(63, 185, 80, 0.15);
-    border-color: rgba(63, 185, 80, 0.5);
-    color: #3fb950;
+    background: var(--dw-ok-bg);
+    border-color: var(--dw-ok-border);
+    color: var(--dw-ok);
 }
 
 .prov-step.failed .prov-step-marker {
-    background: rgba(248, 81, 73, 0.15);
-    border-color: rgba(248, 81, 73, 0.5);
-    color: #f85149;
+    background: var(--dw-danger-bg);
+    border-color: var(--dw-danger-border);
+    color: var(--dw-danger);
 }
 
 .prov-step.running .prov-step-marker {
     border-color: transparent;
+    background: transparent;
+}
+
+.prov-step-text {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding-top: 1px;
 }
 
 .prov-step-name {
+    font-size: 13px;
     color: var(--text-muted);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    line-height: 1.4;
 }
 
 .prov-step.done .prov-step-name { color: var(--text-main); }
-.prov-step.running .prov-step-name { color: var(--text-main); font-weight: 600; }
-.prov-step.failed .prov-step-name { color: #f85149; font-weight: 600; }
 
+.prov-step.running .prov-step-name {
+    color: var(--text-main);
+    font-weight: 700;
+}
+
+.prov-step.failed .prov-step-name {
+    color: var(--dw-danger);
+    font-weight: 700;
+}
+
+/* Salida cruda del servidor: una sola linea atenuada. Dice que hay
+   movimiento sin desbordar el panel ni competir con el nombre del paso. */
 .prov-step-detail {
-    flex: 1;
-    min-width: 0;
     font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
-    font-size: 10px;
-    color: var(--text-muted);
-    text-align: right;
+    font-size: 10.5px;
+    line-height: 1.5;
+    color: var(--text-dim);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    max-width: 100%;
 }
 
-.prov-log-section {
-    padding: 0 22px 12px;
-}
+/* ── Salida del servidor ─────────────────────────────────────────────── */
 
 .prov-log-toggle {
     display: inline-flex;
     align-items: center;
     gap: 7px;
-    padding: 6px 10px;
+    padding: 7px 11px;
     background: transparent;
     border: 1px solid var(--gh-border);
     border-radius: 8px;
@@ -1611,9 +1668,9 @@ textarea:focus {
 .prov-log {
     margin: 10px 0 0;
     padding: 12px;
-    max-height: 190px;
-    overflow-y: auto;
-    background: #0d1117;
+    max-height: 220px;
+    overflow: auto;
+    background: var(--dash-input-bg, #0d1117);
     border: 1px solid var(--gh-border);
     border-radius: 10px;
     font-size: 11px;
@@ -1623,14 +1680,10 @@ textarea:focus {
     word-break: break-all;
 }
 
+/* ── Pie ─────────────────────────────────────────────────────────────── */
+
 .prov-footer {
-    display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 14px;
-    padding: 14px 22px;
-    border-top: 1px solid var(--gh-border);
-    background: rgba(255, 255, 255, 0.02);
 }
 
 .prov-hint {
@@ -1641,7 +1694,22 @@ textarea:focus {
 }
 
 @media (max-width: 600px) {
-    .provisioning-chip { max-width: 100%; }
-    .prov-footer { flex-direction: column; align-items: stretch; }
-    .prov-step-detail { display: none; }
+    .prov-hero {
+        gap: 14px;
+        padding: 16px;
+    }
+
+    .prov-ring {
+        width: 64px;
+        height: 64px;
+    }
+
+    .prov-ring-value { font-size: 17px; }
+
+    .prov-footer {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}
+
 }
