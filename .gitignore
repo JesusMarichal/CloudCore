@@ -7,3 +7,9 @@
 # Volcados de scripts/reencrypt-credentials.js: llevan las credenciales SSH
 # cifradas de los servidores. Nunca deben versionarse.
 credentials-backup-*.json
+
+# Salida del build del frontend (vite.config.ts -> outDir '../public'). Es lo
+# que sirve ServeStaticModule. Se genera con `npm run build:all`, asi que no
+# tiene por que versionarse.
+/public/
+frontend/dist/
