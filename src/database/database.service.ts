@@ -11,9 +11,9 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     private readonly logger = new Logger(DatabaseService.name);
 
     constructor() {
-        const host = process.env.DB_HOST || 'aws-1-us-east-1.pooler.supabase.com';
-        const port = process.env.DB_PORT || '6543';
-        const user = process.env.DB_USER || 'postgres.sbhvcvpnxwmfywffgaeo';
+        const host = process.env.DB_HOST || 'localhost';
+        const port = process.env.DB_PORT || '5432';
+        const user = process.env.DB_USER || 'postgres';
 
         this.logger.log(`Conectando a host: ${host} puerto: ${port} usuario: ${user.substring(0, 10)}...`);
 
@@ -22,8 +22,10 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
             port: parseInt(port),
             database: process.env.DB_NAME || 'postgres',
             user,
-            password: process.env.DB_PASSWORD || process.env.SUPABASE_BASE_DE_DATOS,
-            ssl: { rejectUnauthorized: false },
+            password: process.env.DB_PASSWORD,
+            // Neon/Supabase exigen TLS; un Postgres local (docker-compose) no lo
+            // tiene. DB_SSL=false lo desactiva; cualquier otro valor lo mantiene.
+            ssl: process.env.DB_SSL === 'false' ? false : { rejectUnauthorized: false },
             max: 20,
             // Neon corta las conexiones ociosas por su cuenta. Reciclarlas antes
             // (30s) evita quedarnos con sockets que el servidor ya dio por muertos.

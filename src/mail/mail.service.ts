@@ -8,6 +8,9 @@ import { buildPasswordResetEmailHtml } from './password-reset-email.template';
 export class MailService {
     private readonly logger = new Logger(MailService.name);
     private readonly transporter: nodemailer.Transporter;
+    // Sin credenciales SMTP (instalacion local / demo) los correos no se envian:
+    // su contenido se escribe en la consola del backend para poder seguir el flujo.
+    private readonly smtpConfigured = !!(process.env.EMAIL_USER && process.env.EMAIL_PASS);
     // favicon.png lives at the repo root; from dist/mail/mail.service.js,
     // '../../' lands back at the root — same math as DatabaseService's dotenv path.
     private readonly logoPath = path.join(__dirname, '../../favicon.png');
@@ -23,6 +26,10 @@ export class MailService {
     }
 
     async sendVerificationCode(to: string, name: string, code: string): Promise<void> {
+        if (!this.smtpConfigured) {
+            this.logger.warn(`[SMTP no configurado] Código de verificación para ${to}: ${code}`);
+            return;
+        }
         const html = buildVerificationEmailHtml(name, code);
         const text =
             `Hola${name ? `, ${name}` : ''}\n\n` +
@@ -47,6 +54,10 @@ export class MailService {
     }
 
     async sendPasswordResetLink(to: string, name: string, resetLink: string): Promise<void> {
+        if (!this.smtpConfigured) {
+            this.logger.warn(`[SMTP no configurado] Enlace de restablecimiento para ${to}: ${resetLink}`);
+            return;
+        }
         const html = buildPasswordResetEmailHtml(name, resetLink);
         const text =
             `Hola${name ? `, ${name}` : ''}\n\n` +

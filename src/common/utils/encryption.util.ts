@@ -4,7 +4,12 @@ const ALGORITHM = 'aes-256-cbc';
 const IV_LENGTH = 16;
 
 function getKey(): Buffer {
-    let key = process.env.ENCRYPTION_KEY || 'default_secret_key_32_chars_long!!';
+    // Sin valor por defecto: un literal en el repo es una clave publica y
+    // cualquiera podria descifrar las credenciales SSH guardadas.
+    const key = process.env.ENCRYPTION_KEY;
+    if (!key) {
+        throw new Error('Falta ENCRYPTION_KEY en el .env (genera una con: openssl rand -hex 16).');
+    }
     // Asegurar que la llave sea exactamente de 32 bytes para aes-256-cbc
     return Buffer.alloc(32, key).slice(0, 32);
 }

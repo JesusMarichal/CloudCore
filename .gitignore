@@ -13,3 +13,15 @@ credentials-backup-*.json
 # tiene por que versionarse.
 /public/
 frontend/dist/
+
+# Dependencias y artefactos de build: se regeneran con `npm run install:all`
+# y `npm run build`, no se versionan.
+node_modules/
+/dist/
+frontend/build_output.txt
+
+# Salida local de la herramienta graphify.
+graphify-out/
+
+# Instrucciones locales de Claude Code (no se publican).
+CLAUDE.md

@@ -1,0 +1,21 @@
+# Postgres local para desarrollo / demo. Las credenciales coinciden con las de
+# .env.example; solo sirven para esta base de datos local.
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: cloudcore-db
+    environment:
+      POSTGRES_USER: cloudcore
+      POSTGRES_PASSWORD: cloudcore
+      POSTGRES_DB: cloudcore
+    ports:
+      - "5432:5432"
+    volumes:
+      - cloudcore-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cloudcore -d cloudcore"]
+      interval: 5s
+      retries: 10
+
+volumes:
+  cloudcore-db:

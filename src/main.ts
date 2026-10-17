@@ -7,6 +7,15 @@ import { WebSocketServer } from 'ws';
 
 async function bootstrap() {
     dotenv.config();
+
+    // Sin estas dos la app arranca pero falla en el primer login o al guardar un
+    // servidor; mejor cortar aqui con un mensaje que diga que falta.
+    const missing = ['JWT_SECRET', 'ENCRYPTION_KEY'].filter((k) => !process.env[k]);
+    if (missing.length) {
+        console.error(`Faltan variables obligatorias en .env: ${missing.join(', ')}. Ver .env.example.`);
+        process.exit(1);
+    }
+
     const app = await NestFactory.create(AppModule, { rawBody: true });
 
     /**
